@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import DecisionAction, MaintenanceRequestStatus, RiskCaseStatus
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
 
 
 class ObjectOut(BaseModel):
