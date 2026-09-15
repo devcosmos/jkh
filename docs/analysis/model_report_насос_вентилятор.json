@@ -1,0 +1,148 @@
+{
+  "train_end": "2025-01-01 00:00:00",
+  "val_end": "2025-07-01 00:00:00",
+  "gap_hours": 24,
+  "n_train": 3689092,
+  "n_val": 2117020,
+  "n_test": 4015873,
+  "n_train_positive": 12156,
+  "n_val_positive": 6374,
+  "n_test_positive": 15114,
+  "target_precision": 0.7,
+  "target_recall": 0.5,
+  "baseline": {
+    "model": "baseline_n_transitions_24h",
+    "threshold_found": false,
+    "validation_pr_sample": [
+      {
+        "threshold": 0.0,
+        "precision": 0.0030108359864337605,
+        "recall": 1.0
+      },
+      {
+        "threshold": 10.0,
+        "precision": 0.009058238566435287,
+        "recall": 0.028867273297772198
+      },
+      {
+        "threshold": 20.0,
+        "precision": 0.013429522752497225,
+        "recall": 0.018983369940382806
+      },
+      {
+        "threshold": 31.0,
+        "precision": 0.011318381890588975,
+        "recall": 0.008471917163476624
+      },
+      {
+        "threshold": 40.0,
+        "precision": 0.01465457083042568,
+        "recall": 0.006589268904926263
+      },
+      {
+        "threshold": 66.0,
+        "precision": 0.006172839506172839,
+        "recall": 0.0014119861939127707
+      },
+      {
+        "threshold": 55.0,
+        "precision": 0.004247286455875413,
+        "recall": 0.0014119861939127707
+      },
+      {
+        "threshold": 71.0,
+        "precision": 0.004105090311986864,
+        "recall": 0.0007844367743959837
+      },
+      {
+        "threshold": 218.0,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      {
+        "threshold": 99.0,
+        "precision": 0.0,
+        "recall": 0.0
+      }
+    ],
+    "roc_auc_val": 0.5372742329598226,
+    "pr_auc_val": 0.0036507351409625164
+  },
+  "catboost": {
+    "model": "catboost",
+    "threshold_found": false,
+    "validation_pr_sample": [
+      {
+        "threshold": 0.02756873543189763,
+        "precision": 0.0030108359864337605,
+        "recall": 1.0
+      },
+      {
+        "threshold": 0.4231142523110293,
+        "precision": 0.004191020418309671,
+        "recall": 0.8464072795732664
+      },
+      {
+        "threshold": 0.509787944643941,
+        "precision": 0.005503220490956849,
+        "recall": 0.5459679949796047
+      },
+      {
+        "threshold": 0.5818242996461044,
+        "precision": 0.005938648751426036,
+        "recall": 0.44101035456542204
+      },
+      {
+        "threshold": 0.6014550699712417,
+        "precision": 0.007175902895234305,
+        "recall": 0.27157201129588954
+      },
+      {
+        "threshold": 0.6237190382147606,
+        "precision": 0.006444621877495152,
+        "recall": 0.14182616881079385
+      },
+      {
+        "threshold": 0.6536314081651102,
+        "precision": 0.007014509464783319,
+        "recall": 0.08016943834326953
+      },
+      {
+        "threshold": 0.6869263693335614,
+        "precision": 0.008589835361488905,
+        "recall": 0.04894885472230938
+      },
+      {
+        "threshold": 0.7245230541024561,
+        "precision": 0.013465998354155757,
+        "recall": 0.028239723878255414
+      },
+      {
+        "threshold": 0.8093699257935558,
+        "precision": 0.04065040650406504,
+        "recall": 0.016473172262315657
+      }
+    ],
+    "feature_importance": {
+      "n_alarms_1h": 0.0,
+      "n_alarms_24h": 0.0,
+      "n_alarms_7d": 0.0,
+      "n_transitions_1h": 0.0,
+      "n_transitions_24h": 2.4015493409831774,
+      "n_transitions_7d": 4.829195530821694,
+      "n_events_1h": 0.05223401219152926,
+      "n_events_24h": 1.19680075236877,
+      "n_events_7d": 10.474886104532914,
+      "seconds_since_last_event": 57.6457505451036,
+      "n_neighbors_in_fault": 1.5351517277191196,
+      "frac_neighbors_in_fault": 3.654267743586906,
+      "current_state": 8.184114121236185,
+      "тип_датчика": 10.026050121456075
+    },
+    "best_iteration": 34,
+    "roc_auc_val": 0.6846453036594956,
+    "roc_auc_test": 0.713759037930704,
+    "pr_auc_val": 0.008420547581285687,
+    "pr_auc_test": 0.018202252962607492
+  }
+}

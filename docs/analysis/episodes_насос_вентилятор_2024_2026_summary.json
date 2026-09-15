@@ -1,0 +1,39 @@
+{
+  "years": [
+    "2024",
+    "2025",
+    "2026"
+  ],
+  "target_types": [
+    "Состояние насоса",
+    "Состояние вентилятора"
+  ],
+  "flap_threshold_per_day": 10,
+  "total_episodes": 72379,
+  "n_flagged_as_flapping_incident": 28701,
+  "by_type": [
+    {
+      "тип_датчика": "Состояние вентилятора",
+      "n_episodes_total": 30898,
+      "n_episodes_clean": 24076,
+      "n_episodes_flapping": 6822,
+      "n_channels_total": 234,
+      "n_channels_clean": 234,
+      "n_left_censored": 102,
+      "n_right_censored": 14,
+      "median_duration_sec_clean": 0.0
+    },
+    {
+      "тип_датчика": "Состояние насоса",
+      "n_episodes_total": 41506,
+      "n_episodes_clean": 19547,
+      "n_episodes_flapping": 21959,
+      "n_channels_total": 180,
+      "n_channels_clean": 180,
+      "n_left_censored": 79,
+      "n_right_censored": 7,
+      "median_duration_sec_clean": 0.0
+    }
+  ],
+  "output_parquet": "docs/analysis/episodes_насос_вентилятор_2024_2026.parquet"
+}

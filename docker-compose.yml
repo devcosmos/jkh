@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: jkh
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jkh}
+      POSTGRES_DB: jkh
+    volumes:
+      - jkh_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jkh"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      JKH_DATABASE_URL: postgresql+psycopg://jkh:${POSTGRES_PASSWORD:-jkh}@db:5432/jkh
+      JKH_JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-only-change-me}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      JKH_DATABASE_URL: postgresql+psycopg://jkh:${POSTGRES_PASSWORD:-jkh}@db:5432/jkh
+      REPLAY_FEED_PATH: /data/replay_feed_насос_вентилятор.parquet
+      REPLAY_MODEL_PATH: /data/catboost_насос_вентилятор.cbm
+      REPLAY_SLEEP_SECONDS: ${REPLAY_SLEEP_SECONDS:-2}
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  jkh_pgdata:

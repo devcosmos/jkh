@@ -1,0 +1,39 @@
+{
+  "years": [
+    "2024",
+    "2025",
+    "2026"
+  ],
+  "target_types": [
+    "Датчик дыма",
+    "Газовый датчик"
+  ],
+  "flap_threshold_per_day": 10,
+  "total_episodes": 110295,
+  "n_flagged_as_flapping_incident": 94858,
+  "by_type": [
+    {
+      "тип_датчика": "Газовый датчик",
+      "n_episodes_total": 36089,
+      "n_episodes_clean": 1000,
+      "n_episodes_flapping": 35089,
+      "n_channels_total": 325,
+      "n_channels_clean": 321,
+      "n_left_censored": 11,
+      "n_right_censored": 1,
+      "median_duration_sec_clean": 2170.0
+    },
+    {
+      "тип_датчика": "Датчик дыма",
+      "n_episodes_total": 74252,
+      "n_episodes_clean": 14361,
+      "n_episodes_flapping": 59891,
+      "n_channels_total": 1729,
+      "n_channels_clean": 1712,
+      "n_left_censored": 448,
+      "n_right_censored": 56,
+      "median_duration_sec_clean": 36.0
+    }
+  ],
+  "output_parquet": "docs/analysis/episodes_дым_газ_2024_2026.parquet"
+}

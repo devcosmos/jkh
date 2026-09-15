@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Сырые/распакованные данные и обучающие артефакты — не публиковать (раздел ТЗ: закрытые данные)
+dataset/*.csv
+dataset/*.7z
+docs/analysis/*.parquet
+docs/analysis/*.cbm
+
+frontend/node_modules/
+frontend/dist/
+
+.DS_Store

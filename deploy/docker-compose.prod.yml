@@ -1,0 +1,30 @@
+# Оверлей для боевого VPS: добавляет Caddy (автоматический TLS через Let's Encrypt) поверх
+# базового docker-compose.yml. Базовый файл НЕ публикует порты db/backend наружу — это
+# сознательно вынесено в docker-compose.dev.yml, т.к. пустой список `ports: []` в оверлее
+# Compose не гарантированно очищает порты, унаследованные из базового файла (проверено на
+# практике 15 сентября 2026 — 8000/5433 остались открытыми после первого разворачивания).
+#
+# Запуск на сервере:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+#   (DOMAIN/POSTGRES_PASSWORD/JWT_SECRET_KEY — из .env рядом с docker-compose.yml, не в git)
+#
+# Требования раздела 11 ТЗ: TLS 1.2+, секреты вне репозитория.
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - jkh_caddy_data:/data
+      - jkh_caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  jkh_caddy_data:
+  jkh_caddy_config:

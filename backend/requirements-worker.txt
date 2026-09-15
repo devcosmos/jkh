@@ -1,0 +1,4 @@
+-r requirements.txt
+catboost==1.2.7
+pandas==2.2.3
+pyarrow==17.0.0

@@ -1,0 +1,234 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #dde1e6;
+  --text: #1c2126;
+  --muted: #667085;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --warning: #b45309;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.login-form input,
+select,
+textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-form button[type="submit"] {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.app-header nav {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+}
+
+.app-header nav a {
+  text-decoration: none;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.app-header nav a.active {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+main {
+  padding: 24px;
+}
+
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.view-toggle button.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.state {
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+}
+
+.state-error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #fef2f2;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+tr.selected {
+  background: #eff6ff;
+}
+
+.risk-table tbody tr {
+  cursor: pointer;
+}
+
+tr.stale-row td {
+  color: var(--warning);
+}
+
+.risks-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.risks-main {
+  flex: 1;
+}
+
+.risks-side {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.risk-card,
+.channel-info {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.current-fault-banner {
+  background: #fffbeb;
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.episode-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.map-footnote {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+}
