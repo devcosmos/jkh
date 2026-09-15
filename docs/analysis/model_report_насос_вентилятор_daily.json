@@ -1,0 +1,149 @@
+{
+  "train_end": "2025-01-01 00:00:00",
+  "val_end": "2025-07-01 00:00:00",
+  "gap_hours": 24,
+  "grid": "daily",
+  "n_train": 154430,
+  "n_val": 88668,
+  "n_test": 167563,
+  "n_train_positive": 517,
+  "n_val_positive": 272,
+  "n_test_positive": 629,
+  "target_precision": 0.7,
+  "target_recall": 0.5,
+  "baseline": {
+    "model": "baseline_n_transitions_1d",
+    "threshold_found": false,
+    "validation_pr_sample": [
+      {
+        "threshold": 0.0,
+        "precision": 0.0030676230432625075,
+        "recall": 1.0
+      },
+      {
+        "threshold": 6.0,
+        "precision": 0.005724350506384853,
+        "recall": 0.04779411764705882
+      },
+      {
+        "threshold": 17.0,
+        "precision": 0.014141414141414142,
+        "recall": 0.025735294117647058
+      },
+      {
+        "threshold": 10.0,
+        "precision": 0.008264462809917356,
+        "recall": 0.025735294117647058
+      },
+      {
+        "threshold": 40.0,
+        "precision": 0.02459016393442623,
+        "recall": 0.011029411764705883
+      },
+      {
+        "threshold": 36.0,
+        "precision": 0.01764705882352941,
+        "recall": 0.011029411764705883
+      },
+      {
+        "threshold": 24.0,
+        "precision": 0.010714285714285714,
+        "recall": 0.011029411764705883
+      },
+      {
+        "threshold": 30.0,
+        "precision": 0.013513513513513514,
+        "recall": 0.011029411764705883
+      },
+      {
+        "threshold": 83.0,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      {
+        "threshold": 66.0,
+        "precision": 0.0,
+        "recall": 0.0
+      }
+    ],
+    "roc_auc_val": 0.5319285141994714,
+    "pr_auc_val": 0.0038671550345949516
+  },
+  "catboost": {
+    "model": "catboost",
+    "threshold_found": false,
+    "validation_pr_sample": [
+      {
+        "threshold": 0.019641567516088636,
+        "precision": 0.0030676230432625075,
+        "recall": 1.0
+      },
+      {
+        "threshold": 0.3603435602839585,
+        "precision": 0.004320335243181102,
+        "recall": 0.8566176470588235
+      },
+      {
+        "threshold": 0.4746354582591093,
+        "precision": 0.005302964444058072,
+        "recall": 0.6727941176470589
+      },
+      {
+        "threshold": 0.5118102827384471,
+        "precision": 0.006082088049301164,
+        "recall": 0.5551470588235294
+      },
+      {
+        "threshold": 0.5646479739881507,
+        "precision": 0.006680983058935815,
+        "recall": 0.5147058823529411
+      },
+      {
+        "threshold": 0.5889994299614734,
+        "precision": 0.007284584431802414,
+        "recall": 0.3860294117647059
+      },
+      {
+        "threshold": 0.6080120270763144,
+        "precision": 0.008478357875948238,
+        "recall": 0.27941176470588236
+      },
+      {
+        "threshold": 0.6290204878771825,
+        "precision": 0.0072409951726698845,
+        "recall": 0.14338235294117646
+      },
+      {
+        "threshold": 0.6652775780777058,
+        "precision": 0.008415660446395901,
+        "recall": 0.08455882352941177
+      },
+      {
+        "threshold": 0.7079769573744117,
+        "precision": 0.0088,
+        "recall": 0.04044117647058824
+      }
+    ],
+    "feature_importance": {
+      "n_alarms_1d": 0.0,
+      "n_alarms_7d": 0.0,
+      "n_alarms_30d": 0.0,
+      "n_transitions_1d": 1.5903220435715637,
+      "n_transitions_7d": 6.364825797052188,
+      "n_transitions_30d": 10.441544033202689,
+      "n_events_1d": 2.687453301000479,
+      "n_events_7d": 6.353536245898727,
+      "n_events_30d": 9.52282581905319,
+      "seconds_since_last_event": 44.38752005830033,
+      "n_neighbors_in_fault": 0.5161014727973718,
+      "frac_neighbors_in_fault": 3.592786308725725,
+      "current_state": 6.440235971943861,
+      "тип_датчика": 8.102848948453856
+    },
+    "best_iteration": 67,
+    "roc_auc_val": 0.7047323849162725,
+    "roc_auc_test": 0.7141457836130053,
+    "pr_auc_val": 0.007786964397868897,
+    "pr_auc_test": 0.022594221793671584
+  }
+}

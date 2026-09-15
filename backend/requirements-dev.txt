@@ -1,0 +1,9 @@
+-r requirements.txt
+# catboost/pandas/pyarrow не через requirements-worker.txt: версии там без готового wheel
+# под некоторые платформы/интерпретаторы (сборка из исходников падает) — для тестов
+# достаточно последних доступных версий, а не точного прод-пиннинга worker'а.
+catboost
+pandas
+pyarrow
+pytest==8.3.4
+httpx==0.28.1

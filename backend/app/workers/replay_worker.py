@@ -27,9 +27,19 @@ from sqlalchemy import delete, select, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from app.core.config import settings  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
-from app.models.entities import Channel, ChannelEvent, ModelVersion, Prediction, ReplayState, RiskCase  # noqa: E402
-from app.models.enums import RiskCaseStatus  # noqa: E402
+from app.models.entities import (  # noqa: E402
+    AuditLog,
+    Channel,
+    ChannelEvent,
+    MaintenanceRequest,
+    ModelVersion,
+    Prediction,
+    ReplayState,
+    RiskCase,
+)
+from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus  # noqa: E402
 
 FEED_PATH = Path(os.environ.get("REPLAY_FEED_PATH", "/data/replay_feed_насос_вентилятор.parquet"))
 MODEL_PATH = Path(os.environ.get("REPLAY_MODEL_PATH", "/data/catboost_насос_вентилятор.cbm"))
@@ -47,6 +57,83 @@ NUM_FEATURES = [
 ]
 CAT_FEATURES = ["current_state", "тип_датчика"]
 ALL_FEATURES = NUM_FEATURES + CAT_FEATURES
+
+# Раздел 10 плана реализации: шаблон рекомендации по типу датчика — обязательное условие
+# автосоздания черновика ("существует подходящий шаблон рекомендации").
+WORK_TYPE_BY_SENSOR_TYPE = {
+    "Состояние насоса": "Диагностика и техническое обслуживание насоса",
+    "Состояние вентилятора": "Диагностика и техническое обслуживание вентилятора",
+    "Датчик дыма": "Диагностика дымового извещателя",
+    "Газовый датчик": "Диагностика газового датчика",
+}
+
+
+def build_draft_justification(channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime) -> str:
+    object_name = channel.object.name if channel.object is not None else "не определён"
+    window_end = tick_end + dt.timedelta(hours=24)
+    return (
+        f"Автоматически сформировано по риск-кейсу #{risk_case.id} (правило раздела 10 плана реализации).\n"
+        f"Устройство/канал: {channel.display_name or channel.external_channel_id} ({channel.sensor_type}).\n"
+        f"Объект: {object_name}.\n"
+        f"Категория риска: {risk_case.category}.\n"
+        f"Вероятность: {proba:.2f} в окне {tick_end:%Y-%m-%d %H:%M}–{window_end:%Y-%m-%d %H:%M} (UTC).\n"
+        f"Наблюдаемые признаки: состояние={features['current_state']}, "
+        f"событий за 7 сут={features['n_events_7d']}, переходов за 24ч={features['n_transitions_24h']}, "
+        f"с последнего события={features['seconds_since_last_event']:.0f} сек.\n"
+        f"Основание: прогноз модели превысил операционный порог {ALERT_THRESHOLD:.2f} "
+        f"(целевые Precision/Recall не достигнуты — см. docs/analysis/model_report_насос_вентилятор.md).\n"
+        f"Срок: нормативный регламент не определён — требуется назначение диспетчером."
+    )
+
+
+def maybe_create_draft_request(db, channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime) -> None:
+    """Автосоздание черновика заявки при открытии нового риск-кейса (раздел 10 плана).
+
+    Условие создания и дедупликация — по устройству/каналу, виду работы и активному
+    риск-кейсу, а не по ID прогноза: повторный расчёт на уже открытом риск-кейсе не должен
+    сюда попадать (вызывается только из ветки создания НОВОГО RiskCase в score_and_record).
+    """
+    if proba < settings.auto_draft_risk_threshold:
+        return  # риск не превышает установленный порог автосоздания (раздел 10 плана)
+
+    work_type = WORK_TYPE_BY_SENSOR_TYPE.get(channel.sensor_type)
+    if work_type is None:
+        return  # нет подходящего шаблона рекомендации для этого типа датчика
+
+    existing = db.scalar(
+        select(MaintenanceRequest).where(
+            MaintenanceRequest.risk_case_id == risk_case.id,
+            MaintenanceRequest.work_type == work_type,
+            MaintenanceRequest.status.not_in(
+                [MaintenanceRequestStatus.rejected, MaintenanceRequestStatus.cancelled]
+            ),
+        )
+    )
+    if existing is not None:
+        return
+
+    request = MaintenanceRequest(
+        risk_case_id=risk_case.id,
+        work_type=work_type,
+        justification=build_draft_justification(channel, risk_case, features, proba, tick_end),
+        priority=risk_case.priority,
+        recommended_by=None,
+        status=MaintenanceRequestStatus.draft,
+        created_at=tick_end,
+    )
+    db.add(request)
+    db.flush()
+    db.add(
+        AuditLog(
+            user_id=None,
+            role=None,
+            entity_type="maintenance_request",
+            entity_id=request.id,
+            old_state=None,
+            new_state={"status": request.status.value, "source": "auto_worker"},
+            reason=f"Автосоздание по открытию риск-кейса #{risk_case.id}",
+        )
+    )
 
 
 def load_feed() -> pd.DataFrame:
@@ -192,6 +279,7 @@ def score_and_record(db, model: CatBoostClassifier, channel: Channel, features: 
             )
             db.add(risk_case)
             db.flush()
+            maybe_create_draft_request(db, channel, risk_case, features, proba, tick_end)
         db.add(
             Prediction(
                 channel_id=channel.id,

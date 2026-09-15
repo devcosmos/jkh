@@ -1,6 +1,8 @@
 .venv/
+.venv-backend/
 __pycache__/
 *.pyc
+.pytest_cache/
 .env
 
 # Сырые/распакованные данные и обучающие артефакты — не публиковать (раздел ТЗ: закрытые данные)
@@ -11,5 +13,7 @@ docs/analysis/*.cbm
 
 frontend/node_modules/
 frontend/dist/
+
+backups/
 
 .DS_Store
