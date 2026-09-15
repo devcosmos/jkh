@@ -26,6 +26,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -211,6 +212,24 @@ class User(Base, TimestampMixin):
     password_hash: Mapped[str] = mapped_column(String(256))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class UserObjectAccess(Base, TimestampMixin):
+    """Минимальная матрица доступа по объектам (раздел 12 плана — полная матрица с
+    подразделениями отложена как требование будущего пилота; здесь только явное назначение
+    пользователь-объект). Если у пользователя нет ни одной записи, ограничение не действует
+    (см. app.api.deps.get_accessible_object_ids) — не ломает пользователей, для которых
+    доступ ещё не настроен."""
+
+    __tablename__ = "user_object_access"
+    __table_args__ = (UniqueConstraint("user_id", "object_id", name="uq_user_object_access"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"), index=True)
+
+    user: Mapped["User"] = relationship()
+    object: Mapped[Object] = relationship()
 
 
 class AuditLog(Base, TimestampMixin):

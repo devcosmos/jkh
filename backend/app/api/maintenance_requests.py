@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_role
+from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
 from app.core.db import get_db
-from app.models.entities import AuditLog, MaintenanceRequest, User
+from app.models.entities import AuditLog, Channel, MaintenanceRequest, RiskCase, User
 from app.models.enums import MaintenanceRequestStatus, UserRole
 from app.schemas.schemas import MaintenanceRequestOut, TransitionIn
 
@@ -37,10 +37,18 @@ def list_maintenance_requests(
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> list[MaintenanceRequest]:
     stmt = select(MaintenanceRequest)
     if status_filter:
         stmt = stmt.where(MaintenanceRequest.status == status_filter)
+    accessible = get_accessible_object_ids(user, db)
+    if accessible is not None:
+        stmt = (
+            stmt.join(RiskCase, RiskCase.id == MaintenanceRequest.risk_case_id)
+            .join(Channel, Channel.id == RiskCase.channel_id)
+            .where(Channel.object_id.in_(accessible))
+        )
     stmt = stmt.order_by(MaintenanceRequest.created_at.desc())
     return list(db.scalars(stmt.offset(offset).limit(limit)))
 
@@ -55,6 +63,7 @@ def _transition(
     mr = db.get(MaintenanceRequest, request_id)
     if mr is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Заявка не найдена")
+    check_object_access(mr.risk_case.channel.object_id, user, db)
     allowed = ALLOWED_TRANSITIONS.get(mr.status, set())
     if to_status not in allowed:
         raise HTTPException(

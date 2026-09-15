@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_role
+from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
 from app.core.db import get_db
-from app.models.entities import AuditLog, Decision, RiskCase, User
+from app.models.entities import AuditLog, Channel, Decision, RiskCase, User
 from app.models.enums import RiskCaseStatus, UserRole
 from app.schemas.schemas import DecisionIn, DecisionOut, RiskCaseOut
 
@@ -20,21 +20,30 @@ def list_risk_cases(
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> list[RiskCase]:
     stmt = select(RiskCase)
     if status_filter:
         stmt = stmt.where(RiskCase.status == status_filter)
     if category:
         stmt = stmt.where(RiskCase.category == category)
+    accessible = get_accessible_object_ids(user, db)
+    if accessible is not None:
+        stmt = stmt.join(Channel, Channel.id == RiskCase.channel_id).where(
+            Channel.object_id.in_(accessible)
+        )
     stmt = stmt.order_by(RiskCase.opened_at.desc())
     return list(db.scalars(stmt.offset(offset).limit(limit)))
 
 
 @router.get("/{risk_case_id}", response_model=RiskCaseOut)
-def get_risk_case(risk_case_id: int, db: Session = Depends(get_db)) -> RiskCase:
+def get_risk_case(
+    risk_case_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> RiskCase:
     rc = db.get(RiskCase, risk_case_id)
     if rc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Риск-кейс не найден")
+    check_object_access(rc.channel.object_id, user, db)
     return rc
 
 
@@ -49,6 +58,7 @@ def add_decision(
     rc = db.get(RiskCase, risk_case_id)
     if rc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Риск-кейс не найден")
+    check_object_access(rc.channel.object_id, user, db)
 
     old_status = rc.status
     decision = Decision(risk_case_id=risk_case_id, user_id=user.id, action=payload.action, reason=payload.reason)

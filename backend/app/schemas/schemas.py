@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.enums import DecisionAction, MaintenanceRequestStatus, RiskCaseStatus
 
 
+class ObjectAccessIn(BaseModel):
+    object_id: int
+
+
 class ChangePasswordIn(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8)

@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_accessible_object_ids, get_current_user
 from app.core.db import get_db
-from app.models.entities import Prediction
+from app.models.entities import Channel, Prediction, User
 from app.schemas.schemas import PredictionOut
 
 router = APIRouter(prefix="/predictions", tags=["predictions"], dependencies=[Depends(get_current_user)])
@@ -20,6 +20,7 @@ def list_predictions(
     limit: int = Query(100, le=1000),
     offset: int = 0,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> list[Prediction]:
     """Журнал прогнозов — неизменяемые записи (раздел 9.2 плана: «Журнал прогнозов»)."""
     stmt = select(Prediction)
@@ -29,5 +30,10 @@ def list_predictions(
         stmt = stmt.where(Prediction.created_at >= since)
     if until is not None:
         stmt = stmt.where(Prediction.created_at <= until)
+    accessible = get_accessible_object_ids(user, db)
+    if accessible is not None:
+        stmt = stmt.join(Channel, Channel.id == Prediction.channel_id).where(
+            Channel.object_id.in_(accessible)
+        )
     stmt = stmt.order_by(Prediction.created_at.desc())
     return list(db.scalars(stmt.offset(offset).limit(limit)))
