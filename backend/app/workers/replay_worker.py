@@ -70,10 +70,14 @@ WORK_TYPE_BY_SENSOR_TYPE = {
 
 def build_draft_justification(channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime) -> str:
     object_name = channel.object.name if channel.object is not None else "не определён"
+    # Устройство определено эвристикой scripts/link_channels_to_devices.py (87.8% покрытия
+    # насос/вентилятор) — при отсутствии используем канал напрямую, честно без выдумывания.
+    device_label = channel.device.external_id if channel.device is not None else None
     window_end = tick_end + dt.timedelta(hours=24)
     return (
         f"Автоматически сформировано по риск-кейсу #{risk_case.id} (правило раздела 10 плана реализации).\n"
-        f"Устройство/канал: {channel.display_name or channel.external_channel_id} ({channel.sensor_type}).\n"
+        f"Устройство: {device_label or 'не сопоставлено'}. "
+        f"Канал: {channel.display_name or channel.external_channel_id} ({channel.sensor_type}).\n"
         f"Объект: {object_name}.\n"
         f"Категория риска: {risk_case.category}.\n"
         f"Вероятность: {proba:.2f} в окне {tick_end:%Y-%m-%d %H:%M}–{window_end:%Y-%m-%d %H:%M} (UTC).\n"

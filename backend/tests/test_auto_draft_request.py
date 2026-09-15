@@ -6,7 +6,7 @@
 import datetime as dt
 
 from app.core.config import settings
-from app.models.entities import AuditLog, Channel, MaintenanceRequest, RiskCase
+from app.models.entities import AuditLog, Channel, Device, MaintenanceRequest, RiskCase
 from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus
 from app.workers.replay_worker import maybe_create_draft_request
 
@@ -43,6 +43,24 @@ def test_creates_draft_with_expected_fields(db_session):
     assert mr.recommended_by is None
     assert "риск-кейсу #" in mr.justification
     assert "0.90" in mr.justification
+    assert "не сопоставлено" in mr.justification  # у канала нет привязанного устройства
+
+
+def test_justification_includes_device_label_when_linked(db_session):
+    """scripts/link_channels_to_devices.py: устройство определяется эвристикой по имени
+    канала (раздел 10 плана: «состав черновика: устройство и объект»)."""
+    channel, rc = _make_channel_and_case(db_session, "Состояние вентилятора")
+    device = Device(external_id="В8-ПК96", device_type="вентилятор")
+    db_session.add(device)
+    db_session.flush()
+    channel.device_id = device.id
+    db_session.flush()
+
+    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    db_session.commit()
+
+    mr = db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).one()
+    assert "В8-ПК96" in mr.justification
 
 
 def test_writes_audit_log_on_creation(db_session):
