@@ -10,6 +10,7 @@ dataset/*.csv
 dataset/*.7z
 docs/analysis/*.parquet
 docs/analysis/*.cbm
+docs/analysis/*.joblib
 
 frontend/node_modules/
 frontend/dist/

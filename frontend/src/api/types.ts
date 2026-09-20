@@ -93,3 +93,61 @@ export interface MaintenanceRequestOut {
   approved_by_user_id: number | null;
   approved_at: string | null;
 }
+
+export interface ModelVersionOut {
+  id: number;
+  name: string;
+  sensor_types: string;
+  trained_at: string;
+  threshold: number | null;
+  metrics: Record<string, unknown> | null;
+  is_active: boolean;
+}
+
+export interface DashboardSummary {
+  risk_cases: {
+    total: number;
+    total_open: number;
+    by_status: Record<string, number>;
+    by_category: Record<string, number>;
+    open_by_priority: Record<string, number>;
+    open_with_anomaly: number;
+  };
+  requests: {
+    by_status: Record<string, number>;
+  };
+  top_objects: { object_id: number; name: string; open_risk_count: number }[];
+  models: {
+    id: number;
+    name: string;
+    sensor_types: string;
+    threshold: number | null;
+    trained_at: string;
+    roc_auc_test: number | null;
+    target_met: boolean | null;
+  }[];
+  last_prediction_by_category: Record<string, string>;
+}
+
+export type UserRole = "admin" | "dispatcher" | "analyst";
+
+export interface UserOut {
+  id: number;
+  username: string;
+  role: UserRole;
+  is_active: boolean;
+  object_ids: number[];
+}
+
+export interface AuditLogEntry {
+  id: number;
+  user_id: number | null;
+  username: string | null;
+  role: string | null;
+  entity_type: string;
+  entity_id: number;
+  old_state: Record<string, unknown> | null;
+  new_state: Record<string, unknown> | null;
+  reason: string | null;
+  created_at: string;
+}

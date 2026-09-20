@@ -1,0 +1,22 @@
+{
+  "насос_вентилятор": {
+    "n_train_rows": 3689092,
+    "contamination": 0.02,
+    "score_percentiles": {
+      "p01": -0.025319928660753166,
+      "p50": 0.3263745442014535,
+      "p99": 0.34657623422126643
+    },
+    "artifact_path": "docs/analysis/isolation_forest_насос_вентилятор.joblib"
+  },
+  "дым_газ": {
+    "n_train_rows": 27528887,
+    "contamination": 0.02,
+    "score_percentiles": {
+      "p01": -0.054389834649762325,
+      "p50": 0.2977346757213594,
+      "p99": 0.313536105392045
+    },
+    "artifact_path": "docs/analysis/isolation_forest_дым_газ.joblib"
+  }
+}

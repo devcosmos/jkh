@@ -1,6 +1,18 @@
 from fastapi import APIRouter, FastAPI
 
-from app.api import access, auth, channels, health, maintenance_requests, models, objects, predictions, risks
+from app.api import (
+    access,
+    audit,
+    auth,
+    channels,
+    dashboard,
+    health,
+    maintenance_requests,
+    models,
+    objects,
+    predictions,
+    risks,
+)
 
 app = FastAPI(
     title="ЖКХ — прогнозирование отказов датчиков",
@@ -20,5 +32,7 @@ api.include_router(predictions.router)
 api.include_router(maintenance_requests.router)
 api.include_router(models.router)
 api.include_router(access.router)
+api.include_router(audit.router)
+api.include_router(dashboard.router)
 
 app.include_router(api)

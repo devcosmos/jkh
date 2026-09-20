@@ -1,13 +1,42 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_accessible_object_ids, get_current_user
 from app.core.db import get_db
-from app.models.entities import Channel, IncidentEpisode
+from app.models.entities import Channel, IncidentEpisode, User
 from app.schemas.schemas import ChannelOut
 
 router = APIRouter(prefix="/channels", tags=["channels"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("", response_model=list[ChannelOut])
+def list_channels(
+    object_id: int | None = None,
+    sensor_type: str | None = None,
+    search: str | None = None,
+    limit: int = Query(50, le=500),
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[Channel]:
+    """Реестр каналов — раздел «Объекты и каналы» админ-панели, отдельно от иерархической
+    схемы рисков (объекты/tree): здесь плоский список для поиска/инвентаризации."""
+    stmt = select(Channel)
+    if object_id is not None:
+        stmt = stmt.where(Channel.object_id == object_id)
+    if sensor_type:
+        stmt = stmt.where(Channel.sensor_type == sensor_type)
+    if search:
+        pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(Channel.display_name.ilike(pattern), Channel.location_tag.ilike(pattern))
+        )
+    accessible = get_accessible_object_ids(user, db)
+    if accessible is not None:
+        stmt = stmt.where(Channel.object_id.in_(accessible))
+    stmt = stmt.order_by(Channel.id)
+    return list(db.scalars(stmt.offset(offset).limit(limit)))
 
 
 @router.get("/{channel_id}", response_model=ChannelOut)

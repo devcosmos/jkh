@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
+from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parent
 ROOT = ROOT.parent
@@ -45,6 +46,15 @@ DATASET_DIR = ROOT / "dataset"
 ANALYSIS_DIR = ROOT / "docs" / "analysis"
 CORE_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"]
 LABEL_POLICY_VERSION = "2026-09-15"
+
+# Минимальное автозакрытие (без него на годе данных по тысячам каналов набегает
+# нереалистичный объём вечно открытых риск-кейсов — 113 тыс. при лучших по recall порогах,
+# см. docs/Статус.md, запись от 20 сентября). Если по каналу не было нового прогноза выше
+# порога дольше этого окна — считаем ситуацию нормализовавшейся и закрываем кейс сами
+# (упрощение MVP: без подтверждения фактического ремонта). При окне 48ч на конец бэкфилла
+# остаётся ~14 открытых кейсов насос/вентилятор и ~158 дым/газ — управляемо для одного
+# диспетчера, остальное честно остаётся в истории как решённое автоматически.
+AUTO_CLOSE_AFTER_HOURS = 48
 
 
 @dataclass(frozen=True)
@@ -302,6 +312,36 @@ def import_risk_cases_and_predictions(track: Track, channel_map: dict[int, int],
     print(f"  [{track.name}] {n_risk_cases} risk cases, {len(run_members)} predictions imported", file=sys.stderr)
 
 
+def close_stale_risk_cases(track: Track, db) -> None:
+    """Автозакрытие открытых риск-кейсов трека без новых прогнозов дольше
+    AUTO_CLOSE_AFTER_HOURS относительно последнего прогноза этого трека в бэкфилле (см.
+    комментарий к константе выше)."""
+    result = db.execute(
+        text(
+            """
+            WITH last_pred AS (
+                SELECT risk_case_id, max(created_at) AS last_ts
+                FROM predictions
+                WHERE category = :category
+                GROUP BY risk_case_id
+            ), track_end AS (
+                SELECT max(created_at) AS end_ts FROM predictions WHERE category = :category
+            )
+            UPDATE risk_cases
+            SET status = 'resolved', closed_at = last_pred.last_ts
+            FROM last_pred, track_end
+            WHERE risk_cases.id = last_pred.risk_case_id
+              AND risk_cases.category = :category
+              AND risk_cases.status = 'new'
+              AND last_pred.last_ts < track_end.end_ts - make_interval(hours => :hours)
+            """
+        ),
+        {"category": track.category, "hours": AUTO_CLOSE_AFTER_HOURS},
+    )
+    db.commit()
+    print(f"  [{track.name}] auto-closed {result.rowcount} stale risk cases", file=sys.stderr)
+
+
 def main() -> None:
     db = SessionLocal()
     con = duckdb.connect()
@@ -312,6 +352,7 @@ def main() -> None:
         for track in TRACKS:
             model_version_id = import_model_version(track, db)
             import_risk_cases_and_predictions(track, channel_map, model_version_id, db)
+            close_stale_risk_cases(track, db)
         print("DONE", file=sys.stderr)
     finally:
         db.close()

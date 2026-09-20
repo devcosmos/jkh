@@ -4,11 +4,40 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import DecisionAction, MaintenanceRequestStatus, RiskCaseStatus
+from app.models.enums import DecisionAction, MaintenanceRequestStatus, RiskCaseStatus, UserRole
 
 
 class ObjectAccessIn(BaseModel):
     object_id: int
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    role: UserRole
+    is_active: bool
+    object_ids: list[int] = []
+
+
+class UserCreateIn(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=8)
+    role: UserRole
+
+
+class AuditLogOut(BaseModel):
+    id: int
+    user_id: int | None
+    username: str | None
+    role: str | None
+    entity_type: str
+    entity_id: int
+    old_state: dict | None
+    new_state: dict | None
+    reason: str | None
+    created_at: dt.datetime
 
 
 class ChangePasswordIn(BaseModel):
