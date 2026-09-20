@@ -7,6 +7,7 @@ import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_T
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { Select } from "../components/Select";
+import { exportCsv } from "../lib/exportCsv";
 import type { MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
 
 // Разрешённые переходы — зеркало ALLOWED_TRANSITIONS на backend (раздел 10 плана).
@@ -80,6 +81,25 @@ export function RequestsPage() {
               </option>
             ))}
           </Select>
+          <button
+            disabled={!requests.data?.length}
+            onClick={() =>
+              exportCsv(`requests_${new Date().toISOString().slice(0, 10)}.csv`, requests.data ?? [], [
+                { header: "ID", value: (r) => r.id },
+                { header: "Риск-кейс", value: (r) => r.risk_case_id },
+                { header: "Объект", value: (r) => r.object_name ?? "" },
+                { header: "Канал", value: (r) => r.channel_label ?? "" },
+                { header: "Направление", value: (r) => (r.category ? categoryLabel(r.category) : "") },
+                { header: "Вид работы", value: (r) => r.work_type },
+                { header: "Приоритет", value: (r) => r.priority ?? "" },
+                { header: "Статус", value: (r) => STATUS_LABELS[r.status] },
+                { header: "Создана", value: (r) => new Date(r.created_at).toLocaleString("ru-RU") },
+              ])
+            }
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Экспорт CSV
+          </button>
           <button
             onClick={requests.reload}
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"

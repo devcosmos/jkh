@@ -2,7 +2,7 @@
 проверка прав доступа и базовой корректности агрегатов, без выдуманных данных."""
 import datetime as dt
 
-from app.models.entities import Channel, ModelVersion, Object, Prediction, RiskCase
+from app.models.entities import Channel, ModelVersion, Object, Prediction, ReplayState, RiskCase
 from app.models.enums import RiskCaseStatus, UserRole
 
 
@@ -127,3 +127,46 @@ def test_create_user_rejects_duplicate_username(client, auth_headers):
     payload = {"username": "dup-admin", "password": "test-pass-123", "role": "dispatcher"}
     r = client.post("/api/access/users", json=payload, headers=admin_headers)
     assert r.status_code == 409
+
+
+def test_dashboard_summary_reports_worker_liveness(client, db_session, auth_headers):
+    now = dt.datetime.now(dt.timezone.utc)
+    db_session.add(ReplayState(id=1, virtual_time=now - dt.timedelta(hours=2), updated_at=now))
+    db_session.commit()
+
+    r = client.get("/api/dashboard/summary", headers=auth_headers(UserRole.dispatcher))
+    worker = r.json()["worker"]
+    assert worker["is_stale"] is False
+    assert worker["seconds_since_update"] < 5
+
+
+def test_dashboard_summary_flags_stale_worker(client, db_session, auth_headers):
+    now = dt.datetime.now(dt.timezone.utc)
+    db_session.add(ReplayState(id=1, virtual_time=now, updated_at=now - dt.timedelta(minutes=20)))
+    db_session.commit()
+
+    r = client.get("/api/dashboard/summary", headers=auth_headers(UserRole.dispatcher))
+    assert r.json()["worker"]["is_stale"] is True
+
+
+def test_dashboard_summary_daily_volume_counts_opened_and_closed(client, db_session, auth_headers):
+    obj = Object(name="Объект для суточного объёма")
+    db_session.add(obj)
+    db_session.flush()
+    channel = Channel(external_channel_id=5301, sensor_type="Состояние насоса", object_id=obj.id)
+    db_session.add(channel)
+    db_session.flush()
+    day = dt.datetime(2026, 5, 1, 10, 0, tzinfo=dt.timezone.utc)
+    db_session.add(RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=day))
+    db_session.add(
+        RiskCase(
+            channel_id=channel.id, status=RiskCaseStatus.resolved,
+            opened_at=day - dt.timedelta(days=1), closed_at=day,
+        )
+    )
+    db_session.commit()
+
+    r = client.get("/api/dashboard/summary", headers=auth_headers(UserRole.dispatcher))
+    row = next(x for x in r.json()["daily_volume"] if x["date"] == "2026-05-01")
+    assert row["opened"] == 1
+    assert row["closed"] == 1

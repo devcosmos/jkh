@@ -5,6 +5,7 @@ import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONE } from "../api/requestStatus
 import { Badge, TONE_DOT_CLASSES } from "../components/Badge";
 import { BarList } from "../components/BarList";
 import { DataState } from "../components/DataState";
+import { LineChart } from "../components/LineChart";
 import { StatTile } from "../components/StatTile";
 import type { DashboardSummary, MaintenanceRequestStatus } from "../api/types";
 
@@ -13,9 +14,12 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-semibold text-slate-900">Обзор</h1>
-        <p className="mt-1 text-sm text-slate-500">Состояние системы по обоим направлениям прогнозирования</p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-slate-900">Обзор</h1>
+          <p className="mt-1 text-sm text-slate-500">Состояние системы по обоим направлениям прогнозирования</p>
+        </div>
+        {summary.data?.worker && <WorkerStatus worker={summary.data.worker} />}
       </div>
 
       <DataState loading={summary.loading} error={summary.error} empty={!summary.data} emptyText="Нет данных">
@@ -116,6 +120,27 @@ export function DashboardPage() {
             </div>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
+                Риск-кейсы: открыто / закрыто по дням
+              </h2>
+              <p className="mb-4 text-xs text-slate-500">
+                Закрытие идёт наравне с открытием — очередь не растёт бесконтрольно благодаря
+                автозакрытию неактивных случаев
+              </p>
+              {summary.data.daily_volume.length > 0 ? (
+                <LineChart
+                  dates={summary.data.daily_volume.map((d) => d.date)}
+                  series={[
+                    { label: "Открыто", color: "#fab219", values: summary.data.daily_volume.map((d) => d.opened) },
+                    { label: "Закрыто", color: "#0ca30c", values: summary.data.daily_volume.map((d) => d.closed) },
+                  ]}
+                />
+              ) : (
+                <p className="text-sm text-slate-400">Недостаточно данных</p>
+              )}
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Качество моделей (ROC-AUC на test)</h2>
               <BarList
                 items={summary.data.models.map((m) => {
@@ -144,6 +169,22 @@ export function DashboardPage() {
           </div>
         )}
       </DataState>
+    </div>
+  );
+}
+
+function WorkerStatus({ worker }: { worker: NonNullable<DashboardSummary["worker"]> }) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium ${
+        worker.is_stale ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
+      }`}
+      title={`Виртуальное время воркера: ${new Date(worker.virtual_time).toLocaleString("ru-RU")}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${worker.is_stale ? "bg-red-500" : "bg-emerald-500 animate-pulse"}`} />
+      {worker.is_stale
+        ? `Воркер не отвечает уже ${Math.round(worker.seconds_since_update / 60)} мин`
+        : `Воркер тикает · ${worker.seconds_since_update} сек назад`}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import cast, func, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -5,12 +7,23 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_accessible_object_ids, get_current_user
 from app.core.db import get_db
-from app.models.entities import Channel, MaintenanceRequest, ModelVersion, Object, Prediction, RiskCase, User
+from app.models.entities import (
+    Channel,
+    MaintenanceRequest,
+    ModelVersion,
+    Object,
+    Prediction,
+    ReplayState,
+    RiskCase,
+    User,
+)
 from app.models.enums import RiskCaseStatus
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
 
 _OPEN_STATUSES = (RiskCaseStatus.new, RiskCaseStatus.observing, RiskCaseStatus.dispatched)
+_WORKER_STALE_AFTER_SECONDS = 300
+_DAILY_VOLUME_DAYS = 30
 
 
 def _grouped_counts(db: Session, column, *filters) -> dict[str, int]:
@@ -87,6 +100,43 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
         ).all()
     )
 
+    # Индикатор живости воркера: replay_state.updated_at обновляется на каждом тике
+    # (backend/app/workers/replay_worker.py) — не выдуманный «онлайн»-статус, а реальная
+    # метка последней успешной записи в БД.
+    replay_state = db.get(ReplayState, 1)
+    worker_info = None
+    if replay_state is not None:
+        now = dt.datetime.now(dt.timezone.utc)
+        seconds_since_update = (now - replay_state.updated_at).total_seconds()
+        worker_info = {
+            "virtual_time": replay_state.virtual_time,
+            "updated_at": replay_state.updated_at,
+            "seconds_since_update": round(seconds_since_update),
+            "is_stale": seconds_since_update > _WORKER_STALE_AFTER_SECONDS,
+        }
+
+    # Опережает ли автозакрытие приток новых риск-кейсов — раздел «Обзор»: сколько кейсов
+    # открывается и закрывается по дням (последние 30 дней виртуального времени данных).
+    # Не «сколько сейчас открыто на дату X» (это потребовало бы дорогой посуточной
+    # реконструкции снимков), а темп потока — если закрытий примерно столько же, сколько
+    # открытий, очередь не растёт бесконтрольно.
+    opened_stmt = select(func.date_trunc("day", RiskCase.opened_at).label("day"), func.count()).group_by("day")
+    closed_stmt = (
+        select(func.date_trunc("day", RiskCase.closed_at).label("day"), func.count())
+        .where(RiskCase.closed_at.is_not(None))
+        .group_by("day")
+    )
+    if accessible is not None:
+        opened_stmt = opened_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
+        closed_stmt = closed_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
+    opened_by_day = dict(db.execute(opened_stmt).all())
+    closed_by_day = dict(db.execute(closed_stmt).all())
+    all_days = sorted(set(opened_by_day) | set(closed_by_day))[-_DAILY_VOLUME_DAYS:]
+    daily_volume = [
+        {"date": day.date().isoformat(), "opened": opened_by_day.get(day, 0), "closed": closed_by_day.get(day, 0)}
+        for day in all_days
+    ]
+
     return {
         "risk_cases": {
             "total": total_risk_cases,
@@ -111,4 +161,6 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
             for m in models
         ],
         "last_prediction_by_category": last_prediction_by_category,
+        "worker": worker_info,
+        "daily_volume": daily_volume,
     }

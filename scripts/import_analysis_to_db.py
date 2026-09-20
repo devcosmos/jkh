@@ -187,6 +187,18 @@ def import_episodes(channel_map: dict[int, int], db) -> None:
     print(f"  {total} episodes imported total", file=sys.stderr)
 
 
+def load_extra_metrics(track: Track, report: dict) -> dict:
+    """feature_importance — уже посчитан при обучении (report), просто раньше не долетал
+    до БД/UI. calibration — reliability diagram на test-сплите (scripts/compute_calibration.py),
+    отдельная проверка: совпадает ли предсказанная вероятность с реально наблюдаемой частотой
+    отказов, а не только ранжирование (ROC-AUC)."""
+    extra: dict = {"feature_importance": report["catboost"].get("feature_importance")}
+    calibration_path = ANALYSIS_DIR / f"calibration_{track.name}.json"
+    if calibration_path.exists():
+        extra["calibration"] = json.loads(calibration_path.read_text())
+    return extra
+
+
 def import_model_version(track: Track, db) -> int:
     print(f"[{track.name}] importing model version...", file=sys.stderr)
     report = json.loads((ANALYSIS_DIR / f"model_report_{track.name}.json").read_text())
@@ -209,6 +221,7 @@ def import_model_version(track: Track, db) -> int:
                 "тема 3 CSV с ответами организаторов подтверждает, что это плановые, не жёсткие "
                 "требования, порог можно снижать при обосновании."
             ),
+            **load_extra_metrics(track, report),
         },
         artifact_path=f"docs/analysis/catboost_{track.name}.cbm",
         is_active=True,

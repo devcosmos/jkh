@@ -133,6 +133,13 @@ export interface DashboardSummary {
     target_met: boolean | null;
   }[];
   last_prediction_by_category: Record<string, string>;
+  worker: {
+    virtual_time: string;
+    updated_at: string;
+    seconds_since_update: number;
+    is_stale: boolean;
+  } | null;
+  daily_volume: { date: string; opened: number; closed: number }[];
 }
 
 export type UserRole = "admin" | "dispatcher" | "analyst";

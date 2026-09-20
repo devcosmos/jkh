@@ -9,6 +9,7 @@ import { DataState } from "../components/DataState";
 import { ObjectsTree } from "../components/ObjectsTree";
 import { Select } from "../components/Select";
 import { StatTile } from "../components/StatTile";
+import { exportCsv } from "../lib/exportCsv";
 import { RiskCard } from "./RiskCard";
 import type { ObjectsTreeResponse, RiskCaseOut } from "../api/types";
 
@@ -95,13 +96,33 @@ export function RisksPage() {
             Прогнозы отказов датчиков по обоим направлениям — нажмите на строку, чтобы принять решение
           </p>
         </div>
-        <button
-          onClick={risks.reload}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
-        >
-          <RefreshIcon className="h-4 w-4" />
-          Обновить
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            disabled={!risks.data?.length}
+            onClick={() =>
+              exportCsv(`risks_${new Date().toISOString().slice(0, 10)}.csv`, risks.data ?? [], [
+                { header: "ID", value: (r) => r.id },
+                { header: "Канал", value: (r) => r.channel_id },
+                { header: "Направление", value: (r) => categoryLabel(r.category) },
+                { header: "Вероятность отказа", value: (r) => r.latest_probability ?? "" },
+                { header: "Статус", value: (r) => RISK_STATUS_LABELS[r.status] ?? r.status },
+                { header: "Приоритет", value: (r) => r.priority ?? "" },
+                { header: "Открыт", value: (r) => new Date(r.opened_at).toLocaleString("ru-RU") },
+              ])
+            }
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            Экспорт CSV
+          </button>
+          <button
+            onClick={risks.reload}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
+          >
+            <RefreshIcon className="h-4 w-4" />
+            Обновить
+          </button>
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -148,8 +169,8 @@ export function RisksPage() {
         </Select>
       </div>
 
-      <div className="flex items-start gap-6">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col items-start gap-6 lg:flex-row">
+        <div className="min-w-0 w-full flex-1">
           {view === "list" ? (
             <DataState
               loading={risks.loading}
@@ -235,7 +256,7 @@ export function RisksPage() {
           )}
         </div>
 
-        <div className="w-120 shrink-0">
+        <div className="w-full shrink-0 lg:w-120">
           {selected ? (
             <RiskCard key={selected.id} riskCase={selected} onDecided={() => risks.reload()} />
           ) : (
@@ -292,6 +313,15 @@ function SortableTh({
         <span className={`text-[10px] ${active ? "opacity-100" : "opacity-30"}`}>{sortDir === "desc" ? "▼" : "▲"}</span>
       </button>
     </th>
+  );
+}
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M12 4v11m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 18.5v.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }
 
