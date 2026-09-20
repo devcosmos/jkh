@@ -1,13 +1,18 @@
 """Наполняет реальную БД (backend/app/models) готовыми артефактами из docs/analysis/ и
 dataset/, чтобы UI показывал реальные данные вместо пустых списков.
 
-Импортирует: каналы (насос/вентилятор/дым/газ), объекты (без привязки к каналам — открытый
-пробел, см. data-audit.md), очищенные+флаппинг-эпизоды, одну версию модели (CatBoost,
-насос/вентилятор), и риск-кейсы/прогнозы, полученные группировкой прогонов предупреждений
-на test-периоде при пороге 0.7 (выбран ради управляемого объёма демо-данных — при пороге 0.5
-получилось бы 1.4 млн сырых строк из-за низкой калибровки модели, см. model_report;
-порог 0.7 НЕ является порогом, удовлетворяющим целевым Precision/Recall — это только для
-демонстрации сквозного сценария).
+Импортирует: объекты, каналы (насос/вентилятор/дым/газ) с привязкой к объекту через поле
+`ид_объект` обновлённого `справочник_каналов_датчиков.csv` (до 17 сентября 2026 этой связи
+не было — организаторы подтвердили и прислали обновлённый файл, см. тему 4 в
+`Город 8. ДЖКХ.xlsx - Вопросы_нормализованные_и_Ответы.csv`), очищенные+флаппинг-эпизоды,
+по одной версии модели на каждый из двух независимо оцениваемых треков (тема 18 CSV: «два
+независимых результата, оцениваются отдельно») — насос/вентилятор и дым/газ — и риск-кейсы/
+прогнозы, полученные группировкой прогонов предупреждений на test-периоде.
+
+Рабочий порог каждого трека — не «жёсткий» 0.7/0.5 (тема 3 CSV: «указанные значения являются
+плановыми, а не жёсткими требованиями… если данные не позволяют достичь этих уровней, их
+можно снизить, обязательно обосновав»), а лучшая точка по эпизодной оценке
+(scripts/evaluate_episodes*.py, docs/analysis/episode_evaluation_*.json) — см. TRACKS ниже.
 
 Запуск (после открытия SSH-туннеля к Postgres на сервере):
   JKH_DATABASE_URL=postgresql+psycopg://jkh:<пароль>@localhost:5555/jkh \
@@ -16,6 +21,7 @@ dataset/, чтобы UI показывал реальные данные вме�
 import datetime as dt
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
@@ -38,46 +44,38 @@ from app.models.enums import EpisodeSource, RiskCaseStatus  # noqa: E402
 DATASET_DIR = ROOT / "dataset"
 ANALYSIS_DIR = ROOT / "docs" / "analysis"
 CORE_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"]
-ALERT_THRESHOLD = 0.7
 LABEL_POLICY_VERSION = "2026-09-15"
 
 
-def import_channels(con: duckdb.DuckDBPyConnection, db) -> dict[int, int]:
-    print("importing channels...", file=sys.stderr)
-    type_list_sql = ", ".join(f"'{t}'" for t in CORE_TYPES)
-    rows = con.execute(
-        f"""
-        SELECT ид_канала_данных, тип_инж_системы, тип_датчика, тег_инженерной_системы,
-               название_датчика,
-               regexp_replace(тег_инженерной_системы, '\\d+\\.$', '') AS location_group
-        FROM read_csv_auto('{DATASET_DIR / "справочник_каналов_датчиков.csv"}', header=true)
-        WHERE тип_датчика IN ({type_list_sql})
-        """
-    ).fetchall()
-
-    mapping: dict[int, int] = {}
-    batch = []
-    for ext_id, subsystem, sensor_type, tag, name, group in rows:
-        batch.append(
-            dict(
-                external_channel_id=ext_id,
-                sensor_type=sensor_type,
-                subsystem=subsystem,
-                location_tag=tag,
-                location_group=group,
-                display_name=name,
-            )
-        )
-    db.bulk_insert_mappings(Channel, batch)
-    db.commit()
-    for ch in db.query(Channel.id, Channel.external_channel_id).all():
-        mapping[ch.external_channel_id] = ch.id
-    print(f"  {len(mapping)} channels imported", file=sys.stderr)
-    return mapping
+@dataclass(frozen=True)
+class Track:
+    name: str  # суффикс файлов в docs/analysis/
+    category: str  # RiskCase.category / Prediction.category — различает независимые треки в UI
+    sensor_types: str  # ModelVersion.sensor_types, через запятую
+    threshold: float  # лучшая точка по episode_evaluation_*.json, см. model_report_*.md, раздел 3
+    train_period_end: dt.datetime
 
 
-def import_objects(con: duckdb.DuckDBPyConnection, db) -> None:
-    print("importing objects (без привязки к каналам — открытый пробел)...", file=sys.stderr)
+TRACKS = [
+    Track(
+        name="насос_вентилятор",
+        category="sensor_failure_pump_fan",
+        sensor_types="Состояние насоса,Состояние вентилятора",
+        threshold=0.55,  # 14.9% episode recall, 2.18 FP/100 устройств/сутки — лучшая проверенная точка
+        train_period_end=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc),
+    ),
+    Track(
+        name="дым_газ",
+        category="sensor_failure_smoke_gas",
+        sensor_types="Датчик дыма,Газовый датчик",
+        threshold=0.53,  # 18.5% episode recall при умеренном FP-бюджете — см. model_report_дым_газ.md, раздел 3
+        train_period_end=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc),
+    ),
+]
+
+
+def import_objects(con: duckdb.DuckDBPyConnection, db) -> dict[int, int]:
+    print("importing objects...", file=sys.stderr)
     rows = con.execute(
         f"""
         SELECT ид_объект, иерархия_уровень, родитель, вид_объекта, диспетчерское_название_объекта
@@ -96,6 +94,46 @@ def import_objects(con: duckdb.DuckDBPyConnection, db) -> None:
             db.query(Object).filter_by(id=id_map[ext_id]).update({"parent_id": id_map[parent]})
     db.commit()
     print(f"  {len(id_map)} objects imported", file=sys.stderr)
+    return id_map
+
+
+def import_channels(con: duckdb.DuckDBPyConnection, db, object_id_map: dict[int, int]) -> dict[int, int]:
+    print("importing channels...", file=sys.stderr)
+    type_list_sql = ", ".join(f"'{t}'" for t in CORE_TYPES)
+    rows = con.execute(
+        f"""
+        SELECT ид_канала_данных, тип_инж_системы, тип_датчика, тег_инженерной_системы,
+               название_датчика, ид_объект,
+               regexp_replace(тег_инженерной_системы, '\\d+\\.$', '') AS location_group
+        FROM read_csv_auto('{DATASET_DIR / "справочник_каналов_датчиков.csv"}', header=true)
+        WHERE тип_датчика IN ({type_list_sql})
+        """
+    ).fetchall()
+
+    mapping: dict[int, int] = {}
+    batch = []
+    n_linked = 0
+    for ext_id, subsystem, sensor_type, tag, name, ext_object_id, group in rows:
+        object_id = object_id_map.get(ext_object_id) if ext_object_id is not None else None
+        if object_id is not None:
+            n_linked += 1
+        batch.append(
+            dict(
+                external_channel_id=ext_id,
+                sensor_type=sensor_type,
+                subsystem=subsystem,
+                location_tag=tag,
+                location_group=group,
+                display_name=name,
+                object_id=object_id,
+            )
+        )
+    db.bulk_insert_mappings(Channel, batch)
+    db.commit()
+    for ch in db.query(Channel.id, Channel.external_channel_id).all():
+        mapping[ch.external_channel_id] = ch.id
+    print(f"  {len(mapping)} channels imported, {n_linked} linked to an object", file=sys.stderr)
+    return mapping
 
 
 def import_episodes(channel_map: dict[int, int], db) -> None:
@@ -139,28 +177,30 @@ def import_episodes(channel_map: dict[int, int], db) -> None:
     print(f"  {total} episodes imported total", file=sys.stderr)
 
 
-def import_model_version(db) -> int:
-    print("importing model version...", file=sys.stderr)
-    report = json.loads((ANALYSIS_DIR / "model_report_насос_вентилятор.json").read_text())
+def import_model_version(track: Track, db) -> int:
+    print(f"[{track.name}] importing model version...", file=sys.stderr)
+    report = json.loads((ANALYSIS_DIR / f"model_report_{track.name}.json").read_text())
     mv = ModelVersion(
-        name="catboost_насос_вентилятор_v1_frac_neighbors",
-        sensor_types="Состояние насоса,Состояние вентилятора",
+        name=f"catboost_{track.name}_v1",
+        sensor_types=track.sensor_types,
         trained_at=dt.datetime(2026, 9, 15, tzinfo=dt.timezone.utc),
         train_period_start=dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc),
-        train_period_end=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc),
-        threshold=ALERT_THRESHOLD,
+        train_period_end=track.train_period_end,
+        threshold=track.threshold,
         metrics={
             "roc_auc_test": report["catboost"].get("roc_auc_test"),
             "pr_auc_test": report["catboost"].get("pr_auc_test"),
             "target_precision": report["target_precision"],
             "target_recall": report["target_recall"],
             "target_met": False,
-            "note": (
-                "Целевые метрики Precision>0.7/Recall>0.5 НЕ достигнуты — см. "
-                "docs/analysis/model_report_насос_вентилятор.md, раздел 3.1-3.2"
+            "operating_threshold_note": (
+                f"Порог {track.threshold} выбран по лучшей точке эпизодной оценки "
+                f"(episode_evaluation_{track.name}.json), не по целевым Precision>0.7/Recall>0.5 — "
+                "тема 3 CSV с ответами организаторов подтверждает, что это плановые, не жёсткие "
+                "требования, порог можно снижать при обосновании."
             ),
         },
-        artifact_path="docs/analysis/catboost_насос_вентилятор.cbm",
+        artifact_path=f"docs/analysis/catboost_{track.name}.cbm",
         is_active=True,
     )
     db.add(mv)
@@ -170,17 +210,17 @@ def import_model_version(db) -> int:
     return mv.id
 
 
-def import_risk_cases_and_predictions(channel_map: dict[int, int], model_version_id: int, db) -> None:
-    print(f"building alert runs at threshold {ALERT_THRESHOLD} (test split only)...", file=sys.stderr)
+def import_risk_cases_and_predictions(track: Track, channel_map: dict[int, int], model_version_id: int, db) -> None:
+    print(f"[{track.name}] building alert runs at threshold {track.threshold} (test split only)...", file=sys.stderr)
     con = duckdb.connect()
     con.execute(
         f"""
         CREATE VIEW s AS
-        SELECT * FROM read_parquet('{ANALYSIS_DIR / "scored_насос_вентилятор.parquet"}')
+        SELECT * FROM read_parquet('{ANALYSIS_DIR / f"scored_{track.name}.parquet"}')
         WHERE split = 'test'
         """
     )
-    con.execute(f"CREATE VIEW alerts AS SELECT *, (score >= {ALERT_THRESHOLD}) AS is_alert FROM s")
+    con.execute(f"CREATE VIEW alerts AS SELECT *, (score >= {track.threshold}) AS is_alert FROM s")
     con.execute(
         """
         CREATE VIEW ordered AS
@@ -225,7 +265,7 @@ def import_risk_cases_and_predictions(channel_map: dict[int, int], model_version
             priority = "high" if score >= 0.85 else "medium"
             risk_case = RiskCase(
                 channel_id=channel_id,
-                category="sensor_failure",
+                category=track.category,
                 status=RiskCaseStatus.new,
                 priority=priority,
                 opened_at=ts,
@@ -240,11 +280,11 @@ def import_risk_cases_and_predictions(channel_map: dict[int, int], model_version
                 channel_id=channel_id,
                 risk_case_id=risk_case.id,
                 model_version_id=model_version_id,
-                category="sensor_failure",
+                category=track.category,
                 probability=float(score),
                 window_start=ts,
                 window_end=window_end,
-                threshold_used=ALERT_THRESHOLD,
+                threshold_used=track.threshold,
                 explanation={
                     "note": "Глобальная важность признаков модели, не индивидуальное объяснение",
                     "top_features": ["seconds_since_last_event", "n_events_7d", "тип_датчика"],
@@ -259,18 +299,19 @@ def import_risk_cases_and_predictions(channel_map: dict[int, int], model_version
 
     flush_predictions()
     db.commit()
-    print(f"  {n_risk_cases} risk cases, {len(run_members)} predictions imported", file=sys.stderr)
+    print(f"  [{track.name}] {n_risk_cases} risk cases, {len(run_members)} predictions imported", file=sys.stderr)
 
 
 def main() -> None:
     db = SessionLocal()
     con = duckdb.connect()
     try:
-        channel_map = import_channels(con, db)
-        import_objects(con, db)
+        object_id_map = import_objects(con, db)
+        channel_map = import_channels(con, db, object_id_map)
         import_episodes(channel_map, db)
-        model_version_id = import_model_version(db)
-        import_risk_cases_and_predictions(channel_map, model_version_id, db)
+        for track in TRACKS:
+            model_version_id = import_model_version(track, db)
+            import_risk_cases_and_predictions(track, channel_map, model_version_id, db)
         print("DONE", file=sys.stderr)
     finally:
         db.close()

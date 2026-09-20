@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { CATEGORY_LABELS, categoryLabel } from "../api/categories";
 import { DataState } from "../components/DataState";
-import { ObjectsMap } from "../components/ObjectsMap";
+import { ObjectsTree } from "../components/ObjectsTree";
 import { RiskCard } from "./RiskCard";
-import type { ObjectsGeoJson, RiskCaseOut } from "../api/types";
+import type { ObjectsTreeResponse, RiskCaseOut } from "../api/types";
 
 const STATUS_LABELS: Record<string, string> = {
   new: "Новый",
@@ -15,15 +16,19 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export function RisksPage() {
-  const [view, setView] = useState<"list" | "map">("list");
+  const [view, setView] = useState<"list" | "scheme">("list");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [selected, setSelected] = useState<RiskCaseOut | null>(null);
 
-  const risks = useApi<RiskCaseOut[]>(
-    () => api.get(`/risk-cases${statusFilter ? `?status=${statusFilter}` : ""}`),
-    [statusFilter]
-  );
-  const geo = useApi<ObjectsGeoJson>(() => api.get("/objects/geojson"), []);
+  const risks = useApi<RiskCaseOut[]>(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (categoryFilter) params.set("category", categoryFilter);
+    const qs = params.toString();
+    return api.get(`/risk-cases${qs ? `?${qs}` : ""}`);
+  }, [statusFilter, categoryFilter]);
+  const tree = useApi<ObjectsTreeResponse>(() => api.get("/objects/tree"), []);
 
   return (
     <div className="page risks-page">
@@ -32,13 +37,21 @@ export function RisksPage() {
           <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
             Список
           </button>
-          <button className={view === "map" ? "active" : ""} onClick={() => setView("map")}>
-            Карта
+          <button className={view === "scheme" ? "active" : ""} onClick={() => setView("scheme")}>
+            Схема объектов
           </button>
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">Все статусы</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <option value="">Оба направления</option>
+          {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
             <option key={k} value={k}>
               {v}
             </option>
@@ -76,7 +89,7 @@ export function RisksPage() {
                     >
                       <td>{r.id}</td>
                       <td>{r.channel_id}</td>
-                      <td>{r.category}</td>
+                      <td>{categoryLabel(r.category)}</td>
                       <td>{STATUS_LABELS[r.status] ?? r.status}</td>
                       <td>{r.priority ?? "—"}</td>
                       <td>{new Date(r.opened_at).toLocaleString("ru-RU")}</td>
@@ -86,14 +99,19 @@ export function RisksPage() {
               </table>
             </DataState>
           ) : (
-            <DataState loading={geo.loading} error={geo.error} empty={false} emptyText="">
-              {geo.data && (
+            <DataState
+              loading={tree.loading}
+              error={tree.error}
+              empty={!tree.data?.roots.length}
+              emptyText="Объектов нет"
+            >
+              {tree.data && (
                 <>
-                  <ObjectsMap data={geo.data} />
+                  <ObjectsTree roots={tree.data.roots} />
                   <p className="map-footnote">
-                    Объектов с проверенной геометрией: {geo.data.n_with_geometry} из{" "}
-                    {geo.data.n_total_objects}. Остальные показаны только в списке — раздел 3.2
-                    плана: без выдуманных координат.
+                    Реальные координаты объектов организаторами не предоставляются (только
+                    текущие, теряются при демонтаже датчика) — вместо GPS-карты иерархическая
+                    схема объектов с цветовой индикацией риска, как рекомендовано организаторами.
                   </p>
                 </>
               )}

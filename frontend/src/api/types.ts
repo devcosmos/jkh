@@ -19,11 +19,23 @@ export interface ObjectOut {
   geometry_source: string | null;
 }
 
-export interface ObjectsGeoJson {
-  type: "FeatureCollection";
-  features: { type: "Feature"; properties: Record<string, unknown>; geometry_wkt: string }[];
-  n_with_geometry: number;
-  n_total_objects: number;
+export interface ObjectTreeNode {
+  id: number;
+  external_id: string | null;
+  name: string;
+  kind: string | null;
+  hierarchy_level: number | null;
+  parent_id: number | null;
+  own_open_risk_count: number;
+  own_max_priority_rank: number;
+  aggregated_open_risk_count: number;
+  aggregated_max_priority_rank: number;
+  aggregated_max_priority: "none" | "medium" | "high";
+  children: ObjectTreeNode[];
+}
+
+export interface ObjectsTreeResponse {
+  roots: ObjectTreeNode[];
 }
 
 export interface ChannelOut {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,9 +10,9 @@ from app.schemas.schemas import ModelVersionOut
 router = APIRouter(prefix="/models", tags=["models"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/current", response_model=ModelVersionOut)
-def current_model(db: Session = Depends(get_db)) -> ModelVersion:
-    mv = db.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
-    if mv is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Активная версия модели не назначена")
-    return mv
+@router.get("/current", response_model=list[ModelVersionOut])
+def current_models(db: Session = Depends(get_db)) -> list[ModelVersion]:
+    """Активные версии модели — по одной на независимо оцениваемый трек (насос/вентилятор,
+    дым/газ — тема 18 CSV с ответами: «два независимых результата, оцениваются отдельно»),
+    поэтому активных версий может быть несколько одновременно."""
+    return list(db.scalars(select(ModelVersion).where(ModelVersion.is_active.is_(True))))

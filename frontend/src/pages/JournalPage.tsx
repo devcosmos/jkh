@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { CATEGORY_LABELS, categoryLabel } from "../api/categories";
 import { DataState } from "../components/DataState";
 import type { PredictionOut } from "../api/types";
 
@@ -7,12 +9,24 @@ import type { PredictionOut } from "../api/types";
 const STALE_AFTER_HOURS = 24;
 
 export function JournalPage() {
-  const predictions = useApi<PredictionOut[]>(() => api.get("/predictions?limit=200"), []);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const predictions = useApi<PredictionOut[]>(
+    () => api.get(`/predictions?limit=200${categoryFilter ? `&category=${categoryFilter}` : ""}`),
+    [categoryFilter]
+  );
 
   return (
     <div className="page journal-page">
       <div className="page-toolbar">
         <h2>Журнал прогнозов</h2>
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <option value="">Оба направления</option>
+          {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
         <button onClick={predictions.reload}>Обновить</button>
       </div>
       <DataState
@@ -40,7 +54,7 @@ export function JournalPage() {
                 <tr key={p.id} className={stale ? "stale-row" : ""}>
                   <td>{new Date(p.created_at).toLocaleString("ru-RU")}</td>
                   <td>{p.channel_id}</td>
-                  <td>{p.category}</td>
+                  <td>{categoryLabel(p.category)}</td>
                   <td>{(p.probability * 100).toFixed(1)}%</td>
                   <td>
                     {new Date(p.window_start).toLocaleTimeString("ru-RU")}–

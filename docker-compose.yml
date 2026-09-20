@@ -31,8 +31,8 @@ services:
       dockerfile: Dockerfile.worker
     environment:
       JKH_DATABASE_URL: postgresql+psycopg://jkh:${POSTGRES_PASSWORD:-jkh}@db:5432/jkh
-      REPLAY_FEED_PATH: /data/replay_feed_насос_вентилятор.parquet
-      REPLAY_MODEL_PATH: /data/catboost_насос_вентилятор.cbm
+      # REPLAY_DATA_DIR по умолчанию /data (см. volumes ниже) — оба трека (насос/вентилятор,
+      # дым/газ) читают из него replay_feed_<track>.parquet и catboost_<track>.cbm.
       REPLAY_SLEEP_SECONDS: ${REPLAY_SLEEP_SECONDS:-2}
     volumes:
       - ./data:/data:ro

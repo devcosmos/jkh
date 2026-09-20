@@ -1,29 +1,34 @@
 """Фоновый worker: replay истории + живой инференс (раздел 3 ТЗ MVP, раздел 8 плана).
 
 Продвигает виртуальное время по часовым тикам, "доставляет" события из заранее
-подготовленного компактного файла-потока (scripts/build_replay_feed.py — насос/вентилятор,
+подготовленных компактных файлов-потоков (scripts/build_replay_feed.py,
 2025-07-01..2026-06-30, честно "невиданный" моделью test-период) в оперативную таблицу
 `channel_events` (скользящее окно 7 суток — раздел 7.2 плана), затем на каждом тике считает
-признаки для всех каналов насос/вентилятор напрямую в Postgres (те же признаки, что при
-обучении — scripts/build_features.py) и прогоняет через уже обученный CatBoost.
+признаки напрямую в Postgres (те же признаки, что при обучении — scripts/build_features*.py)
+и прогоняет через уже обученный CatBoost — отдельно для каждого из двух независимо
+оцениваемых треков (тема 18 CSV с ответами организаторов: «два независимых результата,
+оцениваются отдельно») — насос/вентилятор и дым/газ.
 
 Курсор возобновления — таблица `replay_state` (простая сохраняемая точка вместо брокера
-сообщений, раздел 3 ТЗ MVP). При перезапуске worker продолжает с последнего сохранённого
-виртуального времени, а не с начала.
+сообщений, раздел 3 ТЗ MVP), общая для обоих треков: оба фида покрывают один и тот же
+период, поэтому виртуальное время едино. При перезапуске worker продолжает с последнего
+сохранённого виртуального времени, а не с начала.
 
-Порог 0.7 — тот же провизорный операционный порог, что и при бэкфилле
-(scripts/import_analysis_to_db.py); он НЕ удовлетворяет целевым Precision/Recall — см.
-docs/analysis/model_report_насос_вентилятор.md.
+Рабочий порог каждого трека — не «жёсткий» 0.7/0.5, а лучшая точка эпизодной оценки, та же,
+что и при бэкфилле (scripts/import_analysis_to_db.py); см. TRACKS ниже и
+docs/analysis/model_report_*.md, раздел 3.
 """
 import datetime as dt
 import os
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 from catboost import CatBoostClassifier
 from sqlalchemy import delete, select, text
+from sqlalchemy.orm import Session
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -41,12 +46,34 @@ from app.models.entities import (  # noqa: E402
 )
 from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus  # noqa: E402
 
-FEED_PATH = Path(os.environ.get("REPLAY_FEED_PATH", "/data/replay_feed_насос_вентилятор.parquet"))
-MODEL_PATH = Path(os.environ.get("REPLAY_MODEL_PATH", "/data/catboost_насос_вентилятор.cbm"))
+DATA_DIR = Path(os.environ.get("REPLAY_DATA_DIR", "/data"))
 TICK = dt.timedelta(hours=int(os.environ.get("REPLAY_TICK_HOURS", "1")))
 RETENTION = dt.timedelta(days=7)
 SLEEP_SECONDS = float(os.environ.get("REPLAY_SLEEP_SECONDS", "2"))
-ALERT_THRESHOLD = float(os.environ.get("REPLAY_THRESHOLD", "0.7"))
+
+
+@dataclass(frozen=True)
+class Track:
+    name: str  # суффикс файлов в /data — совпадает с scripts/build_replay_feed.py и train_model*.py
+    category: str  # RiskCase.category / Prediction.category — тот же, что в scripts/import_analysis_to_db.py
+    sensor_types: list[str]
+    threshold: float  # лучшая точка эпизодной оценки, не целевой 0.7/0.5 — см. model_report_*.md, раздел 3
+
+
+TRACKS = [
+    Track(
+        name="насос_вентилятор",
+        category="sensor_failure_pump_fan",
+        sensor_types=["Состояние насоса", "Состояние вентилятора"],
+        threshold=float(os.environ.get("REPLAY_THRESHOLD_PUMP_FAN", "0.55")),
+    ),
+    Track(
+        name="дым_газ",
+        category="sensor_failure_smoke_gas",
+        sensor_types=["Датчик дыма", "Газовый датчик"],
+        threshold=float(os.environ.get("REPLAY_THRESHOLD_SMOKE_GAS", "0.53")),
+    ),
+]
 
 NUM_FEATURES = [
     "n_alarms_1h", "n_alarms_24h", "n_alarms_7d",
@@ -68,7 +95,9 @@ WORK_TYPE_BY_SENSOR_TYPE = {
 }
 
 
-def build_draft_justification(channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime) -> str:
+def build_draft_justification(
+    track: Track, channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime
+) -> str:
     object_name = channel.object.name if channel.object is not None else "не определён"
     # Устройство определено эвристикой scripts/link_channels_to_devices.py (87.8% покрытия
     # насос/вентилятор) — при отсутствии используем канал напрямую, честно без выдумывания.
@@ -84,13 +113,16 @@ def build_draft_justification(channel: Channel, risk_case: RiskCase, features: d
         f"Наблюдаемые признаки: состояние={features['current_state']}, "
         f"событий за 7 сут={features['n_events_7d']}, переходов за 24ч={features['n_transitions_24h']}, "
         f"с последнего события={features['seconds_since_last_event']:.0f} сек.\n"
-        f"Основание: прогноз модели превысил операционный порог {ALERT_THRESHOLD:.2f} "
-        f"(целевые Precision/Recall не достигнуты — см. docs/analysis/model_report_насос_вентилятор.md).\n"
+        f"Основание: прогноз модели превысил рабочий порог {track.threshold:.2f}, выбранный по лучшей "
+        f"точке эпизодной оценки (целевые Precision>0.7/Recall>0.5 — плановые, не жёсткие требования, "
+        f"см. docs/analysis/model_report_{track.name}.md, раздел 3).\n"
         f"Срок: нормативный регламент не определён — требуется назначение диспетчером."
     )
 
 
-def maybe_create_draft_request(db, channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime) -> None:
+def maybe_create_draft_request(
+    db, track: Track, channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime
+) -> None:
     """Автосоздание черновика заявки при открытии нового риск-кейса (раздел 10 плана).
 
     Условие создания и дедупликация — по устройству/каналу, виду работы и активному
@@ -119,7 +151,7 @@ def maybe_create_draft_request(db, channel: Channel, risk_case: RiskCase, featur
     request = MaintenanceRequest(
         risk_case_id=risk_case.id,
         work_type=work_type,
-        justification=build_draft_justification(channel, risk_case, features, proba, tick_end),
+        justification=build_draft_justification(track, channel, risk_case, features, proba, tick_end),
         priority=risk_case.priority,
         recommended_by=None,
         status=MaintenanceRequestStatus.draft,
@@ -140,8 +172,8 @@ def maybe_create_draft_request(db, channel: Channel, risk_case: RiskCase, featur
     )
 
 
-def load_feed() -> pd.DataFrame:
-    df = pd.read_parquet(FEED_PATH)
+def load_feed(track: Track) -> pd.DataFrame:
+    df = pd.read_parquet(DATA_DIR / f"replay_feed_{track.name}.parquet")
     df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
     return df.sort_values("event_time").reset_index(drop=True)
 
@@ -262,11 +294,13 @@ def compute_features_for_channel(db, channel: Channel, tick_end: dt.datetime) ->
     }
 
 
-def score_and_record(db, model: CatBoostClassifier, channel: Channel, features: dict, tick_end: dt.datetime, model_version_id: int) -> float:
+def score_and_record(
+    db, track: Track, model: CatBoostClassifier, channel: Channel, features: dict, tick_end: dt.datetime, model_version_id: int
+) -> float:
     row = [[features[f] if f != "тип_датчика" else channel.sensor_type for f in ALL_FEATURES]]
     proba = float(model.predict_proba(row)[0][1])
 
-    if proba >= ALERT_THRESHOLD:
+    if proba >= track.threshold:
         risk_case = db.scalar(
             select(RiskCase).where(
                 RiskCase.channel_id == channel.id,
@@ -276,25 +310,25 @@ def score_and_record(db, model: CatBoostClassifier, channel: Channel, features: 
         if risk_case is None:
             risk_case = RiskCase(
                 channel_id=channel.id,
-                category="sensor_failure",
+                category=track.category,
                 status=RiskCaseStatus.new,
                 priority="high" if proba >= 0.85 else "medium",
                 opened_at=tick_end,
             )
             db.add(risk_case)
             db.flush()
-            maybe_create_draft_request(db, channel, risk_case, features, proba, tick_end)
+            maybe_create_draft_request(db, track, channel, risk_case, features, proba, tick_end)
         db.add(
             Prediction(
                 channel_id=channel.id,
                 risk_case_id=risk_case.id,
                 model_version_id=model_version_id,
-                category="sensor_failure",
+                category=track.category,
                 probability=proba,
                 window_start=tick_end,
                 window_end=tick_end + dt.timedelta(hours=24),
-                threshold_used=ALERT_THRESHOLD,
-                explanation={"live": True, "worker": "replay_worker"},
+                threshold_used=track.threshold,
+                explanation={"live": True, "worker": "replay_worker", "track": track.name},
                 data_quality_flag="ok",
                 created_at=tick_end,
             )
@@ -302,27 +336,53 @@ def score_and_record(db, model: CatBoostClassifier, channel: Channel, features: 
     return proba
 
 
-def main() -> None:
-    print(f"loading model from {MODEL_PATH}...", file=sys.stderr)
+@dataclass
+class TrackRuntime:
+    track: Track
+    model: CatBoostClassifier
+    channels: list[Channel]
+    model_version_id: int
+
+
+def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
+    model_path = DATA_DIR / f"catboost_{track.name}.cbm"
+    print(f"[{track.name}] loading model from {model_path}...", file=sys.stderr)
     model = CatBoostClassifier()
-    model.load_model(str(MODEL_PATH))
+    model.load_model(str(model_path))
 
-    print(f"loading feed from {FEED_PATH}...", file=sys.stderr)
-    feed = load_feed()
-    print(f"feed: {len(feed)} events, {feed.event_time.min()} .. {feed.event_time.max()}", file=sys.stderr)
-
-    db = SessionLocal()
-    channels = db.scalars(
-        select(Channel).where(Channel.sensor_type.in_(["Состояние насоса", "Состояние вентилятора"]))
-    ).all()
-    channel_map = {c.external_channel_id: c.id for c in channels}
-    model_version = db.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
+    channels = list(db.scalars(select(Channel).where(Channel.sensor_type.in_(track.sensor_types))))
+    model_version = db.scalar(
+        select(ModelVersion).where(
+            ModelVersion.is_active.is_(True),
+            ModelVersion.sensor_types == ",".join(track.sensor_types),
+        )
+    )
     if model_version is None:
-        print("no active model_version in DB — run scripts/import_analysis_to_db.py first", file=sys.stderr)
+        print(
+            f"[{track.name}] no active model_version in DB — run scripts/import_analysis_to_db.py first",
+            file=sys.stderr,
+        )
         sys.exit(1)
+    return TrackRuntime(track=track, model=model, channels=channels, model_version_id=model_version.id)
+
+
+def main() -> None:
+    db = SessionLocal()
+    runtimes = [load_track_runtime(db, track) for track in TRACKS]
+
+    feeds = []
+    for rt in runtimes:
+        feed = load_feed(rt.track)
+        print(
+            f"[{rt.track.name}] feed: {len(feed)} events, {feed.event_time.min()} .. {feed.event_time.max()}",
+            file=sys.stderr,
+        )
+        feeds.append(feed)
+    feed = pd.concat(feeds, ignore_index=True).sort_values("event_time").reset_index(drop=True)
+    channel_map = {c.external_channel_id: c.id for rt in runtimes for c in rt.channels}
 
     virtual_time = get_or_init_virtual_time(db, feed)
-    feed_end = feed["event_time"].max().to_pydatetime()
+    feed_end = min(f["event_time"].max().to_pydatetime() for f in feeds)
     cursor = int((feed["event_time"] <= virtual_time).sum())
     print(f"resuming from virtual_time={virtual_time}, cursor={cursor}", file=sys.stderr)
 
@@ -337,13 +397,14 @@ def main() -> None:
         prune_old_events(db, tick_end)
 
         n_alerts = 0
-        for channel in channels:
-            features = compute_features_for_channel(db, channel, tick_end)
-            if features is None:
-                continue
-            proba = score_and_record(db, model, channel, features, tick_end, model_version.id)
-            if proba >= ALERT_THRESHOLD:
-                n_alerts += 1
+        for rt in runtimes:
+            for channel in rt.channels:
+                features = compute_features_for_channel(db, channel, tick_end)
+                if features is None:
+                    continue
+                proba = score_and_record(db, rt.track, rt.model, channel, features, tick_end, rt.model_version_id)
+                if proba >= rt.track.threshold:
+                    n_alerts += 1
 
         virtual_time = tick_end
         db.execute(

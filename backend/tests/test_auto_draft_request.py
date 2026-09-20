@@ -8,7 +8,9 @@ import datetime as dt
 from app.core.config import settings
 from app.models.entities import AuditLog, Channel, Device, MaintenanceRequest, RiskCase
 from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus
-from app.workers.replay_worker import maybe_create_draft_request
+from app.workers.replay_worker import TRACKS, maybe_create_draft_request
+
+PUMP_FAN_TRACK = TRACKS[0]  # насос/вентилятор — совпадает с sensor_type, используемым в этих тестах
 
 FEATURES = {
     "current_state": "Неисправен",
@@ -31,7 +33,7 @@ def _make_channel_and_case(db_session, sensor_type: str, priority: str = "high")
 
 def test_creates_draft_with_expected_fields(db_session):
     channel, rc = _make_channel_and_case(db_session, "Состояние насоса")
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
     db_session.commit()
 
     requests = db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).all()
@@ -56,7 +58,7 @@ def test_justification_includes_device_label_when_linked(db_session):
     channel.device_id = device.id
     db_session.flush()
 
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
     db_session.commit()
 
     mr = db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).one()
@@ -65,7 +67,7 @@ def test_justification_includes_device_label_when_linked(db_session):
 
 def test_writes_audit_log_on_creation(db_session):
     channel, rc = _make_channel_and_case(db_session, "Состояние насоса")
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
     db_session.commit()
 
     mr = db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).one()
@@ -78,7 +80,7 @@ def test_writes_audit_log_on_creation(db_session):
 def test_below_threshold_creates_nothing(db_session):
     channel, rc = _make_channel_and_case(db_session, "Состояние насоса")
     proba_below = settings.auto_draft_risk_threshold - 0.01
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=proba_below, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=proba_below, tick_end=NOW)
     db_session.commit()
 
     assert db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).count() == 0
@@ -86,7 +88,7 @@ def test_below_threshold_creates_nothing(db_session):
 
 def test_no_template_for_unknown_sensor_type_creates_nothing(db_session):
     channel, rc = _make_channel_and_case(db_session, "Датчик движения")
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
     db_session.commit()
 
     assert db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).count() == 0
@@ -96,9 +98,9 @@ def test_second_call_on_same_case_does_not_duplicate(db_session):
     """Раздел 10 плана: повторный расчёт/смена модели на том же активном случае не создаёт
     вторую заявку — дедуп по (устройство, вид работы, активный риск-кейс)."""
     channel, rc = _make_channel_and_case(db_session, "Состояние насоса")
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
     db_session.flush()
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.95, tick_end=NOW + dt.timedelta(hours=1))
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.95, tick_end=NOW + dt.timedelta(hours=1))
     db_session.commit()
 
     assert db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).count() == 1
@@ -108,13 +110,13 @@ def test_new_draft_allowed_after_previous_one_rejected(db_session):
     """Дедуп проверяет только НЕзакрытые заявки — если предыдущая отклонена/отменена,
     новый активный случай может получить новый черновик."""
     channel, rc = _make_channel_and_case(db_session, "Состояние насоса")
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW)
     db_session.flush()
     first = db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).one()
     first.status = MaintenanceRequestStatus.rejected
     db_session.flush()
 
-    maybe_create_draft_request(db_session, channel, rc, FEATURES, proba=0.9, tick_end=NOW + dt.timedelta(hours=1))
+    maybe_create_draft_request(db_session, PUMP_FAN_TRACK, channel, rc, FEATURES, proba=0.9, tick_end=NOW + dt.timedelta(hours=1))
     db_session.commit()
 
     assert db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).count() == 2
