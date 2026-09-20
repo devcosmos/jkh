@@ -19,3 +19,11 @@ export function categoryLabel(category: string): string {
 export function categoryTone(category: string): BadgeTone {
   return CATEGORY_TONES[category] ?? "neutral";
 }
+
+// ModelVersion не хранит category напрямую (только sensor_types через запятую) — те же два
+// фиксированных набора типов датчиков, что и в backend/app/workers/replay_worker.py:TRACKS.
+export function categoryForSensorTypes(sensorTypes: string): string {
+  return sensorTypes.includes("Датчик дыма") || sensorTypes.includes("Газовый датчик")
+    ? "sensor_failure_smoke_gas"
+    : "sensor_failure_pump_fan";
+}

@@ -11,6 +11,7 @@ const SENSOR_TYPES = ["Состояние насоса", "Состояние в�
 export function RegistryPage() {
   const [search, setSearch] = useState("");
   const [sensorType, setSensorType] = useState("");
+  const [objectFilter, setObjectFilter] = useState<number | null>(null);
 
   const objects = useApi<ObjectOut[]>(() => api.get("/objects?limit=500"), []);
   const channels = useApi<ChannelOut[]>(
@@ -18,9 +19,9 @@ export function RegistryPage() {
       api.get(
         `/channels?limit=300${sensorType ? `&sensor_type=${encodeURIComponent(sensorType)}` : ""}${
           search ? `&search=${encodeURIComponent(search)}` : ""
-        }`
+        }${objectFilter ? `&object_id=${objectFilter}` : ""}`
       ),
-    [sensorType, search]
+    [sensorType, search, objectFilter]
   );
 
   const objectNameById = useMemo(() => {
@@ -28,6 +29,11 @@ export function RegistryPage() {
     objects.data?.forEach((o) => map.set(o.id, o.name));
     return map;
   }, [objects.data]);
+
+  const sortedObjects = useMemo(
+    () => [...(objects.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, "ru")),
+    [objects.data]
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
@@ -53,6 +59,25 @@ export function RegistryPage() {
             </option>
           ))}
         </Select>
+        <Select
+          value={objectFilter ?? ""}
+          onChange={(e) => setObjectFilter(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">Все объекты</option>
+          {sortedObjects.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </Select>
+        {objectFilter && (
+          <button
+            onClick={() => setObjectFilter(null)}
+            className="text-sm font-medium text-slate-500 hover:text-slate-900"
+          >
+            Сбросить фильтр по объекту ×
+          </button>
+        )}
       </div>
 
       <DataState
@@ -81,7 +106,17 @@ export function RegistryPage() {
                     <Badge tone="neutral">{c.sensor_type}</Badge>
                   </td>
                   <td className="px-4 py-3 text-slate-700">
-                    {c.object_id ? (objectNameById.get(c.object_id) ?? `#${c.object_id}`) : "не сопоставлен"}
+                    {c.object_id ? (
+                      <button
+                        onClick={() => setObjectFilter(c.object_id)}
+                        className="text-left text-sky-700 hover:underline"
+                        title="Показать только каналы этого объекта"
+                      >
+                        {objectNameById.get(c.object_id) ?? `#${c.object_id}`}
+                      </button>
+                    ) : (
+                      "не сопоставлен"
+                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{c.location_tag ?? "—"}</td>
                 </tr>

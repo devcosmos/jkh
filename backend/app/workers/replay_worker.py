@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.core.config import settings  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
+from app.services.maintenance_requests import WORK_TYPE_BY_SENSOR_TYPE, find_active_request  # noqa: E402
 from app.models.entities import (  # noqa: E402
     AuditLog,
     Channel,
@@ -141,24 +142,27 @@ def compute_anomaly_signal(anomaly_bundle: dict, features: dict) -> dict:
     is_outlier = bool(model.predict(x)[0] == -1)
     return {"method": "isolation_forest", "score": round(score, 4), "is_outlier": is_outlier}
 
-# Раздел 10 плана реализации: шаблон рекомендации по типу датчика — обязательное условие
-# автосоздания черновика ("существует подходящий шаблон рекомендации").
-WORK_TYPE_BY_SENSOR_TYPE = {
-    "Состояние насоса": "Диагностика и техническое обслуживание насоса",
-    "Состояние вентилятора": "Диагностика и техническое обслуживание вентилятора",
-    "Датчик дыма": "Диагностика дымового извещателя",
-    "Газовый датчик": "Диагностика газового датчика",
-}
-
 
 def build_draft_justification(
-    track: Track, channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime
+    track: Track,
+    channel: Channel,
+    risk_case: RiskCase,
+    features: dict,
+    proba: float,
+    tick_end: dt.datetime,
+    anomaly: dict | None = None,
 ) -> str:
     object_name = channel.object.name if channel.object is not None else "не определён"
     # Устройство определено эвристикой scripts/link_channels_to_devices.py (87.8% покрытия
     # насос/вентилятор) — при отсутствии используем канал напрямую, честно без выдумывания.
     device_label = channel.device.external_id if channel.device is not None else None
     window_end = tick_end + dt.timedelta(hours=24)
+    anomaly_line = (
+        "Независимая модель (IsolationForest, без учителя) также отмечает поведение канала "
+        "как аномальное — не встречалось в известных сценариях отказа при обучении.\n"
+        if anomaly and anomaly.get("is_outlier")
+        else ""
+    )
     return (
         f"Автоматически сформировано по риск-кейсу #{risk_case.id} (правило раздела 10 плана реализации).\n"
         f"Устройство: {device_label or 'не сопоставлено'}. "
@@ -169,6 +173,7 @@ def build_draft_justification(
         f"Наблюдаемые признаки: состояние={features['current_state']}, "
         f"событий за 7 сут={features['n_events_7d']}, переходов за 24ч={features['n_transitions_24h']}, "
         f"с последнего события={features['seconds_since_last_event']:.0f} сек.\n"
+        f"{anomaly_line}"
         f"Основание: прогноз модели превысил рабочий порог {track.threshold:.2f}, выбранный по лучшей "
         f"точке эпизодной оценки (целевые Precision>0.7/Recall>0.5 — плановые, не жёсткие требования, "
         f"см. docs/analysis/model_report_{track.name}.md, раздел 3).\n"
@@ -177,7 +182,14 @@ def build_draft_justification(
 
 
 def maybe_create_draft_request(
-    db, track: Track, channel: Channel, risk_case: RiskCase, features: dict, proba: float, tick_end: dt.datetime
+    db,
+    track: Track,
+    channel: Channel,
+    risk_case: RiskCase,
+    features: dict,
+    proba: float,
+    tick_end: dt.datetime,
+    anomaly: dict | None = None,
 ) -> None:
     """Автосоздание черновика заявки при открытии нового риск-кейса (раздел 10 плана).
 
@@ -192,22 +204,13 @@ def maybe_create_draft_request(
     if work_type is None:
         return  # нет подходящего шаблона рекомендации для этого типа датчика
 
-    existing = db.scalar(
-        select(MaintenanceRequest).where(
-            MaintenanceRequest.risk_case_id == risk_case.id,
-            MaintenanceRequest.work_type == work_type,
-            MaintenanceRequest.status.not_in(
-                [MaintenanceRequestStatus.rejected, MaintenanceRequestStatus.cancelled]
-            ),
-        )
-    )
-    if existing is not None:
+    if find_active_request(db, risk_case.id, work_type) is not None:
         return
 
     request = MaintenanceRequest(
         risk_case_id=risk_case.id,
         work_type=work_type,
-        justification=build_draft_justification(track, channel, risk_case, features, proba, tick_end),
+        justification=build_draft_justification(track, channel, risk_case, features, proba, tick_end, anomaly),
         priority=risk_case.priority,
         recommended_by=None,
         status=MaintenanceRequestStatus.draft,
@@ -394,6 +397,7 @@ def score_and_record(
     proba = float(model.predict_proba(row)[0][1])
 
     if proba >= track.threshold:
+        anomaly = compute_anomaly_signal(anomaly_bundle, features)
         risk_case = db.scalar(
             select(RiskCase).where(
                 RiskCase.channel_id == channel.id,
@@ -401,16 +405,19 @@ def score_and_record(
             )
         )
         if risk_case is None:
+            # Приоритет high не только по высокой вероятности, но и если независимая
+            # (не размеченная на тех же отказах) модель отдельно подтверждает необычное
+            # поведение — два разных метода согласны, это сильнее одного порога вероятности.
             risk_case = RiskCase(
                 channel_id=channel.id,
                 category=track.category,
                 status=RiskCaseStatus.new,
-                priority="high" if proba >= 0.85 else "medium",
+                priority="high" if (proba >= 0.85 or anomaly["is_outlier"]) else "medium",
                 opened_at=tick_end,
             )
             db.add(risk_case)
             db.flush()
-            maybe_create_draft_request(db, track, channel, risk_case, features, proba, tick_end)
+            maybe_create_draft_request(db, track, channel, risk_case, features, proba, tick_end, anomaly)
         db.add(
             Prediction(
                 channel_id=channel.id,
@@ -421,10 +428,7 @@ def score_and_record(
                 window_start=tick_end,
                 window_end=tick_end + dt.timedelta(hours=24),
                 threshold_used=track.threshold,
-                explanation={
-                    **explain_prediction(model, row),
-                    "anomaly": compute_anomaly_signal(anomaly_bundle, features),
-                },
+                explanation={**explain_prediction(model, row), "anomaly": anomaly},
                 data_quality_flag="ok",
                 created_at=tick_end,
             )

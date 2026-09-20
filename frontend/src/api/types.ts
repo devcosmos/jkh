@@ -65,6 +65,7 @@ export interface RiskCaseOut {
   priority: string | null;
   opened_at: string;
   closed_at: string | null;
+  latest_probability: number | null;
 }
 
 export interface PredictionOut {
@@ -91,7 +92,12 @@ export interface MaintenanceRequestOut {
   recommended_by: string | null;
   status: MaintenanceRequestStatus;
   approved_by_user_id: number | null;
+  approved_by_username: string | null;
   approved_at: string | null;
+  created_at: string;
+  category: string | null;
+  channel_label: string | null;
+  object_name: string | null;
 }
 
 export interface ModelVersionOut {

@@ -23,7 +23,9 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
   "track-b": "bg-violet-50 text-violet-700",
 };
 
-const DOT_CLASSES: Record<BadgeTone, string> = {
+// Экспортируется отдельно — те же токены используются как заливка баров в BarList
+// (frontend/src/components/BarList.tsx), чтобы цвет метки и цвет бара всегда совпадали.
+export const TONE_DOT_CLASSES: Record<BadgeTone, string> = {
   neutral: "bg-slate-400",
   good: "bg-[#0ca30c]",
   warning: "bg-[#fab219]",
@@ -32,6 +34,7 @@ const DOT_CLASSES: Record<BadgeTone, string> = {
   "track-a": "bg-sky-500",
   "track-b": "bg-violet-500",
 };
+const DOT_CLASSES = TONE_DOT_CLASSES;
 
 export function Badge({
   tone = "neutral",
@@ -44,7 +47,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${TONE_CLASSES[tone]}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${TONE_CLASSES[tone]}`}
     >
       {dot && <span className={`h-1.5 w-1.5 rounded-full ${DOT_CLASSES[tone]}`} />}
       {children}

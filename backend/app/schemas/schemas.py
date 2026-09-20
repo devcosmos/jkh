@@ -97,6 +97,7 @@ class RiskCaseOut(BaseModel):
     priority: str | None
     opened_at: dt.datetime
     closed_at: dt.datetime | None
+    latest_probability: float | None = None
 
 
 class DecisionIn(BaseModel):
@@ -126,7 +127,14 @@ class MaintenanceRequestOut(BaseModel):
     recommended_by: dt.datetime | None
     status: MaintenanceRequestStatus
     approved_by_user_id: int | None
+    approved_by_username: str | None = None
     approved_at: dt.datetime | None
+    created_at: dt.datetime
+    # Обогащение для страницы «Заявки» (какой канал/объект/направление стоит за заявкой,
+    # без необходимости отдельно открывать риск-кейс) — раздел «Заявки» админ-панели.
+    category: str | None = None
+    channel_label: str | None = None
+    object_name: str | None = None
 
 
 class TransitionIn(BaseModel):

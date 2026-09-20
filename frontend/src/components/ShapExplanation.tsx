@@ -36,7 +36,7 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
   const maxAbs = Math.max(...e.top_features.map((f) => Math.abs(f.contribution)), 0.0001);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {e.anomaly && (
         <div className="mb-1">
           {e.anomaly.is_outlier ? (
@@ -48,28 +48,32 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
       )}
       {e.top_features.map((f) => {
         const positive = f.contribution >= 0;
-        const width = Math.max((Math.abs(f.contribution) / maxAbs) * 100, 4);
+        const halfWidth = Math.max((Math.abs(f.contribution) / maxAbs) * 50, 3);
         return (
-          <div key={f.feature} className="flex items-center gap-3 text-sm">
-            <div className="w-40 shrink-0 truncate text-slate-600" title={f.label}>
-              {f.label}
+          <div key={f.feature}>
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-slate-700">{f.label}</span>
+              <span className="shrink-0 font-medium text-slate-500">{f.value}</span>
             </div>
-            <div className="flex h-2.5 flex-1 items-center">
-              <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={`absolute top-0 h-2.5 rounded-full ${positive ? "left-1/2 bg-orange-400" : "right-1/2 bg-sky-400"}`}
-                  style={{ width: `${width / 2}%` }}
-                />
-              </div>
+            <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
+              {/* Нулевая точка вклада — ориентир для «толкает к отказу / от отказа» */}
+              <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
+              <div
+                className={`absolute inset-y-0 rounded-full ${positive ? "bg-orange-400" : "bg-sky-400"}`}
+                style={
+                  positive
+                    ? { left: "50%", width: `${halfWidth}%` }
+                    : { right: "50%", width: `${halfWidth}%` }
+                }
+              />
             </div>
-            <div className="w-20 shrink-0 text-right text-xs text-slate-500">{f.value}</div>
           </div>
         );
       })}
-      <p className="pt-1 text-xs text-slate-400">
-        <span className="mr-1 inline-block h-2 w-2 rounded-full bg-orange-400" />
+      <p className="flex items-center gap-1 pt-1 text-xs text-slate-400">
+        <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />
         повышает риск отказа
-        <span className="mr-1 ml-3 inline-block h-2 w-2 rounded-full bg-sky-400" />
+        <span className="ml-3 inline-block h-2 w-2 rounded-full bg-sky-400" />
         снижает риск отказа
       </p>
     </div>

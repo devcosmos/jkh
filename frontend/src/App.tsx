@@ -10,6 +10,7 @@ import { ModelsPage } from "./pages/ModelsPage";
 import { RegistryPage } from "./pages/RegistryPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { UsersPage } from "./pages/UsersPage";
+import { HelpPage } from "./pages/HelpPage";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Администратор",
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { to: "/requests", label: "Заявки", icon: RequestsIcon },
   { to: "/models", label: "Модели", icon: ModelsIcon },
   { to: "/registry", label: "Объекты и каналы", icon: RegistryIcon },
+  { to: "/help", label: "Справка", icon: HelpIcon },
 ];
 
 const ADMIN_NAV_ITEMS = [
@@ -107,6 +109,7 @@ export function App() {
           <Route path="/requests" element={<RequestsPage />} />
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/registry" element={<RegistryPage />} />
+          <Route path="/help" element={<HelpPage />} />
           {role === "admin" && <Route path="/audit-log" element={<AuditLogPage />} />}
           {role === "admin" && <Route path="/users" element={<UsersPage />} />}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -226,6 +229,22 @@ function UsersIcon({ className }: { className?: string }) {
       <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       <circle cx="17.5" cy="8.5" r="2.3" stroke="currentColor" strokeWidth="1.7" />
       <path d="M15.5 14.2c2.4.3 4 2.1 4 4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function HelpIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M9.5 9.3a2.5 2.5 0 1 1 3.7 2.2c-.7.4-1.2.9-1.2 1.8v.4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M12 17h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   );
 }

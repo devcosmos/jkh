@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { useApi } from "../api/useApi";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { ShapExplanation } from "../components/ShapExplanation";
-import type { ChannelOut, DecisionAction, EpisodeOut, PredictionOut, RiskCaseOut } from "../api/types";
+import type { ChannelOut, DecisionAction, EpisodeOut, MaintenanceRequestOut, PredictionOut, RiskCaseOut } from "../api/types";
 
 const ACTIONS: { value: DecisionAction; label: string; primary?: boolean }[] = [
   { value: "dispatch", label: "Направить на проверку", primary: true },
@@ -24,6 +25,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
     () => api.get(`/predictions?channel_id=${riskCase.channel_id}&category=${riskCase.category}&limit=1`),
     [riskCase.channel_id, riskCase.category]
   );
+  const requestsForCase = useApi<MaintenanceRequestOut[]>(
+    () => api.get(`/maintenance-requests?risk_case_id=${riskCase.id}&limit=1`),
+    [riskCase.id]
+  );
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -38,6 +43,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       await api.post(`/risk-cases/${riskCase.id}/decisions`, { action, reason: reason || null });
       setReason("");
       setLastDecision(ACTIONS.find((a) => a.value === action)?.label ?? action);
+      requestsForCase.reload();
       onDecided();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
@@ -48,7 +54,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
 
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
         <h3 className="font-display text-base font-semibold text-slate-900">Риск-кейс #{riskCase.id}</h3>
         <div className="flex items-center gap-2">
           <Badge tone={RISK_STATUS_TONE[riskCase.status] ?? "neutral"} dot>
@@ -63,10 +69,30 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       </div>
 
       {lastDecision && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
-          <span>✓</span>
-          Решение сохранено: «{lastDecision}». Новый статус — «{RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
+          <span>
+            <span className="mr-1.5">✓</span>
+            Решение сохранено: «{lastDecision}». Новый статус — «{RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
+          </span>
+          {requestsForCase.data?.[0] && (
+            <Link
+              to={`/requests?risk_case_id=${riskCase.id}`}
+              className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100"
+            >
+              Смотреть заявку →
+            </Link>
+          )}
         </div>
+      )}
+
+      {!lastDecision && requestsForCase.data?.[0] && (
+        <Link
+          to={`/requests?risk_case_id=${riskCase.id}`}
+          className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600 hover:border-sky-300 hover:text-sky-700"
+        >
+          <span>По этому риск-кейсу уже есть заявка на обслуживание</span>
+          <span className="shrink-0 font-semibold">Смотреть →</span>
+        </Link>
       )}
 
       <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">

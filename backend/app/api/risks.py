@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -6,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
 from app.core.db import get_db
-from app.models.entities import AuditLog, Channel, Decision, RiskCase, User
+from app.models.entities import AuditLog, Channel, Decision, Prediction, RiskCase, User
 from app.models.enums import RiskCaseStatus, UserRole
 from app.schemas.schemas import DecisionIn, DecisionOut, RiskCaseOut
+from app.services.maintenance_requests import ensure_request_for_dispatch
 
 router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(get_current_user)])
 
@@ -17,12 +19,26 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
 def list_risk_cases(
     status_filter: RiskCaseStatus | None = Query(None, alias="status"),
     category: str | None = None,
+    sort_by: Literal["opened_at", "probability"] = "opened_at",
+    sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> list[RiskCase]:
-    stmt = select(RiskCase)
+) -> list[RiskCaseOut]:
+    # Вероятность последнего прогноза по риск-кейсу — не хранится на самом RiskCase (это
+    # неизменяемый журнал Prediction, раздел 9.2 плана), поэтому вычисляется здесь как
+    # коррелированный подзапрос, а не отдельным N+1 обращением на строку.
+    latest_probability = (
+        select(Prediction.probability)
+        .where(Prediction.risk_case_id == RiskCase.id)
+        .order_by(Prediction.created_at.desc())
+        .limit(1)
+        .correlate(RiskCase)
+        .scalar_subquery()
+    )
+
+    stmt = select(RiskCase, latest_probability.label("probability"))
     if status_filter:
         stmt = stmt.where(RiskCase.status == status_filter)
     if category:
@@ -32,8 +48,24 @@ def list_risk_cases(
         stmt = stmt.join(Channel, Channel.id == RiskCase.channel_id).where(
             Channel.object_id.in_(accessible)
         )
-    stmt = stmt.order_by(RiskCase.opened_at.desc())
-    return list(db.scalars(stmt.offset(offset).limit(limit)))
+
+    order_col = latest_probability if sort_by == "probability" else RiskCase.opened_at
+    stmt = stmt.order_by(order_col.desc() if sort_dir == "desc" else order_col.asc())
+
+    rows = db.execute(stmt.offset(offset).limit(limit)).all()
+    return [
+        RiskCaseOut(
+            id=rc.id,
+            channel_id=rc.channel_id,
+            category=rc.category,
+            status=rc.status,
+            priority=rc.priority,
+            opened_at=rc.opened_at,
+            closed_at=rc.closed_at,
+            latest_probability=proba,
+        )
+        for rc, proba in rows
+    ]
 
 
 @router.get("/{risk_case_id}", response_model=RiskCaseOut)
@@ -69,6 +101,10 @@ def add_decision(
         rc.closed_at = dt.datetime.now(dt.timezone.utc)
     elif payload.action.value == "dispatch":
         rc.status = RiskCaseStatus.dispatched
+        # Раньше решение диспетчера и заявка на обслуживание были не связаны — «направить на
+        # проверку» ничего не создавало в разделе «Заявки», если раньше не сработало
+        # авто-правило worker'а по порогу вероятности (см. docs/Статус.md). Идемпотентно.
+        ensure_request_for_dispatch(db, rc, rc.channel, user, payload.reason)
     elif payload.action.value == "observe":
         rc.status = RiskCaseStatus.observing
 

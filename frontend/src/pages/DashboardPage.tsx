@@ -1,10 +1,12 @@
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
-import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
-import { Badge } from "../components/Badge";
+import { CATEGORY_LABELS, categoryForSensorTypes, categoryTone } from "../api/categories";
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONE } from "../api/requestStatus";
+import { Badge, TONE_DOT_CLASSES } from "../components/Badge";
+import { BarList } from "../components/BarList";
 import { DataState } from "../components/DataState";
 import { StatTile } from "../components/StatTile";
-import type { DashboardSummary } from "../api/types";
+import type { DashboardSummary, MaintenanceRequestStatus } from "../api/types";
 
 export function DashboardPage() {
   const summary = useApi<DashboardSummary>(() => api.get("/dashboard/summary"), []);
@@ -41,81 +43,104 @@ export function DashboardPage() {
 
             <div className="grid gap-4 lg:grid-cols-2">
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">По направлениям</h2>
-                <div className="space-y-3">
+                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Риск-кейсы по направлениям</h2>
+                <BarList
+                  items={Object.entries(CATEGORY_LABELS).map(([key, label]) => ({
+                    key,
+                    label,
+                    value: summary.data!.risk_cases.by_category[key] ?? 0,
+                    colorClass: TONE_DOT_CLASSES[categoryTone(key)],
+                  }))}
+                />
+                <div className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
                   {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                    <div key={key} className="flex items-center justify-between text-sm">
-                      <Badge tone={categoryTone(key)}>{label}</Badge>
-                      <div className="flex items-center gap-4 text-slate-500">
-                        <span>
-                          риск-кейсов: <b className="text-slate-900">{summary.data!.risk_cases.by_category[key] ?? 0}</b>
-                        </span>
-                        <span>
-                          посл. прогноз:{" "}
-                          <b className="text-slate-900">
-                            {summary.data!.last_prediction_by_category[key]
-                              ? new Date(summary.data!.last_prediction_by_category[key]).toLocaleString("ru-RU")
-                              : "—"}
-                          </b>
-                        </span>
-                      </div>
+                    <div key={key} className="flex items-center justify-between">
+                      <span>{label} · последний прогноз</span>
+                      <span className="font-medium text-slate-700">
+                        {summary.data!.last_prediction_by_category[key]
+                          ? new Date(summary.data!.last_prediction_by_category[key]).toLocaleString("ru-RU")
+                          : "—"}
+                      </span>
                     </div>
                   ))}
                 </div>
               </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Заявки по статусу</h2>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(summary.data.requests.by_status).map(([status, count]) => (
-                    <Badge key={status} tone="neutral">
-                      {status}: {count}
-                    </Badge>
-                  ))}
-                  {Object.keys(summary.data.requests.by_status).length === 0 && (
-                    <span className="text-sm text-slate-400">Заявок нет</span>
-                  )}
-                </div>
+                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Открытые риски по приоритету</h2>
+                <BarList
+                  items={[
+                    {
+                      key: "high",
+                      label: "Высокий",
+                      value: summary.data.risk_cases.open_by_priority.high ?? 0,
+                      colorClass: TONE_DOT_CLASSES.critical,
+                    },
+                    {
+                      key: "medium",
+                      label: "Средний",
+                      value: summary.data.risk_cases.open_by_priority.medium ?? 0,
+                      colorClass: TONE_DOT_CLASSES.warning,
+                    },
+                  ]}
+                  emptyText="Открытых рисков нет"
+                />
               </section>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Топ объектов по риску</h2>
-                {summary.data.top_objects.length === 0 ? (
-                  <p className="text-sm text-slate-400">Открытых рисков нет</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {summary.data.top_objects.map((o) => (
-                      <li key={o.object_id} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-700">{o.name}</span>
-                        <Badge tone="warning">{o.open_risk_count}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Заявки по статусу</h2>
+                <BarList
+                  items={Object.entries(summary.data.requests.by_status).map(([status, count]) => ({
+                    key: status,
+                    label: REQUEST_STATUS_LABELS[status as MaintenanceRequestStatus] ?? status,
+                    value: count,
+                    colorClass: TONE_DOT_CLASSES[REQUEST_STATUS_TONE[status as MaintenanceRequestStatus] ?? "neutral"],
+                  }))}
+                  emptyText="Заявок нет"
+                />
               </section>
 
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Активные модели</h2>
-                <div className="space-y-3">
-                  {summary.data.models.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between text-sm">
-                      <div>
-                        <div className="font-medium text-slate-900">{m.name}</div>
-                        <div className="text-xs text-slate-500">
-                          порог {m.threshold?.toFixed(2)} · ROC-AUC{" "}
-                          {m.roc_auc_test != null ? m.roc_auc_test.toFixed(2) : "—"}
-                        </div>
-                      </div>
-                      <Badge tone={m.target_met ? "good" : "warning"}>
-                        {m.target_met ? "Цель достигнута" : "Ниже плановой цели"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Топ объектов по риску</h2>
+                <BarList
+                  items={summary.data.top_objects.map((o) => ({
+                    key: String(o.object_id),
+                    label: o.name,
+                    value: o.open_risk_count,
+                  }))}
+                  emptyText="Открытых рисков нет"
+                />
               </section>
             </div>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Качество моделей (ROC-AUC на test)</h2>
+              <BarList
+                items={summary.data.models.map((m) => {
+                  const category = categoryForSensorTypes(m.sensor_types);
+                  return {
+                    key: String(m.id),
+                    label: CATEGORY_LABELS[category],
+                    value: m.roc_auc_test ?? 0,
+                    colorClass: TONE_DOT_CLASSES[categoryTone(category)],
+                  };
+                })}
+                formatValue={(v) => v.toFixed(2)}
+              />
+              <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-3">
+                {summary.data.models.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className="font-medium text-slate-700">{m.name}</span>
+                    <span>порог {m.threshold?.toFixed(2)}</span>
+                    <Badge tone={m.target_met ? "good" : "warning"}>
+                      {m.target_met ? "Цель достигнута" : "Ниже плановой цели"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         )}
       </DataState>

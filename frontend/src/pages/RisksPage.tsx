@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
@@ -11,28 +12,60 @@ import { StatTile } from "../components/StatTile";
 import { RiskCard } from "./RiskCard";
 import type { ObjectsTreeResponse, RiskCaseOut } from "../api/types";
 
+type SortKey = "probability" | "opened_at";
+type SortDir = "asc" | "desc";
+
 export function RisksPage() {
+  const [searchParams] = useSearchParams();
+  const deepLinkRiskCaseId = searchParams.get("risk_case_id");
   const [view, setView] = useState<"list" | "scheme">("list");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortKey>("probability");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RiskCaseOut | null>(null);
+  const initialSelectionDone = useRef(false);
 
   const risks = useApi<RiskCaseOut[]>(() => {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
     if (categoryFilter) params.set("category", categoryFilter);
-    const qs = params.toString();
-    return api.get(`/risk-cases${qs ? `?${qs}` : ""}`);
-  }, [statusFilter, categoryFilter]);
+    params.set("sort_by", sortBy);
+    params.set("sort_dir", sortDir);
+    return api.get(`/risk-cases?${params.toString()}`);
+  }, [statusFilter, categoryFilter, sortBy, sortDir]);
   const tree = useApi<ObjectsTreeResponse>(() => api.get("/objects/tree"), []);
 
-  // После решения диспетчера риск-кейс перезагружается со свежим статусом — без этого
-  // карточка справа продолжала бы показывать старый статус, будто решение никуда не делось.
+  // Всегда что-то выбрано, если в выборке есть хоть один риск-кейс: при первой загрузке,
+  // после смены фильтра/сортировки (когда старый выбор мог выпасть из выборки) — берём первую
+  // строку текущей сортировки. Если выбранный кейс остался в выборке, просто обновляем его
+  // данными (после решения диспетчера статус должен смениться, а не остаться старым).
+  //
+  // Сквозная ссылка из «Заявок» (?risk_case_id=) обрабатывается один раз при самой первой
+  // загрузке выборки — грузим конкретный риск-кейс напрямую по ID, он может не входить в
+  // текущую страницу/фильтр/сортировку списка.
   useEffect(() => {
-    if (!selected || !risks.data) return;
-    const updated = risks.data.find((r) => r.id === selected.id);
-    if (updated && updated !== selected) setSelected(updated);
-  }, [risks.data]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!risks.data) return;
+
+    if (!initialSelectionDone.current) {
+      initialSelectionDone.current = true;
+      if (deepLinkRiskCaseId) {
+        api
+          .get<RiskCaseOut>(`/risk-cases/${deepLinkRiskCaseId}`)
+          .then(setSelected)
+          .catch(() => setSelected(risks.data![0] ?? null));
+        return;
+      }
+    }
+
+    const stillPresent = selected && risks.data.find((r) => r.id === selected.id);
+    if (stillPresent) {
+      if (stillPresent !== selected) setSelected(stillPresent);
+      return;
+    }
+    setSelected(risks.data[0] ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [risks.data]);
 
   const stats = useMemo(() => {
     const data = risks.data ?? [];
@@ -44,12 +77,23 @@ export function RisksPage() {
     };
   }, [risks.data]);
 
+  function toggleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortBy(key);
+      setSortDir("desc");
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-7xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Риски</h1>
-          <p className="mt-1 text-sm text-slate-500">Прогнозы отказов датчиков по обоим направлениям</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Прогнозы отказов датчиков по обоим направлениям — нажмите на строку, чтобы принять решение
+          </p>
         </div>
         <button
           onClick={risks.reload}
@@ -113,16 +157,18 @@ export function RisksPage() {
               empty={!risks.data?.length}
               emptyText="Активных рисков нет"
             >
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-3">ID</th>
-                      <th className="px-4 py-3">Канал</th>
-                      <th className="px-4 py-3">Направление</th>
-                      <th className="px-4 py-3">Статус</th>
-                      <th className="px-4 py-3">Приоритет</th>
-                      <th className="px-4 py-3">Открыт</th>
+                      <th className="px-4 py-3 whitespace-nowrap">ID</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Канал</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Направление</th>
+                      <SortableTh label="Вероятность отказа" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <th className="px-4 py-3 whitespace-nowrap">Статус</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
+                      <SortableTh label="Открыт" sortKey="opened_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody>
@@ -134,17 +180,20 @@ export function RisksPage() {
                           r.id === selected?.id ? "bg-sky-50/70 hover:bg-sky-50/70" : ""
                         }`}
                       >
-                        <td className="px-4 py-3 font-medium text-slate-400">#{r.id}</td>
-                        <td className="px-4 py-3 font-medium text-slate-900">{r.channel_id}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
+                        <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{r.channel_id}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <Badge tone={categoryTone(r.category)}>{categoryLabel(r.category)}</Badge>
                         </td>
                         <td className="px-4 py-3">
+                          <ProbabilityCell probability={r.latest_probability} tone={riskPriorityTone(r.priority)} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <Badge tone={RISK_STATUS_TONE[r.status] ?? "neutral"} dot>
                             {RISK_STATUS_LABELS[r.status] ?? r.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {r.priority ? (
                             <Badge tone={riskPriorityTone(r.priority)}>
                               {r.priority === "high" ? "Высокий" : "Средний"}
@@ -153,8 +202,11 @@ export function RisksPage() {
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-500">
                           {new Date(r.opened_at).toLocaleString("ru-RU")}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          <ChevronIcon className="h-4 w-4" />
                         </td>
                       </tr>
                     ))}
@@ -183,13 +235,63 @@ export function RisksPage() {
           )}
         </div>
 
-        {selected && (
-          <div className="w-96 shrink-0">
+        <div className="w-120 shrink-0">
+          {selected ? (
             <RiskCard key={selected.id} riskCase={selected} onDecided={() => risks.reload()} />
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+              <PointerIcon className="h-8 w-8 text-slate-300" />
+              <p className="text-sm text-slate-500">
+                Выберите риск-кейс в таблице слева, чтобы увидеть, почему сработал прогноз, и принять решение
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function ProbabilityCell({ probability, tone }: { probability: number | null; tone: ReturnType<typeof riskPriorityTone> }) {
+  if (probability == null) return <span className="text-slate-400">—</span>;
+  const pct = Math.round(probability * 100);
+  const barColor = tone === "critical" ? "bg-[#d03b3b]" : tone === "warning" ? "bg-[#fab219]" : "bg-slate-400";
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="w-10 shrink-0 font-semibold text-slate-900">{pct}%</span>
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  sortBy,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sortBy: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortBy === sortKey;
+  return (
+    <th className="px-4 py-3 whitespace-nowrap">
+      <button
+        onClick={() => onSort(sortKey)}
+        className={`flex items-center gap-1 uppercase tracking-wide transition-colors ${
+          active ? "text-slate-900" : "text-slate-500 hover:text-slate-700"
+        }`}
+      >
+        {label}
+        <span className={`text-[10px] ${active ? "opacity-100" : "opacity-30"}`}>{sortDir === "desc" ? "▼" : "▲"}</span>
+      </button>
+    </th>
   );
 }
 
@@ -202,6 +304,28 @@ function RefreshIcon({ className }: { className?: string }) {
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PointerIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M6 3.5 18 12l-5.2 1.3L11 19 6 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
       />
     </svg>
   );

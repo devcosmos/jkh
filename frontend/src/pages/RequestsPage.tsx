@@ -1,28 +1,13 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { categoryLabel, categoryTone } from "../api/categories";
+import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { Select } from "../components/Select";
 import type { MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
-
-const STATUS_LABELS: Record<MaintenanceRequestStatus, string> = {
-  draft: "Черновик",
-  approved: "Утверждена",
-  in_progress: "В работе",
-  completed: "Выполнена",
-  rejected: "Отклонена",
-  cancelled: "Отменена",
-};
-
-const STATUS_TONE: Record<MaintenanceRequestStatus, "neutral" | "warning" | "good"> = {
-  draft: "warning",
-  approved: "neutral",
-  in_progress: "neutral",
-  completed: "good",
-  rejected: "neutral",
-  cancelled: "neutral",
-};
 
 // Разрешённые переходы — зеркало ALLOWED_TRANSITIONS на backend (раздел 10 плана).
 const NEXT_STATUSES: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
@@ -34,14 +19,25 @@ const NEXT_STATUSES: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]
   cancelled: [],
 };
 
+// Линейный «счастливый путь» — для наглядного степпера «что было / что будет». reject/cancel
+// прерывают его на неизвестном для нас шаге (без полного audit-log это было бы выдумкой),
+// поэтому для них степпер не рисуется — только терминальный статус-бейдж.
+const HAPPY_PATH: MaintenanceRequestStatus[] = ["draft", "approved", "in_progress", "completed"];
+
 export function RequestsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const riskCaseFilter = searchParams.get("risk_case_id");
   const [statusFilter, setStatusFilter] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const requests = useApi<MaintenanceRequestOut[]>(
-    () => api.get(`/maintenance-requests${statusFilter ? `?status=${statusFilter}` : ""}`),
-    [statusFilter]
-  );
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const requests = useApi<MaintenanceRequestOut[]>(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (riskCaseFilter) params.set("risk_case_id", riskCaseFilter);
+    return api.get(`/maintenance-requests?${params.toString()}`);
+  }, [statusFilter, riskCaseFilter]);
 
   async function transition(id: number, to: MaintenanceRequestStatus) {
     setBusyId(id);
@@ -60,12 +56,20 @@ export function RequestsPage() {
     }
   }
 
+  function clearRiskCaseFilter() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("risk_case_id");
+    setSearchParams(next);
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Заявки на обслуживание</h1>
-          <p className="mt-1 text-sm text-slate-500">Автоматические черновики и решения диспетчера</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Автоматические черновики и решения диспетчера — нажмите на строку, чтобы увидеть полное обоснование
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -85,6 +89,20 @@ export function RequestsPage() {
         </div>
       </div>
 
+      {riskCaseFilter && (
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
+          <span>
+            Показаны заявки только по риск-кейсу{" "}
+            <Link to={`/risks?risk_case_id=${riskCaseFilter}`} className="font-semibold underline">
+              #{riskCaseFilter}
+            </Link>
+          </span>
+          <button onClick={clearRiskCaseFilter} className="font-medium text-sky-700 hover:text-sky-900">
+            Показать все заявки ×
+          </button>
+        </div>
+      )}
+
       {actionError && (
         <div className="mb-4 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">
           {actionError}
@@ -97,63 +115,171 @@ export function RequestsPage() {
         empty={!requests.data?.length}
         emptyText="Заявок нет с учётом фильтра"
       >
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Риск-кейс</th>
-                <th className="px-4 py-3">Вид работы</th>
-                <th className="px-4 py-3">Приоритет</th>
-                <th className="px-4 py-3">Статус</th>
-                <th className="px-4 py-3">Срок</th>
-                <th className="px-4 py-3">Действия</th>
+                <th className="px-4 py-3 whitespace-nowrap">ID</th>
+                <th className="px-4 py-3 whitespace-nowrap">Объект / канал</th>
+                <th className="px-4 py-3 whitespace-nowrap">Риск-кейс</th>
+                <th className="px-4 py-3 whitespace-nowrap">Вид работы</th>
+                <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
+                <th className="px-4 py-3 whitespace-nowrap">Статус</th>
+                <th className="px-4 py-3 whitespace-nowrap">Создана</th>
+                <th className="px-4 py-3 whitespace-nowrap">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {requests.data?.map((r) => (
-                <tr key={r.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-slate-400">#{r.id}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.risk_case_id}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{r.work_type}</td>
-                  <td className="px-4 py-3">
-                    {r.priority ? (
-                      <Badge tone={riskPriorityTone(r.priority)}>
-                        {r.priority === "high" ? "Высокий" : "Средний"}
-                      </Badge>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={STATUS_TONE[r.status]} dot>
-                      {STATUS_LABELS[r.status]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {r.recommended_by ? new Date(r.recommended_by).toLocaleDateString("ru-RU") : "не назначен"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {NEXT_STATUSES[r.status].map((next) => (
-                        <button
-                          key={next}
-                          disabled={busyId === r.id}
-                          onClick={() => transition(r.id, next)}
-                          className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+              {requests.data?.map((r) => {
+                const expanded = expandedId === r.id;
+                return (
+                  <Fragment key={r.id}>
+                    <tr
+                      onClick={() => setExpandedId(expanded ? null : r.id)}
+                      className={`cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50 ${
+                        expanded ? "bg-slate-50" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium whitespace-nowrap text-slate-900">
+                          {r.object_name ?? "объект не определён"}
+                        </div>
+                        <div className="text-xs whitespace-nowrap text-slate-500">
+                          {r.channel_label ?? `канал #${r.risk_case_id}`}
+                          {r.category && (
+                            <span className="ml-1.5">
+                              <Badge tone={categoryTone(r.category)}>{categoryLabel(r.category)}</Badge>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <Link
+                          to={`/risks?risk_case_id=${r.risk_case_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-sky-700 hover:underline"
                         >
-                          {STATUS_LABELS[next]}
-                        </button>
-                      ))}
-                      {NEXT_STATUSES[r.status].length === 0 && <span className="text-slate-400">—</span>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                          #{r.risk_case_id}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{r.work_type}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {r.priority ? (
+                          <Badge tone={riskPriorityTone(r.priority)}>
+                            {r.priority === "high" ? "Высокий" : "Средний"}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <Badge tone={STATUS_TONE[r.status]} dot>
+                          {STATUS_LABELS[r.status]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                        {new Date(r.created_at).toLocaleString("ru-RU")}
+                      </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-1.5">
+                          {NEXT_STATUSES[r.status].map((next) => (
+                            <button
+                              key={next}
+                              disabled={busyId === r.id}
+                              onClick={() => transition(r.id, next)}
+                              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {STATUS_LABELS[next]}
+                            </button>
+                          ))}
+                          {NEXT_STATUSES[r.status].length === 0 && <span className="text-slate-400">—</span>}
+                        </div>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
+                        <td colSpan={8} className="px-4 py-4">
+                          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_18rem]">
+                            <div>
+                              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Обоснование
+                              </div>
+                              <p className="whitespace-pre-line text-sm text-slate-700">
+                                {r.justification ?? "Обоснование не указано"}
+                              </p>
+                            </div>
+                            <div>
+                              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Ход выполнения
+                              </div>
+                              <RequestTimeline request={r} />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </DataState>
+    </div>
+  );
+}
+
+function RequestTimeline({ request }: { request: MaintenanceRequestOut }) {
+  const isStopped = request.status === "rejected" || request.status === "cancelled";
+
+  if (isStopped) {
+    return (
+      <div className="space-y-1.5 text-sm">
+        <div className="flex justify-between text-slate-500">
+          <span>Создана</span>
+          <span className="font-medium text-slate-700">{new Date(request.created_at).toLocaleString("ru-RU")}</span>
+        </div>
+        <Badge tone={STATUS_TONE[request.status]}>{STATUS_LABELS[request.status]}</Badge>
+      </div>
+    );
+  }
+
+  const currentIndex = HAPPY_PATH.indexOf(request.status);
+  return (
+    <div>
+      <ol className="space-y-2">
+        {HAPPY_PATH.map((stage, i) => {
+          const reached = i <= currentIndex;
+          const isCurrent = i === currentIndex;
+          return (
+            <li key={stage} className="flex items-center gap-2 text-sm">
+              <span
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
+                  reached ? "bg-sky-500" : "border border-slate-300 bg-white"
+                }`}
+              >
+                {reached && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </span>
+              <span className={isCurrent ? "font-semibold text-slate-900" : reached ? "text-slate-700" : "text-slate-400"}>
+                {STATUS_LABELS[stage]}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs text-slate-500">
+        <div className="flex justify-between">
+          <span>Создана</span>
+          <span className="font-medium text-slate-700">{new Date(request.created_at).toLocaleString("ru-RU")}</span>
+        </div>
+        {request.approved_at && (
+          <div className="flex justify-between">
+            <span>Утверждена{request.approved_by_username ? ` (${request.approved_by_username})` : ""}</span>
+            <span className="font-medium text-slate-700">{new Date(request.approved_at).toLocaleString("ru-RU")}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
