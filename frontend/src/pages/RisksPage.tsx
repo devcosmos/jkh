@@ -305,7 +305,7 @@ export function RisksPage() {
                         key={r.id}
                         onClick={() => setSelected(r)}
                         className={`cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50 ${
-                          r.id === selected?.id ? "bg-sky-50/70 hover:bg-sky-50/70" : ""
+                          r.id === selected?.id ? "bg-sky-100 hover:bg-sky-100" : ""
                         }`}
                       >
                         <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
@@ -339,8 +339,8 @@ export function RisksPage() {
                           <div>{new Date(r.opened_at).toLocaleDateString("ru-RU")}</div>
                           <div className="text-slate-400">{new Date(r.opened_at).toLocaleTimeString("ru-RU")}</div>
                         </td>
-                        <td className="px-4 py-3 text-slate-300">
-                          <ChevronIcon className="h-4 w-4" />
+                        <td className="px-4 py-3 text-slate-400">
+                          <ChevronIcon className="h-5 w-5" strokeWidth={2.6} />
                         </td>
                       </tr>
                     ))}
@@ -396,13 +396,29 @@ export function RisksPage() {
 function ProbabilityCell({ probability, tone }: { probability: number | null; tone: ReturnType<typeof riskPriorityTone> }) {
   if (probability == null) return <span className="text-slate-400">—</span>;
   const pct = Math.round(probability * 100);
-  const barColor = tone === "critical" ? "bg-[#d03b3b]" : tone === "warning" ? "bg-[#fab219]" : "bg-slate-400";
+  const color = tone === "critical" ? "#d03b3b" : tone === "warning" ? "#fab219" : "#94a3b8";
+  const size = 44;
+  const stroke = 4;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - pct / 100);
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="w-10 shrink-0 font-semibold text-slate-900">{pct}%</span>
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
-      </div>
+    <div className="relative shrink-0" style={{ width: size, height: size }} title={`${pct}% вероятность отказа`}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-900">{pct}</span>
     </div>
   );
 }
@@ -459,10 +475,10 @@ function RefreshIcon({ className }: { className?: string }) {
   );
 }
 
-function ChevronIcon({ className }: { className?: string }) {
+function ChevronIcon({ className, strokeWidth = 1.8 }: { className?: string; strokeWidth?: number }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

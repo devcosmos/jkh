@@ -182,7 +182,6 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
           <span>понижает риск отказа</span>
           <span>повышает риск отказа</span>
         </div>
-        <p className="mt-1 text-sm text-slate-300">Чем темнее полоса — тем сильнее отклонение от нормы</p>
       </div>
     </div>
   );

@@ -110,7 +110,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       {!lastDecision && requestsForCase.data?.[0] && (
         <Link
           to={`/requests?risk_case_id=${riskCase.id}`}
-          className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600 hover:border-sky-300 hover:text-sky-700"
+          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 hover:border-sky-300 hover:text-sky-700"
         >
           <span>По этому риск-кейсу уже есть заявка на обслуживание</span>
           <span className="shrink-0 font-semibold">Смотреть →</span>
