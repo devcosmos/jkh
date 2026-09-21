@@ -10,7 +10,7 @@ const TOAST_TTL_MS = 12_000;
  * реального времени». Организаторы подтвердили (тема 13 CSV), что периодический опрос
  * вместо push/WebSocket допустим, «если удобно и не замедляет систему» — поэтому здесь
  * лёгкий поллинг новых критических риск-кейсов, а не отдельная инфраструктура сокетов. */
-export function useCriticalRiskCount(enabled: boolean): number | null {
+export function useOpenRiskCount(enabled: boolean): number | null {
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
     if (!enabled) return;
@@ -18,7 +18,7 @@ export function useCriticalRiskCount(enabled: boolean): number | null {
     async function poll() {
       try {
         const { total } = await api.getPage<RiskCaseOut>(
-          "/risk-cases?status=new&priority=high&limit=1"
+          "/risk-cases?status=new&limit=1"
         );
         if (!cancelled) setCount(total ?? 0);
       } catch {

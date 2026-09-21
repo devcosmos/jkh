@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from "react";
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import { clearSession, getRole, getToken } from "./api/client";
-import { RiskAlerts, useCriticalRiskCount } from "./components/RiskAlerts";
+import { RiskAlerts, useOpenRiskCount } from "./components/RiskAlerts";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { RisksPage } from "./pages/RisksPage";
@@ -39,7 +39,7 @@ const ADMIN_NAV_ITEMS = [
 export function App() {
   const [authed, setAuthed] = useState(!!getToken());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const criticalCount = useCriticalRiskCount(authed);
+  const openRiskCount = useOpenRiskCount(authed);
 
   if (!authed) {
     return <LoginPage onLoggedIn={() => setAuthed(true)} />;
@@ -90,7 +90,7 @@ export function App() {
             <NavItemLink
               key={item.to}
               {...item}
-              badge={item.to === "/risks" ? criticalCount : undefined}
+              badge={item.to === "/risks" ? openRiskCount : undefined}
               onNavigate={() => setMobileNavOpen(false)}
             />
           ))}
