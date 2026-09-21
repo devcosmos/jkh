@@ -23,6 +23,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     JSON,
     String,
@@ -140,12 +141,15 @@ class RiskCase(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
     category: Mapped[str] = mapped_column(String(64), default="sensor_failure")
-    status: Mapped[RiskCaseStatus] = mapped_column(Enum(RiskCaseStatus), default=RiskCaseStatus.new)
+    # index=True на status/opened_at/closed_at — без них /dashboard/summary и /risk-cases на
+    # выросшей за время работы воркера таблице (120k+ строк) делают full scan (см.
+    # docs/Статус.md, инцидент 21 сентября 2026: /dashboard/summary — 16.7 сек).
+    status: Mapped[RiskCaseStatus] = mapped_column(Enum(RiskCaseStatus), default=RiskCaseStatus.new, index=True)
     priority: Mapped[str | None] = mapped_column(String(32))
     opened_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc)
+        DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc), index=True
     )
-    closed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     channel: Mapped[Channel] = relationship()
     predictions: Mapped[list["Prediction"]] = relationship(back_populates="risk_case")
@@ -155,6 +159,13 @@ class RiskCase(Base, TimestampMixin):
 
 class Prediction(Base, TimestampMixin):
     __tablename__ = "predictions"
+    __table_args__ = (
+        # Обслуживает паттерн "последний прогноз по риск-кейсу" (risks.py: latest_probability,
+        # dashboard.py: open_with_anomaly) без сортировки всех прогнозов кейса в памяти —
+        # см. миграцию a1b2c3d4e5f6 и docs/Статус.md, инцидент 21 сентября 2026.
+        Index("ix_predictions_risk_case_id_created_at", "risk_case_id", "created_at"),
+        Index("ix_predictions_category_created_at", "category", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
@@ -167,6 +178,12 @@ class Prediction(Base, TimestampMixin):
     threshold_used: Mapped[float | None] = mapped_column(Float)
     explanation: Mapped[dict | None] = mapped_column(JSON)
     data_quality_flag: Mapped[str | None] = mapped_column(String(32))  # ok / stale / insufficient
+    # Переопределяет TimestampMixin.created_at только для этой таблицы — добавляет index=True
+    # (сама таблица растёт на порядки быстрее остальных: 8.7M+ строк, ORDER BY/MAX по
+    # created_at без индекса — full scan, см. docs/Статус.md, инцидент 21 сентября 2026).
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc), index=True
+    )
 
     channel: Mapped[Channel] = relationship()
     risk_case: Mapped[RiskCase | None] = relationship(back_populates="predictions")

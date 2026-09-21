@@ -170,3 +170,49 @@ def test_dashboard_summary_daily_volume_counts_opened_and_closed(client, db_sess
     row = next(x for x in r.json()["daily_volume"] if x["date"] == "2026-05-01")
     assert row["opened"] == 1
     assert row["closed"] == 1
+
+
+def test_dashboard_summary_anomaly_reflects_only_latest_prediction(client, db_session, auth_headers):
+    """Если старый прогноз был аномальным, а последний — нет, кейс не должен считаться
+    аномальным сейчас (важно текущее состояние, не вся история — см. docs/Статус.md,
+    инцидент 21 сентября 2026 про этот же запрос)."""
+    obj = Object(name="Объект с устаревшей аномалией")
+    db_session.add(obj)
+    db_session.flush()
+    channel = Channel(external_channel_id=5401, sensor_type="Состояние насоса", object_id=obj.id)
+    db_session.add(channel)
+    db_session.flush()
+    rc = RiskCase(
+        channel_id=channel.id, status=RiskCaseStatus.new, priority="high",
+        category="sensor_failure_pump_fan", opened_at=dt.datetime.now(dt.timezone.utc),
+    )
+    db_session.add(rc)
+    db_session.flush()
+    mv = ModelVersion(
+        name="test", sensor_types="Состояние насоса", trained_at=dt.datetime.now(dt.timezone.utc),
+        train_period_start=dt.datetime.now(dt.timezone.utc), train_period_end=dt.datetime.now(dt.timezone.utc),
+        is_active=True,
+    )
+    db_session.add(mv)
+    db_session.flush()
+    base = dt.datetime.now(dt.timezone.utc)
+    db_session.add(
+        Prediction(
+            channel_id=channel.id, risk_case_id=rc.id, model_version_id=mv.id,
+            category="sensor_failure_pump_fan", probability=0.9,
+            window_start=base, window_end=base, created_at=base,
+            explanation={"anomaly": {"method": "isolation_forest", "score": -0.1, "is_outlier": True}},
+        )
+    )
+    db_session.add(
+        Prediction(
+            channel_id=channel.id, risk_case_id=rc.id, model_version_id=mv.id,
+            category="sensor_failure_pump_fan", probability=0.6,
+            window_start=base, window_end=base, created_at=base + dt.timedelta(hours=1),
+            explanation={"anomaly": {"method": "isolation_forest", "score": 0.2, "is_outlier": False}},
+        )
+    )
+    db_session.commit()
+
+    r = client.get("/api/dashboard/summary", headers=auth_headers(UserRole.dispatcher))
+    assert r.json()["risk_cases"]["open_with_anomaly"] == 0

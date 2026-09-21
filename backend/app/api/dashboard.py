@@ -80,13 +80,27 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
         for oid, name, n in db.execute(top_objects_stmt).all()
     ]
 
-    # Открытые риск-кейсы, чей последний прогноз независимая модель (IsolationForest,
+    # Открытые риск-кейсы, чей ПОСЛЕДНИЙ прогноз независимая модель (IsolationForest,
     # scripts/train_anomaly_model.py) пометила как аномальный — раздел «модели» админ-панели.
+    # Смотрим только на последний прогноз каждого кейса (не «был ли аномальным хоть один из
+    # всех прогнозов когда-либо») — иначе и семантически неверно (важно текущее состояние,
+    # не вся история), и на выросшей таблице (10M+ строк) join по ВСЕМ прогнозам каждого
+    # кейса с JSONB-фильтром на каждой строке — full nested loop, ~1.2 сек даже с индексами
+    # (см. docs/Статус.md, инцидент 21 сентября 2026). Через «последний прогноз» —
+    # ровно одна JSONB-проверка на кейс.
+    latest_prediction_id = (
+        select(Prediction.id)
+        .where(Prediction.risk_case_id == RiskCase.id)
+        .order_by(Prediction.created_at.desc())
+        .limit(1)
+        .correlate(RiskCase)
+        .scalar_subquery()
+    )
     anomaly_flag = cast(Prediction.explanation, JSONB)["anomaly"]["is_outlier"].astext == "true"
     anomaly_stmt = (
-        select(func.count(func.distinct(RiskCase.id)))
+        select(func.count())
         .select_from(RiskCase)
-        .join(Prediction, Prediction.risk_case_id == RiskCase.id)
+        .join(Prediction, Prediction.id == latest_prediction_id)
         .where(RiskCase.status.in_(_OPEN_STATUSES), anomaly_flag)
     )
     if accessible is not None:
@@ -94,11 +108,14 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
     open_with_anomaly = db.scalar(anomaly_stmt) or 0
 
     models = list(db.scalars(select(ModelVersion).where(ModelVersion.is_active.is_(True))))
-    last_prediction_by_category = dict(
-        db.execute(
-            select(Prediction.category, func.max(Prediction.created_at)).group_by(Prediction.category)
-        ).all()
-    )
+    # По одному запросу на направление (их всего 2 — из уже посчитанного risk_by_category),
+    # а не GROUP BY category по всей таблице: Postgres не умеет loose index scan, поэтому
+    # общий GROUP BY по 10M+ строкам делал full scan (~1.4 сек), а точечный max(created_at)
+    # WHERE category = X с индексом (category, created_at) — Index Scan Backward + LIMIT 1.
+    last_prediction_by_category = {
+        category: db.scalar(select(func.max(Prediction.created_at)).where(Prediction.category == category))
+        for category in risk_by_category
+    }
 
     # Индикатор живости воркера: replay_state.updated_at обновляется на каждом тике
     # (backend/app/workers/replay_worker.py) — не выдуманный «онлайн»-статус, а реальная
@@ -116,26 +133,48 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
         }
 
     # Опережает ли автозакрытие приток новых риск-кейсов — раздел «Обзор»: сколько кейсов
-    # открывается и закрывается по дням (последние 30 дней виртуального времени данных).
-    # Не «сколько сейчас открыто на дату X» (это потребовало бы дорогой посуточной
-    # реконструкции снимков), а темп потока — если закрытий примерно столько же, сколько
-    # открытий, очередь не растёт бесконтрольно.
-    opened_stmt = select(func.date_trunc("day", RiskCase.opened_at).label("day"), func.count()).group_by("day")
-    closed_stmt = (
-        select(func.date_trunc("day", RiskCase.closed_at).label("day"), func.count())
-        .where(RiskCase.closed_at.is_not(None))
-        .group_by("day")
-    )
+    # открывается и закрывается по дням (последние 30 дней данных). Не «сколько сейчас
+    # открыто на дату X» (это потребовало бы дорогой посуточной реконструкции снимков), а
+    # темп потока — если закрытий примерно столько же, сколько открытий, очередь не растёт
+    # бесконтрольно.
+    #
+    # Точка отсчёта — max(opened_at) в самих данных, не datetime.now(): на выросшей таблице
+    # (120k+ строк, часть дат виртуальная/историческая) агрегация БЕЗ границы по времени —
+    # full scan всей таблицы (см. docs/Статус.md, инцидент 21 сентября 2026: /dashboard/summary
+    # — 16.7 сек на проде). Граница отсекает 99%+ строк ДО group by, а не после.
+    anchor_stmt = select(func.max(RiskCase.opened_at))
     if accessible is not None:
-        opened_stmt = opened_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
-        closed_stmt = closed_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
-    opened_by_day = dict(db.execute(opened_stmt).all())
-    closed_by_day = dict(db.execute(closed_stmt).all())
-    all_days = sorted(set(opened_by_day) | set(closed_by_day))[-_DAILY_VOLUME_DAYS:]
-    daily_volume = [
-        {"date": day.date().isoformat(), "opened": opened_by_day.get(day, 0), "closed": closed_by_day.get(day, 0)}
-        for day in all_days
-    ]
+        anchor_stmt = anchor_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
+    anchor = db.scalar(anchor_stmt)
+
+    if anchor is None:
+        daily_volume = []
+    else:
+        window_start = anchor - dt.timedelta(days=_DAILY_VOLUME_DAYS + 1)
+        opened_stmt = (
+            select(func.date_trunc("day", RiskCase.opened_at).label("day"), func.count())
+            .where(RiskCase.opened_at >= window_start)
+            .group_by("day")
+        )
+        closed_stmt = (
+            select(func.date_trunc("day", RiskCase.closed_at).label("day"), func.count())
+            .where(RiskCase.closed_at >= window_start)
+            .group_by("day")
+        )
+        if accessible is not None:
+            opened_stmt = opened_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
+            closed_stmt = closed_stmt.where(RiskCase.channel_id.in_(accessible_channel_ids))
+        opened_by_day = dict(db.execute(opened_stmt).all())
+        closed_by_day = dict(db.execute(closed_stmt).all())
+        all_days = sorted(set(opened_by_day) | set(closed_by_day))[-_DAILY_VOLUME_DAYS:]
+        daily_volume = [
+            {
+                "date": day.date().isoformat(),
+                "opened": opened_by_day.get(day, 0),
+                "closed": closed_by_day.get(day, 0),
+            }
+            for day in all_days
+        ]
 
     return {
         "risk_cases": {
