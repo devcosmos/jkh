@@ -18,6 +18,10 @@ services:
     environment:
       JKH_DATABASE_URL: postgresql+psycopg://jkh:${POSTGRES_PASSWORD:-jkh}@db:5432/jkh
       JKH_JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-only-change-me}
+      # Тот же интервал, что у worker (ниже) — используется только для порога "воркер не
+      # отвечает" на /dashboard/summary (app/api/dashboard.py), не для собственной работы
+      # backend. Должны совпадать, иначе индикатор живости врёт.
+      REPLAY_SLEEP_SECONDS: ${REPLAY_SLEEP_SECONDS:-2}
     depends_on:
       db:
         condition: service_healthy

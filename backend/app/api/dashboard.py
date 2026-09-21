@@ -1,4 +1,5 @@
 import datetime as dt
+import os
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import cast, func, select
@@ -26,7 +27,14 @@ _TOP_WORSENING_LIMIT = 5
 router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
 
 _OPEN_STATUSES = (RiskCaseStatus.new, RiskCaseStatus.observing, RiskCaseStatus.dispatched)
-_WORKER_STALE_AFTER_SECONDS = 300
+# Раньше был захардкожен в 300с — ложно загорался красным каждый раз, когда
+# REPLAY_SLEEP_SECONDS (пауза между тиками воркера) увеличивали выше этого порога (см.
+# docs/Статус.md, инцидент 21 сентября: подняли до 365с, чтобы не наплодить риск-кейсов за
+# неделю, — индикатор тут же стал "протухшим" между каждым тиком). Читаем ту же переменную
+# окружения, что и сам воркер (app/workers/replay_worker.py), с запасом x2 + 60с на джиттер
+# автозакрытия/сети — не тот же процесс, поэтому дублируем чтение env, а не импортируем
+# константу напрямую (worker тянет тяжёлые catboost/pandas, недоступные в лёгком образе backend).
+_WORKER_STALE_AFTER_SECONDS = int(os.environ.get("REPLAY_SLEEP_SECONDS", "2")) * 2 + 60
 _DAILY_VOLUME_DAYS = 30
 
 

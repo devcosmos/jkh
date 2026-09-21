@@ -149,6 +149,25 @@ def test_dashboard_summary_flags_stale_worker(client, db_session, auth_headers):
     assert r.json()["worker"]["is_stale"] is True
 
 
+def test_stale_threshold_tracks_replay_sleep_seconds(client, db_session, auth_headers, monkeypatch):
+    """Порог "протух" должен расти вместе с паузой между тиками воркера (REPLAY_SLEEP_SECONDS)
+    — иначе индикатор ложно горит красным между каждым тиком, если паузу увеличили (см.
+    docs/Статус.md, инцидент 21 сентября: подняли REPLAY_SLEEP_SECONDS до 365с, порог
+    остался захардкожен в 300с)."""
+    import app.api.dashboard as dashboard_module
+
+    monkeypatch.setattr(dashboard_module, "_WORKER_STALE_AFTER_SECONDS", 365 * 2 + 60)
+
+    now = dt.datetime.now(dt.timezone.utc)
+    # 6 минут без обновления — раньше (порог 300с) уже считалось бы протухшим, теперь,
+    # при увеличенном тике, это нормальная пауза между тиками, не должна пугать.
+    db_session.add(ReplayState(id=1, virtual_time=now, updated_at=now - dt.timedelta(minutes=6)))
+    db_session.commit()
+
+    r = client.get("/api/dashboard/summary", headers=auth_headers(UserRole.dispatcher))
+    assert r.json()["worker"]["is_stale"] is False
+
+
 def test_dashboard_summary_daily_volume_counts_opened_and_closed(client, db_session, auth_headers):
     obj = Object(name="Объект для суточного объёма")
     db_session.add(obj)
