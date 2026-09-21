@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { login } from "../api/client";
 
+// Демо-доступ прямо в форме — это тестовый проект без реальных данных (хакатон-демо),
+// смотрящему не нужно отдельно запрашивать логин/пароль, а факт наличия авторизации всё
+// равно виден на этом экране.
+const DEMO_USERNAME = "admin";
+const DEMO_PASSWORD = "demo-local-2026";
+
 export function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(DEMO_USERNAME);
+  const [password, setPassword] = useState(DEMO_PASSWORD);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -80,6 +86,9 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
           >
             {submitting ? "Вход…" : "Войти"}
           </button>
+          <p className="text-center text-xs text-slate-400">
+            Демо-доступ: {DEMO_USERNAME} / {DEMO_PASSWORD} — поля уже заполнены
+          </p>
         </form>
       </div>
     </div>
