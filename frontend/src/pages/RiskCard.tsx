@@ -133,19 +133,18 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
                 {channel.data.location_tag && (
                   <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
                 )}
+                {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале
+                    без эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
+                {trend.data && (
+                  <div className="mt-2 flex items-center gap-2 text-slate-500">
+                    <span>Тренд:</span>
+                    <DegradationTrendBadge trend={trend.data} />
+                  </div>
+                )}
               </div>
             )}
           </DataState>
         </div>
-
-        {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
-            эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
-        {trend.data && (
-          <div>
-            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Тренд по каналу</h4>
-            <DegradationTrendBadge trend={trend.data} />
-          </div>
-        )}
 
         {latestPrediction.data?.[0] && (
           <div>
