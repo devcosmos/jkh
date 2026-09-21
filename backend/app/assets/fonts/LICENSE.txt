@@ -1,0 +1,7 @@
+DejaVu Sans / DejaVu Sans Bold — Bitstream Vera Fonts Copyright, DejaVu changes are
+in the Public Domain. Full license: https://dejavu-fonts.github.io/License.html
+
+Copied here from the `matplotlib` package (mpl-data/fonts/ttf/), which bundles these
+fonts for the same reason — a permissively licensed TrueType font with full Cyrillic
+coverage, needed because reportlab's built-in Type1 fonts (Helvetica etc.) only cover
+Latin glyphs and render Cyrillic as blank boxes. See app/services/report_export.py.

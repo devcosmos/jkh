@@ -4,6 +4,7 @@
 отдельной логики специально для отчёта."""
 
 import io
+from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -11,9 +12,21 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 HEADER_FONT = Font(bold=True)
+
+# reportlab по умолчанию знает только латинские Type1-шрифты (Helvetica и т.п.) — кириллица
+# на них рендерится пустыми квадратами. DejaVu Sans (публичный домен, идёт в комплекте с
+# matplotlib именно для таких случаев) — растровые формы для кириллицы у него есть.
+_FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
+_FONT_REGULAR = "DejaVuSans"
+_FONT_BOLD = "DejaVuSans-Bold"
+if _FONT_REGULAR not in pdfmetrics.getRegisteredFontNames():
+    pdfmetrics.registerFont(TTFont(_FONT_REGULAR, str(_FONTS_DIR / "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont(_FONT_BOLD, str(_FONTS_DIR / "DejaVuSans-Bold.ttf")))
 
 
 def _autosize(ws) -> None:
@@ -89,7 +102,8 @@ def _table(headers: list[str], rows: list[list], col_widths: list[float] | None 
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E2761")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 0), (-1, 0), _FONT_BOLD),
+                ("FONTNAME", (0, 1), (-1, -1), _FONT_REGULAR),
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
@@ -108,6 +122,9 @@ def build_pdf_report(report: dict) -> io.BytesIO:
         buf, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm, leftMargin=1.5 * cm, rightMargin=1.5 * cm
     )
     styles = getSampleStyleSheet()
+    styles["Normal"].fontName = _FONT_REGULAR
+    styles["Title"].fontName = _FONT_BOLD
+    styles["Heading2"].fontName = _FONT_BOLD
     story = [
         Paragraph("Аналитический отчёт — сервис прогнозирования отказов датчиков", styles["Title"]),
         Paragraph(f"Сформирован: {report['generated_at']}", styles["Normal"]),
