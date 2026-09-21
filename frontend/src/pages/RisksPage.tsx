@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
@@ -19,11 +20,16 @@ type SortKey = "probability" | "opened_at";
 type SortDir = "asc" | "desc";
 
 export function RisksPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkRiskCaseId = searchParams.get("risk_case_id");
+  const channelFilter = searchParams.get("channel_id");
+  const objectFilter = searchParams.get("object_id");
   const [view, setView] = useState<"list" | "scheme">("list");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchError, setSearchError] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("probability");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RiskCaseOut | null>(null);
@@ -34,13 +40,16 @@ export function RisksPage() {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (categoryFilter) params.set("category", categoryFilter);
+      if (channelFilter) params.set("channel_id", channelFilter);
+      if (objectFilter) params.set("object_id", objectFilter);
+      if (searchQuery) params.set("search", searchQuery);
       params.set("sort_by", sortBy);
       params.set("sort_dir", sortDir);
       params.set("limit", String(limit));
       params.set("offset", String(offset));
       return `/risk-cases?${params.toString()}`;
     },
-    [statusFilter, categoryFilter, sortBy, sortDir],
+    [statusFilter, categoryFilter, channelFilter, objectFilter, searchQuery, sortBy, sortDir],
     50
   );
   const tree = useApi<ObjectsTreeResponse>(() => api.get("/objects/tree"), []);
@@ -89,6 +98,35 @@ export function RisksPage() {
     };
   }, [risks.data, risks.total]);
 
+  function clearChannelFilter() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("channel_id");
+    setSearchParams(next);
+  }
+
+  function clearObjectFilter() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("object_id");
+    setSearchParams(next);
+  }
+
+  function submitSearch(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = searchInput.trim();
+    if (trimmed && !/^\d+$/.test(trimmed)) {
+      setSearchError(true);
+      return;
+    }
+    setSearchError(false);
+    setSearchQuery(trimmed);
+  }
+
+  function clearSearch() {
+    setSearchInput("");
+    setSearchQuery("");
+    setSearchError(false);
+  }
+
   function toggleSort(key: SortKey) {
     if (sortBy === key) {
       setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -113,7 +151,8 @@ export function RisksPage() {
             onClick={() =>
               exportCsv(`risks_${new Date().toISOString().slice(0, 10)}.csv`, risks.data ?? [], [
                 { header: "ID", value: (r) => r.id },
-                { header: "Канал", value: (r) => r.channel_id },
+                { header: "ID канала", value: (r) => r.channel_external_id ?? r.channel_id },
+                { header: "Название канала", value: (r) => r.channel_label ?? "" },
                 { header: "Направление", value: (r) => categoryLabel(r.category) },
                 { header: "Вероятность отказа", value: (r) => r.latest_probability ?? "" },
                 { header: "Статус", value: (r) => RISK_STATUS_LABELS[r.status] ?? r.status },
@@ -135,6 +174,28 @@ export function RisksPage() {
           </button>
         </div>
       </div>
+
+      {channelFilter && (
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
+          <span>
+            Показаны риски только по каналу <span className="font-semibold">#{channelFilter}</span>
+          </span>
+          <button onClick={clearChannelFilter} className="font-medium text-sky-700 hover:text-sky-900">
+            Показать все риски ×
+          </button>
+        </div>
+      )}
+
+      {objectFilter && (
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
+          <span>
+            Показаны риски только по объекту <span className="font-semibold">#{objectFilter}</span>
+          </span>
+          <button onClick={clearObjectFilter} className="font-medium text-sky-700 hover:text-sky-900">
+            Показать все риски ×
+          </button>
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatTile label="Всего в выборке" value={stats.total} tone="neutral" />
@@ -162,6 +223,41 @@ export function RisksPage() {
             Схема объектов
           </button>
         </div>
+        <form onSubmit={submitSearch} className="flex items-center gap-1.5">
+          <div className="flex flex-col">
+            <input
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                setSearchError(false);
+              }}
+              placeholder="Поиск по ID риска или канала…"
+              inputMode="numeric"
+              className={`w-56 rounded-xl border px-3.5 py-2 text-sm text-slate-900 outline-none focus:ring-4 ${
+                searchError
+                  ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                  : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
+              }`}
+            />
+            {searchError && <span className="mt-1 text-xs text-red-600">Введите число</span>}
+          </div>
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+            >
+              ×
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+            >
+              Найти
+            </button>
+          )}
+        </form>
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">Все статусы</option>
           {Object.entries(RISK_STATUS_LABELS).map(([k, v]) => (
@@ -194,7 +290,7 @@ export function RisksPage() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <th className="px-4 py-3 whitespace-nowrap">ID</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Канал</th>
+                      <th className="px-4 py-3 whitespace-nowrap">ID канала</th>
                       <th className="px-4 py-3 whitespace-nowrap">Направление</th>
                       <SortableTh label="Вероятность отказа" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                       <th className="px-4 py-3 whitespace-nowrap">Статус</th>
@@ -213,7 +309,12 @@ export function RisksPage() {
                         }`}
                       >
                         <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
-                        <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{r.channel_id}</td>
+                        <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">
+                          <div>{r.channel_external_id ?? r.channel_id}</div>
+                          {r.channel_label && r.channel_label !== String(r.channel_external_id) && (
+                            <div className="text-xs font-normal text-slate-500">{r.channel_label}</div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <Badge tone={categoryTone(r.category)}>{categoryLabel(r.category)}</Badge>
                         </td>

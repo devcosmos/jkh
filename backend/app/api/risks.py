@@ -2,7 +2,7 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
@@ -20,7 +20,9 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
     response_model=list[RiskCaseOut],
     summary="Получить список риск-кейсов",
     description=(
-        "Фильтры по status и category. Сортировка sort_by: opened_at или probability; sort_dir: asc "
+        "Фильтры по status, category, channel_id (внешний ID канала — тот же, что показан в реестре "
+        "каналов, не внутренний PK), object_id и search (точный ID риск-кейса или внешний ID канала). "
+        "Сортировка sort_by: opened_at или probability; sort_dir: asc "
         "или desc. По умолчанию — новые первыми. Учитывает доступ к объектам."
     ),
     responses={
@@ -44,6 +46,9 @@ def list_risk_cases(
     response: Response,
     status_filter: RiskCaseStatus | None = Query(None, alias="status"),
     category: str | None = None,
+    channel_id: int | None = None,
+    object_id: int | None = None,
+    search: int | None = Query(None, description="Точное совпадение по ID риск-кейса или внешнему ID канала"),
     sort_by: Literal["opened_at", "probability"] = "opened_at",
     sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(50, le=500),
@@ -63,31 +68,45 @@ def list_risk_cases(
         .scalar_subquery()
     )
 
-    stmt = select(RiskCase, latest_probability.label("probability"))
-    if status_filter:
-        stmt = stmt.where(RiskCase.status == status_filter)
-    if category:
-        stmt = stmt.where(RiskCase.category == category)
+    object_channel_ids = (
+        select(Channel.id).where(Channel.object_id == object_id).scalar_subquery()
+        if object_id is not None
+        else None
+    )
+
+    # channel_id — внешний ID канала (Channel.external_channel_id), не внутренний PK: тот же
+    # номер, что показан в реестре каналов, чтобы ссылка "показать риски этого канала" и
+    # список рисков оперировали одним и тем же видимым пользователю числом.
+    def apply_filters(s):
+        if status_filter:
+            s = s.where(RiskCase.status == status_filter)
+        if category:
+            s = s.where(RiskCase.category == category)
+        if channel_id is not None:
+            s = s.where(Channel.external_channel_id == channel_id)
+        if object_channel_ids is not None:
+            s = s.where(RiskCase.channel_id.in_(object_channel_ids))
+        if search is not None:
+            s = s.where(or_(RiskCase.id == search, Channel.external_channel_id == search))
+        return s
+
+    stmt = select(RiskCase, latest_probability.label("probability"), Channel).join(
+        Channel, Channel.id == RiskCase.channel_id
+    )
+    stmt = apply_filters(stmt)
     accessible = get_accessible_object_ids(user, db)
     if accessible is not None:
-        stmt = stmt.join(Channel, Channel.id == RiskCase.channel_id).where(
-            Channel.object_id.in_(accessible)
-        )
+        stmt = stmt.where(Channel.object_id.in_(accessible))
 
     # Пагинация по всем страницам (не только "последние N") — раздел «Риски» и остальные
     # списки админки иначе показывали только первую страницу без способа посмотреть
     # остальное (см. docs/Статус.md, запись 21 сентября). Total считаем тем же набором
     # фильтров, но без join/order по вероятности (та нужна только для сортировки, не влияет
     # на количество строк) — отдельный дешёвый count(*) по RiskCase.
-    count_stmt = select(func.count()).select_from(RiskCase)
-    if status_filter:
-        count_stmt = count_stmt.where(RiskCase.status == status_filter)
-    if category:
-        count_stmt = count_stmt.where(RiskCase.category == category)
+    count_stmt = select(func.count()).select_from(RiskCase).join(Channel, Channel.id == RiskCase.channel_id)
+    count_stmt = apply_filters(count_stmt)
     if accessible is not None:
-        count_stmt = count_stmt.join(Channel, Channel.id == RiskCase.channel_id).where(
-            Channel.object_id.in_(accessible)
-        )
+        count_stmt = count_stmt.where(Channel.object_id.in_(accessible))
     response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
 
     order_col = latest_probability if sort_by == "probability" else RiskCase.opened_at
@@ -104,8 +123,10 @@ def list_risk_cases(
             opened_at=rc.opened_at,
             closed_at=rc.closed_at,
             latest_probability=proba,
+            channel_label=channel.display_name or str(channel.external_channel_id),
+            channel_external_id=channel.external_channel_id,
         )
-        for rc, proba in rows
+        for rc, proba, channel in rows
     ]
 
 
@@ -128,12 +149,31 @@ def list_risk_cases(
 )
 def get_risk_case(
     risk_case_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
-) -> RiskCase:
+) -> RiskCaseOut:
     rc = db.get(RiskCase, risk_case_id)
     if rc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Риск-кейс не найден")
     check_object_access(rc.channel.object_id, user, db)
-    return rc
+    latest = (
+        db.execute(
+            select(Prediction.probability)
+            .where(Prediction.risk_case_id == rc.id)
+            .order_by(Prediction.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return RiskCaseOut(
+        id=rc.id,
+        channel_id=rc.channel_id,
+        category=rc.category,
+        status=rc.status,
+        priority=rc.priority,
+        opened_at=rc.opened_at,
+        closed_at=rc.closed_at,
+        latest_probability=latest,
+        channel_label=rc.channel.display_name or str(rc.channel.external_channel_id),
+        channel_external_id=rc.channel.external_channel_id,
+    )
 
 
 @router.post(

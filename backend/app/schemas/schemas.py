@@ -124,6 +124,14 @@ class RiskCaseOut(BaseModel):
         description="Вероятность последнего прогноза от 0 до 1, если она включена в ответ",
         examples=[0.82],
     )
+    channel_label: str | None = Field(
+        default=None,
+        description="Отображаемое имя канала или его внешний ID, если имя не задано",
+    )
+    channel_external_id: int | None = Field(
+        default=None,
+        description="Внешний ID канала (Channel.external_channel_id) — тот же, что показан в реестре каналов",
+    )
 
 
 class DecisionIn(BaseModel):

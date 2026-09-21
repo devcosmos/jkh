@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { usePagedApi } from "../api/usePagedApi";
@@ -105,20 +106,37 @@ export function RegistryPage() {
             <tbody>
               {channels.data?.map((c) => (
                 <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-slate-400">{c.external_channel_id}</td>
+                  <td className="px-4 py-3 font-medium text-slate-400">
+                    <Link
+                      to={`/risks?channel_id=${c.external_channel_id}`}
+                      className="text-sky-700 hover:underline"
+                      title="Показать риски по этому каналу"
+                    >
+                      {c.external_channel_id}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 font-medium text-slate-900">{c.display_name ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Badge tone="neutral">{c.sensor_type}</Badge>
                   </td>
                   <td className="px-4 py-3 text-slate-700">
                     {c.object_id ? (
-                      <button
-                        onClick={() => setObjectFilter(c.object_id)}
-                        className="text-left text-sky-700 hover:underline"
-                        title="Показать только каналы этого объекта"
-                      >
-                        {objectNameById.get(c.object_id) ?? `#${c.object_id}`}
-                      </button>
+                      <span className="flex items-center gap-2">
+                        <button
+                          onClick={() => setObjectFilter(c.object_id)}
+                          className="text-left text-sky-700 hover:underline"
+                          title="Показать только каналы этого объекта"
+                        >
+                          {objectNameById.get(c.object_id) ?? `#${c.object_id}`}
+                        </button>
+                        <Link
+                          to={`/risks?object_id=${c.object_id}`}
+                          className="text-xs text-slate-400 hover:text-sky-700 hover:underline"
+                          title="Показать риски по этому объекту"
+                        >
+                          риски
+                        </Link>
+                      </span>
                     ) : (
                       "не сопоставлен"
                     )}

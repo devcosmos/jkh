@@ -82,6 +82,8 @@ export interface RiskCaseOut {
   opened_at: string;
   closed_at: string | null;
   latest_probability: number | null;
+  channel_label: string | null;
+  channel_external_id: number | null;
 }
 
 export interface PredictionOut {
