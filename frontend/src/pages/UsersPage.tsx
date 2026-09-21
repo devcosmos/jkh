@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { Badge } from "../components/Badge";
+import { SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { Select } from "../components/Select";
 import type { ObjectOut, UserOut, UserRole } from "../api/types";
@@ -86,7 +87,7 @@ export function UsersPage() {
             <input
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
-              className="w-48 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              className={`w-48 rounded-xl px-3 py-2 text-sm ${SECONDARY_FIELD}`}
             />
           </div>
           <div>
@@ -95,7 +96,7 @@ export function UsersPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-48 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              className={`w-48 rounded-xl px-3 py-2 text-sm ${SECONDARY_FIELD}`}
             />
           </div>
           <div>
@@ -178,7 +179,7 @@ export function UsersPage() {
                     <button
                       disabled={busyUserId === u.id || !grantSelection[u.id]}
                       onClick={() => grantAccess(u.id)}
-                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={`rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
                     >
                       Добавить
                     </button>

@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { usePagedApi } from "../api/usePagedApi";
 import { Badge } from "../components/Badge";
+import { SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { Pagination } from "../components/Pagination";
@@ -54,7 +55,7 @@ export function RegistryPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Поиск по названию канала или тегу расположения…"
-          className="w-72 rounded-xl border border-slate-200 px-3.5 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+          className={`w-72 rounded-xl px-3.5 py-2 text-sm ${SECONDARY_FIELD}`}
         />
         <Select value={sensorType} onChange={(e) => setSensorType(e.target.value)}>
           <option value="">Все типы датчиков</option>

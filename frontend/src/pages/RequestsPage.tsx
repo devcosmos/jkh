@@ -8,6 +8,7 @@ import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
 import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../components/Badge";
+import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
@@ -107,14 +108,11 @@ export function RequestsPage() {
                 { header: "Создана", value: (r) => new Date(r.created_at).toLocaleString("ru-RU") },
               ])
             }
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
           >
             Экспорт CSV
           </button>
-          <button
-            onClick={requests.reload}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
-          >
+          <button onClick={requests.reload} className={`rounded-xl px-3.5 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}>
             Обновить
           </button>
         </div>
@@ -219,7 +217,7 @@ export function RequestsPage() {
                               key={next}
                               disabled={busyId === r.id}
                               onClick={() => transition(r.id, next)}
-                              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className={`rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
                             >
                               {STATUS_LABELS[next]}
                             </button>

@@ -7,6 +7,7 @@ import { usePagedApi } from "../api/usePagedApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { Badge, riskPriorityTone } from "../components/Badge";
+import { SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { ObjectsTree } from "../components/ObjectsTree";
 import { Pagination } from "../components/Pagination";
@@ -160,14 +161,14 @@ export function RisksPage() {
                 { header: "Открыт", value: (r) => new Date(r.opened_at).toLocaleString("ru-RU") },
               ])
             }
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
           >
             <DownloadIcon className="h-4 w-4" />
             Экспорт CSV
           </button>
           <button
             onClick={risks.reload}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
           >
             <RefreshIcon className="h-4 w-4" />
             Обновить
@@ -205,7 +206,7 @@ export function RisksPage() {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+        <div className="flex rounded-xl border border-sky-200 bg-sky-50 p-1">
           <button
             className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
               view === "list" ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-900"
@@ -233,10 +234,10 @@ export function RisksPage() {
               }}
               placeholder="Поиск по ID риска или канала…"
               inputMode="numeric"
-              className={`w-56 rounded-xl border px-3.5 py-2 text-sm text-slate-900 outline-none focus:ring-4 ${
+              className={`w-56 rounded-xl px-3.5 py-2 text-sm ${
                 searchError
-                  ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                  : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
+                  ? "border border-red-300 bg-red-50 text-slate-900 outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                  : SECONDARY_FIELD
               }`}
             />
             {searchError && <span className="mt-1 text-sm text-red-600">Введите число</span>}
@@ -245,15 +246,12 @@ export function RisksPage() {
             <button
               type="button"
               onClick={clearSearch}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+              className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
             >
               ×
             </button>
           ) : (
-            <button
-              type="submit"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
-            >
+            <button type="submit" className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}>
               Найти
             </button>
           )}

@@ -1,3 +1,5 @@
+import { SECONDARY_CONTROL } from "./controlStyles";
+
 export function Pagination({
   page,
   pageSize,
@@ -33,7 +35,7 @@ export function Pagination({
         <button
           disabled={page === 0}
           onClick={() => onPageChange(page - 1)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`rounded-lg px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-40 ${SECONDARY_CONTROL}`}
         >
           &lt; Назад
         </button>
@@ -43,7 +45,7 @@ export function Pagination({
         <button
           disabled={!hasNext}
           onClick={() => onPageChange(page + 1)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`rounded-lg px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-40 ${SECONDARY_CONTROL}`}
         >
           Вперёд &gt;
         </button>

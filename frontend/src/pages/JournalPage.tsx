@@ -4,6 +4,7 @@ import { usePagedApi } from "../api/usePagedApi";
 import { useApi } from "../api/useApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
 import { Badge } from "../components/Badge";
+import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
@@ -58,7 +59,7 @@ export function JournalPage() {
           </Select>
           <button
             onClick={predictions.reload}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
           >
             Обновить
           </button>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { login } from "../api/client";
+import { SECONDARY_FIELD } from "../components/controlStyles";
 
 // Демо-доступ прямо в форме — это тестовый проект без реальных данных (хакатон-демо),
 // смотрящему не нужно отдельно запрашивать логин/пароль, а факт наличия авторизации всё
@@ -61,7 +62,7 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-slate-600">Логин</span>
             <input
-              className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              className={`rounded-xl px-3.5 py-2.5 text-sm ${SECONDARY_FIELD}`}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoFocus
@@ -70,7 +71,7 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-slate-600">Пароль</span>
             <input
-              className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              className={`rounded-xl px-3.5 py-2.5 text-sm ${SECONDARY_FIELD}`}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

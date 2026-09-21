@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { StatTile } from "../components/StatTile";
 import type { AnalyticsReport } from "../api/types";
@@ -43,14 +44,14 @@ export function AnalyticsPage() {
           <button
             disabled={downloading !== null}
             onClick={() => download("xlsx")}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
           >
             {downloading === "xlsx" ? "Формируется…" : "Скачать XLSX"}
           </button>
           <button
             disabled={downloading !== null}
             onClick={() => download("pdf")}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
           >
             {downloading === "pdf" ? "Формируется…" : "Скачать PDF"}
           </button>

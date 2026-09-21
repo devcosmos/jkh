@@ -7,6 +7,7 @@ import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { useApi } from "../api/useApi";
 import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../components/Badge";
+import { PRIMARY_CONTROL, SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { Select } from "../components/Select";
@@ -133,14 +134,6 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
               {channel.data.location_tag && (
                 <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
               )}
-              {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале
-                  без эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
-              {trend.data && (
-                <div className="flex items-center gap-2 pt-1 text-slate-500">
-                  <span>Тренд:</span>
-                  <DegradationTrendBadge trend={trend.data} />
-                </div>
-              )}
             </div>
           )}
         </DataState>
@@ -170,6 +163,14 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
               {(latestPrediction.data[0].probability * 100).toFixed(0)}% отказа
             </span>
           </div>
+          {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
+              эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
+          {trend.data && (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span>Тренд:</span>
+              <DegradationTrendBadge trend={trend.data} />
+            </div>
+          )}
           {llmSummary.loading ? (
             <p className="text-sm text-slate-400 italic">Формируется краткое резюме…</p>
           ) : llmSummary.data?.summary ? (
@@ -195,7 +196,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           ))}
         </Select>
         <textarea
-          className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+          className={`w-full resize-none rounded-xl px-3 py-2.5 text-sm ${SECONDARY_FIELD}`}
           rows={2}
           placeholder="Причина (необязательно)"
           value={reason}
@@ -207,10 +208,8 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
               key={a.value}
               disabled={submitting}
               onClick={() => submitDecision(a.value)}
-              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                a.primary
-                  ? "bg-sky-500 text-white hover:bg-sky-600"
-                  : "border border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
+                a.primary ? PRIMARY_CONTROL : SECONDARY_CONTROL
               }`}
             >
               {a.label}
