@@ -24,7 +24,7 @@ export function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-5">
+    <div className="flex w-full flex-wrap items-center gap-5">
       <svg viewBox={`0 0 ${size} ${size}`} className="h-40 w-40 shrink-0">
         <line x1={toX(0)} y1={toY(0)} x2={toX(0)} y2={toY(1)} stroke="#e2e8f0" strokeWidth={1} />
         <line x1={toX(0)} y1={toY(0)} x2={toX(1)} y2={toY(0)} stroke="#e2e8f0" strokeWidth={1} />
@@ -59,7 +59,7 @@ export function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {
         <text x={pad} y={size - 1} fontSize={7} fill="#94a3b8">0%</text>
         <text x={size - 18} y={size - 1} fontSize={7} fill="#94a3b8">100%</text>
       </svg>
-      <div className="max-w-[14rem] space-y-1.5 text-sm text-slate-500">
+      <div className="min-w-56 flex-1 space-y-1.5 text-sm text-slate-500">
         <div className="flex items-center gap-1.5">
           <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="3 2" /></svg>
           идеальная калибровка (X% = X%)

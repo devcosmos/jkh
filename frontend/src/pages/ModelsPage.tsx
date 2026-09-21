@@ -4,18 +4,19 @@ import { Badge } from "../components/Badge";
 import { BarList } from "../components/BarList";
 import { CalibrationChart } from "../components/CalibrationChart";
 import { DataState } from "../components/DataState";
+import { DetailSection } from "../components/DetailSection";
 import type { ModelVersionOut } from "../api/types";
 
 const FEATURE_LABELS: Record<string, string> = {
-  n_alarms_1h: "Тревог за 1ч",
-  n_alarms_24h: "Тревог за 24ч",
-  n_alarms_7d: "Тревог за 7сут",
-  n_transitions_1h: "Переходов состояния за 1ч",
-  n_transitions_24h: "Переходов состояния за 24ч",
-  n_transitions_7d: "Переходов состояния за 7сут",
-  n_events_1h: "Событий за 1ч",
-  n_events_24h: "Событий за 24ч",
-  n_events_7d: "Событий за 7сут",
+  n_alarms_1h: "Тревог за 1 час",
+  n_alarms_24h: "Тревог за 24 часа",
+  n_alarms_7d: "Тревог за 7 суток",
+  n_transitions_1h: "Переходов состояния за 1 час",
+  n_transitions_24h: "Переходов состояния за 24 часа",
+  n_transitions_7d: "Переходов состояния за 7 суток",
+  n_events_1h: "Событий за 1 час",
+  n_events_24h: "Событий за 24 часа",
+  n_events_7d: "Событий за 7 суток",
   seconds_since_last_event: "Секунд с последнего события",
   n_neighbors_in_fault: "Соседей в отказе",
   frac_neighbors_in_fault: "Доля соседей в отказе",
@@ -63,18 +64,23 @@ export function ModelsPage() {
               : [];
 
             return (
-              <div key={m.id} className="rounded-2xl border border-slate-200 bg-white p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-display text-base font-semibold text-slate-900">{m.name}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{m.sensor_types.split(",").join(", ")}</p>
-                  </div>
+              <DetailSection
+                key={m.id}
+                title={m.name}
+                right={
                   <Badge tone={targetMet ? "good" : "warning"}>
                     {targetMet ? "Плановая цель достигнута" : "Ниже плановой цели (обоснованно)"}
                   </Badge>
-                </div>
+                }
+                footer={
+                  <span className="text-sm text-slate-400">
+                    Обучена {new Date(m.trained_at).toLocaleDateString("ru-RU")}
+                  </span>
+                }
+              >
+                <p className="text-sm text-slate-500">{m.sensor_types.split(",").join(", ")}</p>
 
-                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <Metric label="Рабочий порог" value={m.threshold?.toFixed(2) ?? "—"} />
                   <Metric label="ROC-AUC (test)" value={rocAuc != null ? rocAuc.toFixed(3) : "—"} />
                   <Metric label="PR-AUC (test)" value={prAuc != null ? prAuc.toFixed(3) : "—"} />
@@ -84,14 +90,10 @@ export function ModelsPage() {
                   />
                 </div>
 
-                <div className="mt-3 text-sm text-slate-400">
-                  Обучена {new Date(m.trained_at).toLocaleDateString("ru-RU")}
-                </div>
-
-                {note && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{note}</p>}
+                {note && <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{note}</p>}
 
                 {(topFeatures.length > 0 || calibration) && (
-                  <div className="mt-4 grid gap-6 border-t border-slate-100 pt-4 lg:grid-cols-2">
+                  <div className="grid gap-6 border-t border-slate-100 pt-4 lg:grid-cols-2">
                     {topFeatures.length > 0 && (
                       <div>
                         <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -119,7 +121,7 @@ export function ModelsPage() {
                     )}
                   </div>
                 )}
-              </div>
+              </DetailSection>
             );
           })}
         </div>

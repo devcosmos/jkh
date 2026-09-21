@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
+import { DetailSection } from "../components/DetailSection";
 import { StatTile } from "../components/StatTile";
 import type { AnalyticsReport } from "../api/types";
 
@@ -121,28 +122,23 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
 function SeasonalSection({ data }: { data: AnalyticsReport["seasonal"] }) {
   const max = Math.max(...data.map((r) => r.episode_count), 1);
   return (
-    <section>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Сезонность — эпизоды неисправности по месяцам (все годы данных)
-      </h2>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-end gap-2" style={{ height: "160px" }}>
-          {data.map((row) => (
-            <div key={row.month} className="group relative flex flex-1 flex-col items-center justify-end gap-1.5">
-              <span className="text-[11px] font-medium text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
-                {row.episode_count.toLocaleString("ru-RU")}
-              </span>
-              <div
-                className="w-full rounded-t-md bg-sky-500 transition-colors group-hover:bg-sky-600"
-                style={{ height: `${Math.max((row.episode_count / max) * 130, 2)}px` }}
-                title={`${row.month_name}: ${row.episode_count} эпизодов`}
-              />
-              <span className="text-[11px] text-slate-500">{row.month_name.slice(0, 3)}</span>
-            </div>
-          ))}
-        </div>
+    <DetailSection title="Сезонность — эпизоды неисправности по месяцам (все годы данных)">
+      <div className="flex items-end gap-2" style={{ height: "160px" }}>
+        {data.map((row) => (
+          <div key={row.month} className="group relative flex flex-1 flex-col items-center justify-end gap-1.5">
+            <span className="text-[11px] font-medium text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
+              {row.episode_count.toLocaleString("ru-RU")}
+            </span>
+            <div
+              className="w-full rounded-t-md bg-sky-500 transition-colors group-hover:bg-sky-600"
+              style={{ height: `${Math.max((row.episode_count / max) * 130, 2)}px` }}
+              title={`${row.month_name}: ${row.episode_count} эпизодов`}
+            />
+            <span className="text-[11px] text-slate-500">{row.month_name.slice(0, 3)}</span>
+          </div>
+        ))}
       </div>
-    </section>
+    </DetailSection>
   );
 }
 
@@ -154,8 +150,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
         Исторический отчёт по заявкам на обслуживание
       </h2>
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">По виду работ</h3>
+        <DetailSection title="По виду работ">
           <div className="space-y-2.5">
             {data.by_work_type.map((row) => (
               <div key={row.work_type}>
@@ -173,10 +168,9 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
             ))}
             {data.by_work_type.length === 0 && <p className="text-sm text-slate-400">Заявок нет</p>}
           </div>
-        </div>
+        </DetailSection>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">По статусу</h3>
+        <DetailSection title="По статусу">
           <div className="flex flex-wrap gap-2">
             {data.by_status.map((row) => (
               <span
@@ -188,29 +182,26 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
             ))}
           </div>
           {data.avg_hours_to_approval != null && (
-            <div className="mt-4">
-              <StatTile
-                label="Среднее время до утверждения"
-                value={`${data.avg_hours_to_approval.toLocaleString("ru-RU")} ч`}
-                tone="track-a"
-              />
-            </div>
+            <StatTile
+              label="Среднее время до утверждения"
+              value={`${data.avg_hours_to_approval.toLocaleString("ru-RU")} ч`}
+              tone="track-a"
+            />
           )}
-        </div>
+        </DetailSection>
       </div>
 
       {data.monthly.length > 0 && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Заявки по месяцам
-          </h3>
-          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
-            {data.monthly.map((row) => (
-              <span key={row.month} className="rounded-lg bg-slate-50 px-2.5 py-1.5">
-                {row.month}: <span className="font-medium text-slate-900">{row.request_count}</span>
-              </span>
-            ))}
-          </div>
+        <div className="mt-4">
+          <DetailSection title="Заявки по месяцам">
+            <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+              {data.monthly.map((row) => (
+                <span key={row.month} className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                  {row.month}: <span className="font-medium text-slate-900">{row.request_count}</span>
+                </span>
+              ))}
+            </div>
+          </DetailSection>
         </div>
       )}
     </section>

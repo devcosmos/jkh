@@ -96,7 +96,7 @@ export function RegistryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">ID канала</th>
+                <th className="px-4 py-3">ID&nbsp;канала</th>
                 <th className="px-4 py-3">Название</th>
                 <th className="px-4 py-3">Устройство</th>
                 <th className="px-4 py-3">Тип датчика</th>
