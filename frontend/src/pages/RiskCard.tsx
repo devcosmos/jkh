@@ -128,16 +128,25 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       <RiskCardSection title="Данные">
         <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
           {channel.data && (
-            <div className="space-y-1 text-sm">
-              <div className="font-semibold text-slate-900">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-slate-900">
                 {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
               </div>
-              <div className="text-slate-500">Тип: {channel.data.sensor_type}</div>
+              <div className="flex items-center justify-between gap-x-2">
+                <span className="text-sm text-slate-500">Тип</span>
+                <span className="text-sm font-medium text-slate-700">{channel.data.sensor_type}</span>
+              </div>
               {channel.data.device_label && (
-                <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
+                <div className="flex items-center justify-between gap-x-2">
+                  <span className="text-sm text-slate-500">Устройство</span>
+                  <span className="text-sm font-medium text-slate-700">{channel.data.device_label}</span>
+                </div>
               )}
               {channel.data.location_tag && (
-                <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
+                <div className="flex items-center justify-between gap-x-2">
+                  <span className="text-sm text-slate-500">Расположение</span>
+                  <span className="text-sm font-medium text-slate-700">{channel.data.location_tag}</span>
+                </div>
               )}
             </div>
           )}
