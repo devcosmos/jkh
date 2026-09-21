@@ -92,22 +92,6 @@ function featureValue(f: Feature): string {
   return String(f.value);
 }
 
-// Интенсивность цвета — по той же доле от максимума среди топ-5, что уже задаёт ширину
-// полосы (не отдельная абсолютная шкала, как раньше): чем ближе полоса к 100% ширины,
-// тем краснее (или синее для отрицательного вклада) её заливка.
-function positiveColor(t: number): string {
-  // fed7aa (бледно-оранжевый) -> b91c1c (тёмно-красный)
-  return lerpColor([0xfe, 0xd7, 0xaa], [0xb9, 0x1c, 0x1c], t);
-}
-function negativeColor(t: number): string {
-  // bae6fd (бледно-голубой) -> 1d4ed8 (тёмно-синий)
-  return lerpColor([0xba, 0xe6, 0xfd], [0x1d, 0x4e, 0xd8], t);
-}
-function lerpColor(a: [number, number, number], b: [number, number, number], t: number): string {
-  const mix = a.map((c, i) => Math.round(c + (b[i] - c) * t));
-  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
-}
-
 /** SHAP-вклад признаков в конкретный прогноз (не глобальная важность модели) — считается
  * той же моделью в момент прогноза (backend/app/workers/replay_worker.py:explain_prediction).
  * Положительный вклад толкает вероятность к отказу, отрицательный — от него.
@@ -132,52 +116,42 @@ export function ShapExplanation({
   const maxAbs = Math.max(...e.top_features.map((f) => Math.abs(f.contribution)), 0.0001);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {showAnomaly && e.anomaly && (
-        <div className="mb-2">
+        <div className="mb-1">
           <AnomalyBadge isOutlier={e.anomaly.is_outlier} />
         </div>
       )}
-      {e.top_features.map((f) => {
-        const positive = f.contribution >= 0;
-        const ratio = Math.abs(f.contribution) / maxAbs; // та же доля, что и ширина полосы
-        const halfWidth = Math.max(ratio * 50, 3);
-        const color = positive ? positiveColor(ratio) : negativeColor(ratio);
-        return (
-          <div key={f.feature}>
-            <div className="mb-1 flex items-baseline justify-between gap-x-2 text-sm">
-              <span className="text-slate-500">{featureLabel(f)}</span>
-              <span className="shrink-0 font-medium text-slate-700">{featureValue(f)}</span>
-            </div>
-            <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
-              {/* Нулевая точка вклада — ориентир для «толкает к отказу / от отказа» */}
-              <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
+      <ul className="flex flex-col gap-y-1.5">
+        {e.top_features.map((f) => {
+          const positive = f.contribution >= 0;
+          // Ширина — доля от максимума среди топ-5; сама показывает силу вклада, цвет
+          // (тёплый/холодный) — только направление, без градиента по величине.
+          const widthPct = Math.max((Math.abs(f.contribution) / maxAbs) * 100, 10);
+          return (
+            <li key={f.feature} className="relative w-full overflow-hidden rounded-lg">
+              <span className="relative z-1 flex w-full items-center justify-between gap-x-2 px-2.5 py-1.5 text-sm">
+                <span className="text-slate-700">{featureLabel(f)}</span>
+                <span className="shrink-0 font-medium text-slate-500">{featureValue(f)}</span>
+              </span>
               <div
-                className="absolute inset-y-0 rounded-full"
-                style={
-                  positive
-                    ? { left: "50%", width: `${halfWidth}%`, backgroundColor: color }
-                    : { right: "50%", width: `${halfWidth}%`, backgroundColor: color }
-                }
+                className={`absolute inset-y-0 left-0 h-full ${positive ? "bg-orange-100" : "bg-sky-100"}`}
+                style={{ width: `${widthPct}%` }}
               />
-            </div>
-          </div>
-        );
-      })}
-      {/* Направление уже видно по цвету каждой полосы выше — эта ось просто напоминает,
-          в какую сторону читать «влево/вправо» единообразно для всех строк. */}
-      <div className="pt-1">
-        <div className="relative h-2">
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-200" />
-          <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300">&lt;</span>
-          <span className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300">&gt;</span>
-        </div>
-        <div className="mt-1 flex items-center justify-between text-sm text-slate-400">
-          <span>понижает риск отказа</span>
-          <span>повышает риск отказа</span>
-        </div>
-      </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="flex items-center gap-x-3 pt-0.5 text-sm text-slate-400">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-orange-300" />
+          повышает риск отказа
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-sky-300" />
+          понижает риск отказа
+        </span>
+      </p>
     </div>
   );
 }
