@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { usePagedApi } from "../api/usePagedApi";
+import { useApi } from "../api/useApi";
 import { categoryLabel, categoryTone } from "../api/categories";
 import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
@@ -10,7 +11,7 @@ import { DataState } from "../components/DataState";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { exportCsv } from "../lib/exportCsv";
-import type { MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
+import type { AuditLogEntry, MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
 
 // Разрешённые переходы — зеркало ALLOWED_TRANSITIONS на backend (раздел 10 плана).
 const NEXT_STATUSES: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
@@ -277,6 +278,12 @@ export function RequestsPage() {
                               <RequestTimeline request={r} />
                             </div>
                           </div>
+                          <div className="mt-4 border-t border-slate-200 pt-3">
+                            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              История изменений
+                            </div>
+                            <RequestHistory requestId={r.id} />
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -295,6 +302,51 @@ export function RequestsPage() {
         </div>
       </DataState>
     </div>
+  );
+}
+
+// Кто что нажимал, на какой стадии и что писал — раздел «Заявки», TODO пункт 3 («расширить
+// функционал заявок» — подробная история). Загружается лениво только для развёрнутой строки.
+function RequestHistory({ requestId }: { requestId: number }) {
+  const history = useApi<AuditLogEntry[]>(() => api.get(`/maintenance-requests/${requestId}/history`), [requestId]);
+
+  if (history.loading) {
+    return <p className="text-sm text-slate-400 italic">Загрузка истории…</p>;
+  }
+  if (history.error) {
+    return <p className="text-sm text-red-600">{history.error}</p>;
+  }
+  if (!history.data?.length) {
+    return <p className="text-sm text-slate-400">Изменений ещё не было</p>;
+  }
+
+  return (
+    <ul className="max-h-56 space-y-2 overflow-y-auto pr-1 text-sm">
+      {history.data.map((entry) => {
+        const from = entry.old_state?.status as string | undefined;
+        const to = entry.new_state?.status as string | undefined;
+        return (
+          <li key={entry.id} className="flex items-start gap-2 border-l-2 border-slate-200 pl-3">
+            <div>
+              <div className="text-slate-700">
+                {new Date(entry.created_at).toLocaleString("ru-RU")}
+                {entry.username && <span className="ml-1.5 font-medium text-slate-900">{entry.username}</span>}
+              </div>
+              <div className="text-slate-500">
+                {from && to
+                  ? `${STATUS_LABELS[from as MaintenanceRequestStatus] ?? from} → ${
+                      STATUS_LABELS[to as MaintenanceRequestStatus] ?? to
+                    }`
+                  : to
+                    ? `Статус: ${STATUS_LABELS[to as MaintenanceRequestStatus] ?? to}`
+                    : null}
+              </div>
+              {entry.reason && <div className="text-xs text-slate-400">{entry.reason}</div>}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

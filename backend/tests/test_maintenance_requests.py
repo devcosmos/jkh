@@ -85,3 +85,52 @@ def test_transition_writes_audit_log(client, db_session, auth_headers):
     assert log.old_state == {"status": "approved"}
     assert log.new_state == {"status": "cancelled"}
     assert log.reason == "передумали"
+
+
+def test_request_history_endpoint_lists_transitions_newest_first(client, db_session, auth_headers):
+    mr = _make_request(db_session)
+    headers = auth_headers(UserRole.dispatcher)
+    client.post(f"/api/maintenance-requests/{mr.id}/approve", headers=headers)
+    client.post(
+        f"/api/maintenance-requests/{mr.id}/transitions",
+        json={"to_status": "in_progress", "reason": "выехали на объект"},
+        headers=headers,
+    )
+
+    r = client.get(f"/api/maintenance-requests/{mr.id}/history", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 2
+    assert body[0]["new_state"] == {"status": "in_progress"}
+    assert body[0]["reason"] == "выехали на объект"
+    assert body[1]["new_state"] == {"status": "approved"}
+    assert all(entry["username"] for entry in body)
+
+
+def test_request_history_respects_object_access(client, db_session, auth_headers):
+    from app.models.entities import Object, User, UserObjectAccess
+
+    other_object = Object(name="Чужой объект")
+    db_session.add(other_object)
+    db_session.flush()
+    channel = Channel(external_channel_id=999, sensor_type="Состояние насоса", object_id=other_object.id)
+    db_session.add(channel)
+    db_session.flush()
+    rc = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=dt.datetime.now(dt.timezone.utc))
+    db_session.add(rc)
+    db_session.flush()
+    mr = MaintenanceRequest(risk_case_id=rc.id, work_type="Диагностика насоса", status=MaintenanceRequestStatus.draft)
+    db_session.add(mr)
+    db_session.commit()
+    db_session.refresh(mr)
+
+    headers = auth_headers(UserRole.dispatcher, username="restricted-dispatcher-2")
+    user = db_session.query(User).filter_by(username="restricted-dispatcher-2").one()
+    other_assigned_object = Object(name="Назначенный объект")
+    db_session.add(other_assigned_object)
+    db_session.flush()
+    db_session.add(UserObjectAccess(user_id=user.id, object_id=other_assigned_object.id))
+    db_session.commit()
+
+    r = client.get(f"/api/maintenance-requests/{mr.id}/history", headers=headers)
+    assert r.status_code == 403

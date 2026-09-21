@@ -8,7 +8,7 @@ from app.api.deps import check_object_access, get_accessible_object_ids, get_cur
 from app.core.db import get_db
 from app.models.entities import AuditLog, Channel, Decision, MaintenanceRequest, Prediction, RiskCase, User
 from app.models.enums import MaintenanceRequestStatus, UserRole
-from app.schemas.schemas import MaintenanceRequestOut, TransitionIn
+from app.schemas.schemas import AuditLogOut, MaintenanceRequestOut, TransitionIn
 
 router = APIRouter(
     prefix="/maintenance-requests", tags=["maintenance"], dependencies=[Depends(get_current_user)]
@@ -243,6 +243,58 @@ def _transition(
         latest_decision=latest_decisions.get(mr.risk_case_id),
         decision_username=decision_usernames.get(mr.risk_case_id),
     )
+
+
+@router.get(
+    "/{request_id}/history",
+    response_model=list[AuditLogOut],
+    summary="История изменений заявки",
+    description=(
+        "Полная история переходов статуса заявки (кто, когда, из какого состояния в какое, с каким "
+        "комментарием) — записи AuditLog по этой заявке, новые первыми. Доступно диспетчеру, аналитику "
+        "и администратору с доступом к объекту заявки."
+    ),
+    responses={
+        403: {"description": "Недостаточно прав или нет доступа к объекту"},
+        404: {"description": "Заявка не найдена"},
+        401: {"description": "Требуется вход или токен недействителен"},
+    },
+)
+def get_request_history(
+    request_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(UserRole.dispatcher, UserRole.analyst, UserRole.admin)),
+) -> list[AuditLogOut]:
+    mr = db.get(MaintenanceRequest, request_id)
+    if mr is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Заявка не найдена")
+    check_object_access(mr.risk_case.channel.object_id, user, db)
+
+    rows = list(
+        db.scalars(
+            select(AuditLog)
+            .where(AuditLog.entity_type == "maintenance_request", AuditLog.entity_id == request_id)
+            .order_by(AuditLog.created_at.desc())
+        )
+    )
+    usernames = dict(
+        db.execute(select(User.id, User.username).where(User.id.in_({r.user_id for r in rows if r.user_id}))).all()
+    )
+    return [
+        AuditLogOut(
+            id=r.id,
+            user_id=r.user_id,
+            username=usernames.get(r.user_id),
+            role=r.role,
+            entity_type=r.entity_type,
+            entity_id=r.entity_id,
+            old_state=r.old_state,
+            new_state=r.new_state,
+            reason=r.reason,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
 
 
 @router.post(
