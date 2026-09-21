@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     # Краткое резюме прогноза для диспетчера (app/services/llm_summary.py) — без ключа
     # функция просто недоступна (None), не роняет карточку риска.
     anthropic_api_key: str | None = None
+    # Не задан — SDK идёт на официальный api.anthropic.com. Задан — например, на прокси
+    # стороннего провайдера (формат ответа должен быть совместим с Anthropic Messages API).
+    anthropic_base_url: str | None = None
 
 
 settings = Settings()

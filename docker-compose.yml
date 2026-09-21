@@ -25,6 +25,7 @@ services:
       # Резюме прогноза для диспетчера на естественном языке (app/services/llm_summary.py) —
       # без ключа функция просто недоступна, не обязателен для остального сервиса.
       JKH_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      JKH_ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
     depends_on:
       db:
         condition: service_healthy

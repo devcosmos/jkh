@@ -7,6 +7,13 @@
 повторно. Модель — Claude Haiku 4.5: короткая шаблонная суммаризация не требует
 топовых reasoning-моделей, а стоимость и задержка для Haiku на порядок ниже.
 
+Ключ и (опционально) base_url настраиваются через JKH_ANTHROPIC_API_KEY /
+JKH_ANTHROPIC_BASE_URL — по умолчанию (base_url не задан) SDK идёт на официальный API
+Anthropic; сейчас в .env указан прокси cheapai.io (эндпоинт /v1/messages, формат ответа
+идентичен официальному Anthropic Messages API — проверено вручную 21 сентября 2026).
+Модель на этом прокси называется `claude-haiku-4-5-20251001` (с датой снапшота, не
+голым `claude-haiku-4-5`, как на официальном API) — см. GET /v1/models под ключом.
+
 Без настроенного JKH_ANTHROPIC_API_KEY функция просто недоступна (возвращает None) —
 карточка риска не должна ломаться из-за отсутствующего ключа стороннего сервиса."""
 
@@ -16,7 +23,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-4-5"
+MODEL = "claude-haiku-4-5-20251001"
 
 SYSTEM_PROMPT = (
     "Ты помогаешь диспетчеру объединённой диспетчерской службы быстро понять, почему "
@@ -58,7 +65,10 @@ def generate_dispatcher_summary(explanation: dict | None, probability: float) ->
     user_prompt = _build_user_prompt(top_features, probability, anomaly.get("is_outlier"))
 
     try:
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        client_kwargs = {"api_key": settings.anthropic_api_key}
+        if settings.anthropic_base_url:
+            client_kwargs["base_url"] = settings.anthropic_base_url
+        client = anthropic.Anthropic(**client_kwargs)
         response = client.messages.create(
             model=MODEL,
             max_tokens=300,
