@@ -11,7 +11,7 @@ import { Badge, riskPriorityTone } from "../components/Badge";
 import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
-import { ChevronIcon } from "../components/icons";
+import { CheckCircleIcon, CheckIcon, ChevronIcon, CloseIcon, DraftIcon, WrenchIcon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { exportCsv } from "../lib/exportCsv";
@@ -344,7 +344,15 @@ function RequestDetail({ request, onChanged }: { request: MaintenanceRequestOut;
         )}
       </DetailSection>
 
-      <DetailSection title="Ход выполнения">
+      <DetailSection
+        title="Ход выполнения"
+        footer={
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-500">Создана</span>
+            <span className="font-medium text-slate-700">{new Date(request.created_at).toLocaleString("ru-RU")}</span>
+          </div>
+        }
+      >
         <RequestTimeline request={request} />
       </DetailSection>
 
@@ -400,56 +408,69 @@ function RequestHistory({ requestId }: { requestId: number }) {
   );
 }
 
+// Иконка представляет саму стадию (что это за шаг), а не то, достигнута ли она —
+// достигнутость показывает заливка кружка, в духе шагов Preline.
+const STAGE_ICONS: Record<"draft" | "approved" | "in_progress" | "completed", typeof DraftIcon> = {
+  draft: DraftIcon,
+  approved: CheckIcon,
+  in_progress: WrenchIcon,
+  completed: CheckCircleIcon,
+};
+
 function RequestTimeline({ request }: { request: MaintenanceRequestOut }) {
   const isStopped = request.status === "rejected" || request.status === "cancelled";
 
   if (isStopped) {
     return (
-      <div className="space-y-1.5 text-sm">
-        <div className="flex justify-between text-slate-500">
-          <span>Создана</span>
-          <span className="font-medium text-slate-700">{new Date(request.created_at).toLocaleString("ru-RU")}</span>
-        </div>
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600">
+          <CloseIcon className="h-3.5 w-3.5" />
+        </span>
         <Badge tone={STATUS_TONE[request.status]}>{STATUS_LABELS[request.status]}</Badge>
       </div>
     );
   }
 
   const currentIndex = HAPPY_PATH.indexOf(request.status);
+  const dateByStage: Partial<Record<(typeof HAPPY_PATH)[number], string>> = {
+    draft: new Date(request.created_at).toLocaleString("ru-RU"),
+    approved: request.approved_at
+      ? `${new Date(request.approved_at).toLocaleString("ru-RU")}${
+          request.approved_by_username ? ` · ${request.approved_by_username}` : ""
+        }`
+      : undefined,
+  };
+
   return (
     <div>
-      <ol className="space-y-2">
-        {HAPPY_PATH.map((stage, i) => {
-          const reached = i <= currentIndex;
-          const isCurrent = i === currentIndex;
-          return (
-            <li key={stage} className="flex items-center gap-2 text-sm">
-              <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
-                  reached ? "bg-sky-500" : "border border-slate-300 bg-white"
+      {HAPPY_PATH.map((stage, i) => {
+        const reached = i <= currentIndex;
+        const isCurrent = i === currentIndex;
+        const isLast = i === HAPPY_PATH.length - 1;
+        const Icon = STAGE_ICONS[stage as keyof typeof STAGE_ICONS];
+        return (
+          <div key={stage} className={`relative flex gap-x-4 ${isLast ? "" : "pb-4"}`}>
+            {!isLast && <span className="absolute top-8 bottom-0 left-4 w-px bg-slate-200" />}
+            <span
+              className={`relative z-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
+                reached ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-400"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+            <div className="mt-1 grow">
+              <p
+                className={`text-sm font-medium ${
+                  isCurrent ? "text-slate-900" : reached ? "text-slate-700" : "text-slate-400"
                 }`}
               >
-                {reached && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-              </span>
-              <span className={isCurrent ? "font-semibold text-slate-900" : reached ? "text-slate-700" : "text-slate-400"}>
                 {STATUS_LABELS[stage]}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-sm text-slate-500">
-        <div className="flex justify-between">
-          <span>Создана</span>
-          <span className="font-medium text-slate-700">{new Date(request.created_at).toLocaleString("ru-RU")}</span>
-        </div>
-        {request.approved_at && (
-          <div className="flex justify-between">
-            <span>Утверждена{request.approved_by_username ? ` (${request.approved_by_username})` : ""}</span>
-            <span className="font-medium text-slate-700">{new Date(request.approved_at).toLocaleString("ru-RU")}</span>
+              </p>
+              {dateByStage[stage] && <p className="text-sm text-slate-500">{dateByStage[stage]}</p>}
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })}
     </div>
   );
 }

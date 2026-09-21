@@ -1,8 +1,20 @@
 import type { ReactNode } from "react";
 
 /** Карточка-секция для правой панели детализации (риск-кейс/прогноз/заявка) — заголовок
- * с необязательным контекстным значением справа, отделённый от тела полосой снизу. */
-export function DetailSection({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
+ * с необязательным контекстным значением справа, отделённый от тела полосой снизу.
+ * `footer` — необязательная нижняя полоса во всю ширину карточки (без отступа тела),
+ * для одного итогового факта вроде «Создана: <дата>» под основным содержимым. */
+export function DetailSection({
+  title,
+  right,
+  footer,
+  children,
+}: {
+  title: string;
+  right?: ReactNode;
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-100 px-5 py-3">
@@ -10,6 +22,7 @@ export function DetailSection({ title, right, children }: { title: string; right
         {right}
       </div>
       <div className="flex flex-col gap-4 px-5 py-4">{children}</div>
+      {footer && <div className="border-t border-slate-100 px-5 py-3">{footer}</div>}
     </div>
   );
 }
