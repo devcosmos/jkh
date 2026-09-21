@@ -6,6 +6,7 @@ import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories"
 import { Badge } from "../components/Badge";
 import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
+import { ChevronIcon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { ShapExplanation } from "../components/ShapExplanation";
@@ -116,7 +117,12 @@ export function JournalPage() {
                           {stale && " · устарел"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-400">{expanded ? "▲" : "▼"}</td>
+                      <td className="px-4 py-3 text-slate-400">
+                        <ChevronIcon
+                          className={`h-4 w-4 transition-transform ${expanded ? "-rotate-90" : "rotate-90"}`}
+                          strokeWidth={2}
+                        />
+                      </td>
                     </tr>
                     {expanded && (
                       <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
