@@ -38,6 +38,21 @@ export interface ObjectsTreeResponse {
   roots: ObjectTreeNode[];
 }
 
+export type DegradationTrendStatus = "worsening" | "stable" | "improving" | "insufficient_data";
+
+// Динамика частоты "чистых" эпизодов неисправности канала — НЕ прогноз износа оборудования
+// (данных о возрасте/дате установки нет и не будет). См.
+// docs/ТЗ_тренд_деградации_канала.md, раздел 7 — обязательная оговорка везде, где показано.
+export interface DegradationTrendOut {
+  channel_id: number;
+  as_of: string;
+  recent_window_days: number;
+  baseline_window_days: number;
+  recent_count: number;
+  baseline_count: number;
+  status: DegradationTrendStatus;
+}
+
 export interface ChannelOut {
   id: number;
   external_channel_id: number;
@@ -46,6 +61,7 @@ export interface ChannelOut {
   sensor_type: string;
   location_tag: string | null;
   display_name: string | null;
+  degradation_trend?: DegradationTrendOut | null;
 }
 
 export interface EpisodeOut {
@@ -140,6 +156,12 @@ export interface DashboardSummary {
     is_stale: boolean;
   } | null;
   daily_volume: { date: string; opened: number; closed: number }[];
+  top_worsening_channels: {
+    channel_id: number;
+    label: string;
+    recent_count: number;
+    baseline_count: number;
+  }[];
 }
 
 export type UserRole = "admin" | "dispatcher" | "analyst";

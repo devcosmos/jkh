@@ -5,8 +5,17 @@ import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { useApi } from "../api/useApi";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
+import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { ShapExplanation } from "../components/ShapExplanation";
-import type { ChannelOut, DecisionAction, EpisodeOut, MaintenanceRequestOut, PredictionOut, RiskCaseOut } from "../api/types";
+import type {
+  ChannelOut,
+  DecisionAction,
+  DegradationTrendOut,
+  EpisodeOut,
+  MaintenanceRequestOut,
+  PredictionOut,
+  RiskCaseOut,
+} from "../api/types";
 
 const ACTIONS: { value: DecisionAction; label: string; primary?: boolean }[] = [
   { value: "dispatch", label: "Направить на проверку", primary: true },
@@ -28,6 +37,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
   const requestsForCase = useApi<MaintenanceRequestOut[]>(
     () => api.get(`/maintenance-requests?risk_case_id=${riskCase.id}&limit=1`),
     [riskCase.id]
+  );
+  const trend = useApi<DegradationTrendOut>(
+    () => api.get(`/channels/${riskCase.channel_id}/degradation-trend`),
+    [riskCase.channel_id]
   );
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -108,6 +121,15 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           </div>
         )}
       </DataState>
+
+      {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
+          эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
+      {trend.data && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Тренд по каналу</span>
+          <DegradationTrendBadge trend={trend.data} />
+        </div>
+      )}
 
       {latestPrediction.data?.[0] && (
         <div>

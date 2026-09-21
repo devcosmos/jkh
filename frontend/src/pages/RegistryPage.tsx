@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { Badge } from "../components/Badge";
 import { DataState } from "../components/DataState";
+import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { Select } from "../components/Select";
 import type { ChannelOut, ObjectOut } from "../api/types";
 
@@ -17,9 +18,11 @@ export function RegistryPage() {
   const channels = useApi<ChannelOut[]>(
     () =>
       api.get(
-        `/channels?limit=300${sensorType ? `&sensor_type=${encodeURIComponent(sensorType)}` : ""}${
-          search ? `&search=${encodeURIComponent(search)}` : ""
-        }${objectFilter ? `&object_id=${objectFilter}` : ""}`
+        `/channels?limit=300&include_trend=true${
+          sensorType ? `&sensor_type=${encodeURIComponent(sensorType)}` : ""
+        }${search ? `&search=${encodeURIComponent(search)}` : ""}${
+          objectFilter ? `&object_id=${objectFilter}` : ""
+        }`
       ),
     [sensorType, search, objectFilter]
   );
@@ -95,6 +98,7 @@ export function RegistryPage() {
                 <th className="px-4 py-3">Тип датчика</th>
                 <th className="px-4 py-3">Объект</th>
                 <th className="px-4 py-3">Расположение</th>
+                <th className="px-4 py-3">Тренд</th>
               </tr>
             </thead>
             <tbody>
@@ -119,6 +123,9 @@ export function RegistryPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{c.location_tag ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {c.degradation_trend ? <DegradationTrendBadge trend={c.degradation_trend} /> : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

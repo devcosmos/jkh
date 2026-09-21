@@ -9,6 +9,7 @@ from app.api.deps import get_accessible_object_ids, get_current_user
 from app.core.db import get_db
 from app.models.entities import (
     Channel,
+    IncidentEpisode,
     MaintenanceRequest,
     ModelVersion,
     Object,
@@ -18,6 +19,9 @@ from app.models.entities import (
     User,
 )
 from app.models.enums import RiskCaseStatus
+from app.services.degradation_trend import compute_trend_for_channels
+
+_TOP_WORSENING_LIMIT = 5
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
 
@@ -176,6 +180,40 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
             for day in all_days
         ]
 
+    # Топ-5 каналов с растущей частотой "чистых" эпизодов — доп. сигнал внутри «Отказ
+    # датчика», не «Износ инфраструктуры» (см. docs/ТЗ_тренд_деградации_канала.md, раздел
+    # 5.2.3). Кандидаты — каналы, у которых вообще есть хоть один не-флаппинг эпизод
+    # (иначе тренд для них всегда insufficient_data и они не полезны в топе).
+    candidate_channels_stmt = (
+        select(IncidentEpisode.channel_id).where(IncidentEpisode.is_flapping_incident.is_(False)).distinct()
+    )
+    if accessible is not None:
+        candidate_channels_stmt = candidate_channels_stmt.where(
+            IncidentEpisode.channel_id.in_(accessible_channel_ids)
+        )
+    candidate_channel_ids = list(db.scalars(candidate_channels_stmt))
+    trends = compute_trend_for_channels(db, candidate_channel_ids)
+    worsening = [
+        {"channel_id": cid, **t}
+        for cid, t in trends.items()
+        if t["status"] == "worsening"
+    ]
+    worsening.sort(key=lambda t: t["recent"] - t["baseline"], reverse=True)
+    top_worsening = worsening[:_TOP_WORSENING_LIMIT]
+    channel_labels = {
+        c.id: (c.display_name or f"Канал {c.external_channel_id}")
+        for c in db.scalars(select(Channel).where(Channel.id.in_([t["channel_id"] for t in top_worsening])))
+    }
+    top_worsening_channels = [
+        {
+            "channel_id": t["channel_id"],
+            "label": channel_labels.get(t["channel_id"], f"Канал #{t['channel_id']}"),
+            "recent_count": t["recent"],
+            "baseline_count": t["baseline"],
+        }
+        for t in top_worsening
+    ]
+
     return {
         "risk_cases": {
             "total": total_risk_cases,
@@ -202,4 +240,5 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
         "last_prediction_by_category": last_prediction_by_category,
         "worker": worker_info,
         "daily_volume": daily_volume,
+        "top_worsening_channels": top_worsening_channels,
     }

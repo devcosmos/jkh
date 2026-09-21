@@ -121,6 +121,26 @@ export function DashboardPage() {
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
+                Каналы с растущей частотой сбоев
+              </h2>
+              <p className="mb-4 text-xs text-slate-500">
+                Динамика частоты эпизодов неисправности за последние 90 дней против предыдущих
+                90 — не прогноз износа оборудования (данных о возрасте/дате установки нет), а
+                наблюдаемый факт по уже собранной истории.
+              </p>
+              <BarList
+                items={(summary.data.top_worsening_channels ?? []).map((c) => ({
+                  key: String(c.channel_id),
+                  label: c.label,
+                  value: c.recent_count,
+                  colorClass: TONE_DOT_CLASSES.warning,
+                }))}
+                emptyText="Растущих трендов сейчас нет"
+              />
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
                 Риск-кейсы: открыто / закрыто по дням
               </h2>
               <p className="mb-4 text-xs text-slate-500">

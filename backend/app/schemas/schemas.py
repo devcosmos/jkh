@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,6 +59,20 @@ class ObjectOut(BaseModel):
     geometry_source: str | None
 
 
+class DegradationTrendOut(BaseModel):
+    """Динамика частоты "чистых" (не флаппинг) эпизодов неисправности канала — наблюдаемый
+    факт по истории, НЕ прогноз износа оборудования (данных о возрасте/дате установки нет и
+    не будет). См. docs/ТЗ_тренд_деградации_канала.md."""
+
+    channel_id: int
+    as_of: dt.datetime
+    recent_window_days: int
+    baseline_window_days: int
+    recent_count: int
+    baseline_count: int
+    status: Literal["worsening", "stable", "improving", "insufficient_data"]
+
+
 class ChannelOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,6 +83,7 @@ class ChannelOut(BaseModel):
     sensor_type: str
     location_tag: str | None
     display_name: str | None
+    degradation_trend: DegradationTrendOut | None = None
 
 
 class PredictionOut(BaseModel):

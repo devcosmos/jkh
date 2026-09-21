@@ -2,12 +2,30 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_accessible_object_ids, get_current_user
+from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user
 from app.core.db import get_db
 from app.models.entities import Channel, IncidentEpisode, User
-from app.schemas.schemas import ChannelOut
+from app.schemas.schemas import ChannelOut, DegradationTrendOut
+from app.services.degradation_trend import (
+    BASELINE_WINDOW_DAYS,
+    RECENT_WINDOW_DAYS,
+    compute_trend_for_channel,
+    compute_trend_for_channels,
+)
 
 router = APIRouter(prefix="/channels", tags=["channels"], dependencies=[Depends(get_current_user)])
+
+
+def _trend_out(channel_id: int, trend: dict) -> DegradationTrendOut:
+    return DegradationTrendOut(
+        channel_id=channel_id,
+        as_of=trend["as_of"],
+        recent_window_days=RECENT_WINDOW_DAYS,
+        baseline_window_days=BASELINE_WINDOW_DAYS,
+        recent_count=trend["recent"],
+        baseline_count=trend["baseline"],
+        status=trend["status"],
+    )
 
 
 @router.get("", response_model=list[ChannelOut])
@@ -15,6 +33,7 @@ def list_channels(
     object_id: int | None = None,
     sensor_type: str | None = None,
     search: str | None = None,
+    include_trend: bool = False,
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -36,7 +55,18 @@ def list_channels(
     if accessible is not None:
         stmt = stmt.where(Channel.object_id.in_(accessible))
     stmt = stmt.order_by(Channel.id)
-    return list(db.scalars(stmt.offset(offset).limit(limit)))
+    channels = list(db.scalars(stmt.offset(offset).limit(limit)))
+
+    if include_trend and channels:
+        # Батч-запрос на всю уже отфильтрованную/пагинированную страницу — не по одному
+        # каналу (см. docs/ТЗ_тренд_деградации_канала.md, раздел 5.2.2). Не считается по
+        # умолчанию — лишняя нагрузка, если фронту не нужно.
+        trends = compute_trend_for_channels(db, [c.id for c in channels])
+        for c in channels:
+            trend = trends.get(c.id)
+            c.degradation_trend = _trend_out(c.id, trend) if trend else None
+
+    return channels
 
 
 @router.get("/{channel_id}", response_model=ChannelOut)
@@ -45,6 +75,25 @@ def get_channel(channel_id: int, db: Session = Depends(get_db)) -> Channel:
     if ch is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Канал не найден")
     return ch
+
+
+@router.get("/{channel_id}/degradation-trend", response_model=DegradationTrendOut)
+def get_channel_degradation_trend(
+    channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> DegradationTrendOut:
+    """Доп. сигнал внутри «Отказ датчика» — динамика частоты эпизодов, не прогноз износа
+    оборудования. См. docs/ТЗ_тренд_деградации_канала.md."""
+    ch = db.get(Channel, channel_id)
+    if ch is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Канал не найден")
+    check_object_access(ch.object_id, user, db)
+
+    trend = compute_trend_for_channel(db, channel_id)
+    if trend is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Нет данных об эпизодах — тренд не может быть посчитан"
+        )
+    return _trend_out(channel_id, trend)
 
 
 @router.get("/{channel_id}/episodes")
