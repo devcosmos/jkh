@@ -79,6 +79,11 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
 
   const currentEpisode = episodes.data?.find((e) => !e.end_time);
   const predictionAnomaly = getAnomaly(latestPrediction.data?.[0]?.explanation ?? null);
+  // Пока заявка активна (не отклонена/не отменена), дальше по этому риску нечего решать —
+  // observe/clarify/reject противоречили бы уже идущей заявке (риск мог бы "откатиться" в
+  // наблюдение, пока заявка всё ещё в работе), а dispatch лишь идемпотентно вернёт ту же
+  // заявку. Дальнейшие шаги — на странице «Заявки».
+  const activeRequest = requestsForCase.data?.find((r) => r.status !== "rejected" && r.status !== "cancelled");
 
   async function submitDecision(action: DecisionAction) {
     setSubmitting(true);
@@ -112,7 +117,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </div>
       </div>
 
-      {!lastDecision && requestsForCase.data?.[0] && (
+      {!lastDecision && activeRequest && (
         <Link
           to={`/requests?risk_case_id=${riskCase.id}`}
           className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium ${SECONDARY_CONTROL}`}
@@ -221,50 +226,59 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           )
         }
       >
-        <Select
-          value=""
-          onChange={(e) => {
-            if (e.target.value) setReason(e.target.value);
-          }}
-          className="w-full"
-        >
-          <option value="">Причина из справочника…</option>
-          {REASON_CATALOG.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </Select>
-        <textarea
-          className={`w-full resize-none rounded-xl px-3 py-2.5 text-sm ${SECONDARY_FIELD}`}
-          rows={2}
-          placeholder="Причина (необязательно)"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-        <div className="flex flex-wrap gap-2">
-          {ACTIONS.map((a) => (
-            <button
-              key={a.value}
-              disabled={submitting}
-              onClick={() => submitDecision(a.value)}
-              className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
-                a.primary ? PRIMARY_CONTROL : SECONDARY_CONTROL
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-        {actionError && (
-          <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">{actionError}</div>
-        )}
         {lastDecision && (
           <div className="rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
             <span className="mr-1.5">✓</span>
             Решение сохранено: «{lastDecision}». Новый статус — «
             {RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
           </div>
+        )}
+        {activeRequest ? (
+          <p className="text-sm text-slate-500">
+            По этому риску уже создана и ведётся заявка на обслуживание — дальнейшие решения принимаются на
+            странице «Заявки» (утверждение, ход работ), новое решение здесь не требуется.
+          </p>
+        ) : (
+          <>
+            <Select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) setReason(e.target.value);
+              }}
+              className="w-full"
+            >
+              <option value="">Причина из справочника…</option>
+              {REASON_CATALOG.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </Select>
+            <textarea
+              className={`w-full resize-none rounded-xl px-3 py-2.5 text-sm ${SECONDARY_FIELD}`}
+              rows={2}
+              placeholder="Причина (необязательно)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              {ACTIONS.map((a) => (
+                <button
+                  key={a.value}
+                  disabled={submitting}
+                  onClick={() => submitDecision(a.value)}
+                  className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
+                    a.primary ? PRIMARY_CONTROL : SECONDARY_CONTROL
+                  }`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+            {actionError && (
+              <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">{actionError}</div>
+            )}
+          </>
         )}
       </RiskCardSection>
 
