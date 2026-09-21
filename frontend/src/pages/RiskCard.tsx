@@ -31,8 +31,11 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
     [riskCase.channel_id]
   );
   const latestPrediction = useApi<PredictionOut[]>(
-    () => api.get(`/predictions?channel_id=${riskCase.channel_id}&category=${riskCase.category}&limit=1`),
-    [riskCase.channel_id, riskCase.category]
+    // По risk_case_id, не по channel_id+category — иначе для уже закрытого риск-кейса
+    // здесь показывался бы ПОСЛЕДНИЙ прогноз воркера по каналу вообще (текущий тик), а не
+    // тот, что реально был при открытии именно этого кейса.
+    () => api.get(`/predictions?risk_case_id=${riskCase.id}&limit=1`),
+    [riskCase.id]
   );
   const requestsForCase = useApi<MaintenanceRequestOut[]>(
     () => api.get(`/maintenance-requests?risk_case_id=${riskCase.id}&limit=1`),

@@ -1,14 +1,19 @@
 """Проставляет реальное SHAP-объяснение и независимый сигнал аномальности (IsolationForest)
-на последний прогноз каждого сейчас открытого риск-кейса.
+на последний прогноз каждого риск-кейса (любого статуса, включая закрытые/отклонённые —
+изначально (20 сентября) покрывались только открытые: RiskCard.tsx на тот момент запрашивал
+"последний прогноз по каналу", где для закрытых кейсов заглушка была не так заметна. После
+исправления RiskCard.tsx на честный `risk_case_id`-фильтр (21 сентября, docs/Статус.md)
+неполный backfill стал видимым пробелом: закрытые кейсы показывали "Объяснение недоступно"
+вместо реального SHAP, хотя признаки для их прогнозов физически есть в тех же parquet-файлах,
+что и для открытых. Ограничение на статус снято — расхождение источника было только в охвате
+запроса, не в доступности данных).
 
 Массовый импорт (import_analysis_to_db.py) не хранил признаки построчно — только
 итоговый score из scored_<track>.parquet, поэтому исторические прогнозы получили общую
-заглушку в explanation. Для открытых риск-кейсов (единственное место, где объяснение
-реально видно диспетчеру — RiskCard.tsx) можно honest-но восстановить точный вектор
-признаков, использованный моделью: он лежит в features_<track>_2024_2026.parquet по тому
-же (channel_id=внешний id, ts), что и в scored_<track>.parquet. Дальше — тот же
-`explain_prediction`, что и в живом воркере, чтобы объяснение считалось одной и той же
-моделью и логикой в обоих путях.
+заглушку в explanation. Точный вектор признаков, использованный моделью, лежит в
+features_<track>_2024_2026.parquet по тому же (channel_id=внешний id, ts), что и в
+scored_<track>.parquet. Дальше — тот же `explain_prediction`, что и в живом воркере, чтобы
+объяснение считалось одной и той же моделью и логикой в обоих путях.
 
 Запуск: JKH_DATABASE_URL=... python3 scripts/backfill_shap_explanations.py
 """
@@ -35,8 +40,9 @@ from catboost import CatBoostClassifier  # noqa: E402
 
 
 def latest_prediction_ids(db, category: str) -> list[tuple[int, int, int]]:
-    """-> [(prediction_id, external_channel_id, ts_epoch), ...] для каждого открытого
-    риск-кейса этой категории — последний по времени прогноз."""
+    """-> [(prediction_id, external_channel_id, ts_epoch), ...] для каждого риск-кейса этой
+    категории (любого статуса) — последний по времени прогноз, привязанный именно к нему
+    (`p.risk_case_id = rc.id`), не последний прогноз по каналу вообще."""
     rows = db.execute(
         text(
             """
@@ -44,7 +50,7 @@ def latest_prediction_ids(db, category: str) -> list[tuple[int, int, int]]:
             FROM risk_cases rc
             JOIN predictions p ON p.risk_case_id = rc.id
             JOIN channels c ON c.id = rc.channel_id
-            WHERE rc.status IN ('new', 'observing', 'dispatched') AND rc.category = :category
+            WHERE rc.category = :category
             ORDER BY rc.id, p.created_at DESC
             """
         ),
