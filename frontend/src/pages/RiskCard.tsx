@@ -120,11 +120,11 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       <RiskCardSection title="Данные">
         <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
           {channel.data && (
-            <div className="rounded-xl bg-slate-50 p-3.5 text-sm">
+            <div className="space-y-1 text-sm">
               <div className="font-semibold text-slate-900">
                 {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
               </div>
-              <div className="mt-1 text-slate-500">Тип: {channel.data.sensor_type}</div>
+              <div className="text-slate-500">Тип: {channel.data.sensor_type}</div>
               {channel.data.device_label && (
                 <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
               )}
@@ -134,7 +134,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
               {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале
                   без эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
               {trend.data && (
-                <div className="mt-2 flex items-center gap-2 text-slate-500">
+                <div className="flex items-center gap-2 pt-1 text-slate-500">
                   <span>Тренд:</span>
                   <DegradationTrendBadge trend={trend.data} />
                 </div>
@@ -162,16 +162,12 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             <span>Почему сработал прогноз</span>
             <span>{(latestPrediction.data[0].probability * 100).toFixed(0)}% отказа</span>
           </div>
-          <div className="rounded-xl bg-slate-50 p-3.5">
-            {llmSummary.loading ? (
-              <p className="mb-3 text-sm text-slate-400 italic">Формируется краткое резюме…</p>
-            ) : llmSummary.data?.summary ? (
-              <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
-                {llmSummary.data.summary}
-              </p>
-            ) : null}
-            <ShapExplanation explanation={latestPrediction.data[0].explanation} />
-          </div>
+          {llmSummary.loading ? (
+            <p className="text-sm text-slate-400 italic">Формируется краткое резюме…</p>
+          ) : llmSummary.data?.summary ? (
+            <p className="border-b border-slate-100 pb-3 text-sm text-slate-700 italic">{llmSummary.data.summary}</p>
+          ) : null}
+          <ShapExplanation explanation={latestPrediction.data[0].explanation} />
         </RiskCardSection>
       )}
 
