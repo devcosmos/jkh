@@ -92,30 +92,6 @@ function featureValue(f: Feature): string {
   return String(f.value);
 }
 
-// Ширина полосы уже показывает относительный вклад признака среди топ-5, но не то,
-// насколько ЭТОТ вклад силён сам по себе — берём цвет по абсолютной величине вклада
-// (не по ширине, которая всегда нормирована на максимум среди пяти) и растягиваем на
-// фиксированную шкалу, чтобы слабые признаки оставались бледными, а сильные — тёмными,
-// даже если все пять в конкретном прогнозе слабые или все сильные.
-const CONTRIBUTION_SCALE_MAX = 0.5; // эмпирический потолок «сильного» вклада — выше почти не встречается
-
-function severity(contribution: number): number {
-  return Math.min(Math.abs(contribution) / CONTRIBUTION_SCALE_MAX, 1);
-}
-
-function positiveColor(t: number): string {
-  // fed7aa (бледно-оранжевый) -> b91c1c (тёмно-красный)
-  return lerpColor([0xfe, 0xd7, 0xaa], [0xb9, 0x1c, 0x1c], t);
-}
-function negativeColor(t: number): string {
-  // bae6fd (бледно-голубой) -> 1d4ed8 (тёмно-синий)
-  return lerpColor([0xba, 0xe6, 0xfd], [0x1d, 0x4e, 0xd8], t);
-}
-function lerpColor(a: [number, number, number], b: [number, number, number], t: number): string {
-  const mix = a.map((c, i) => Math.round(c + (b[i] - c) * t));
-  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
-}
-
 /** SHAP-вклад признаков в конкретный прогноз (не глобальная важность модели) — считается
  * той же моделью в момент прогноза (backend/app/workers/replay_worker.py:explain_prediction).
  * Положительный вклад толкает вероятность к отказу, отрицательный — от него.
@@ -148,25 +124,22 @@ export function ShapExplanation({
       )}
       {e.top_features.map((f) => {
         const positive = f.contribution >= 0;
+        // Ширина уже нормирована на максимум среди топ-5 — сама показывает относительную
+        // силу вклада, поэтому цвет плоский (два тона по направлению), без градиента по
+        // величине: одно и то же почти всегда читалось глазом только по ширине полосы.
         const halfWidth = Math.max((Math.abs(f.contribution) / maxAbs) * 50, 3);
-        const t = severity(f.contribution);
-        const color = positive ? positiveColor(t) : negativeColor(t);
         return (
           <div key={f.feature}>
-            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-              <span className="text-slate-700">{featureLabel(f)}</span>
-              <span className="shrink-0 font-medium text-slate-500">{featureValue(f)}</span>
+            <div className="mb-1 flex items-baseline justify-between gap-x-2 text-sm">
+              <span className="text-slate-500">{featureLabel(f)}</span>
+              <span className="shrink-0 font-medium text-slate-700">{featureValue(f)}</span>
             </div>
             <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
               {/* Нулевая точка вклада — ориентир для «толкает к отказу / от отказа» */}
               <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
               <div
-                className="absolute inset-y-0 rounded-full"
-                style={
-                  positive
-                    ? { left: "50%", width: `${halfWidth}%`, backgroundColor: color }
-                    : { right: "50%", width: `${halfWidth}%`, backgroundColor: color }
-                }
+                className={`absolute inset-y-0 rounded-full ${positive ? "bg-orange-400" : "bg-sky-400"}`}
+                style={positive ? { left: "50%", width: `${halfWidth}%` } : { right: "50%", width: `${halfWidth}%` }}
               />
             </div>
           </div>
