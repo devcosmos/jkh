@@ -114,12 +114,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       {!lastDecision && requestsForCase.data?.[0] && (
         <Link
           to={`/requests?risk_case_id=${riskCase.id}`}
-          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300"
+          className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium ${SECONDARY_CONTROL}`}
         >
           <span>По этому риск-кейсу уже есть заявка на обслуживание</span>
-          <span
-            className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold ${SECONDARY_CONTROL}`}
-          >
+          <span className="flex shrink-0 items-center gap-1 font-semibold">
             Смотреть
             <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
           </span>
