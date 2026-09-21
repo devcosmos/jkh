@@ -86,6 +86,10 @@ class ChannelOut(BaseModel):
     external_channel_id: int
     object_id: int | None
     device_id: int | None
+    device_label: str | None = Field(
+        default=None,
+        description="Внешний ID физического устройства (например, «Н1-ПК440»), если канал сопоставлен",
+    )
     sensor_type: str
     location_tag: str | None
     display_name: str | None

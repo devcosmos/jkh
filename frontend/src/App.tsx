@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from "react";
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import { clearSession, getRole, getToken } from "./api/client";
+import { RiskAlerts, useCriticalRiskCount } from "./components/RiskAlerts";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { RisksPage } from "./pages/RisksPage";
@@ -36,6 +37,7 @@ const ADMIN_NAV_ITEMS = [
 export function App() {
   const [authed, setAuthed] = useState(!!getToken());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const criticalCount = useCriticalRiskCount(authed);
 
   if (!authed) {
     return <LoginPage onLoggedIn={() => setAuthed(true)} />;
@@ -50,6 +52,7 @@ export function App() {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <RiskAlerts />
       {mobileNavOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/40 lg:hidden"
@@ -82,7 +85,12 @@ export function App() {
 
         <nav className="flex-1 space-y-1 px-3">
           {NAV_ITEMS.map((item) => (
-            <NavItemLink key={item.to} {...item} onNavigate={() => setMobileNavOpen(false)} />
+            <NavItemLink
+              key={item.to}
+              {...item}
+              badge={item.to === "/risks" ? criticalCount : undefined}
+              onNavigate={() => setMobileNavOpen(false)}
+            />
           ))}
           {role === "admin" && (
             <>
@@ -145,11 +153,13 @@ function NavItemLink({
   to,
   label,
   icon: Icon,
+  badge,
   onNavigate,
 }: {
   to: string;
   label: string;
   icon: (p: { className?: string }) => ReactElement;
+  badge?: number | null;
   onNavigate?: () => void;
 }) {
   return (
@@ -165,7 +175,12 @@ function NavItemLink({
       {({ isActive }) => (
         <>
           <Icon className={`h-4.5 w-4.5 ${isActive ? "text-sky-400" : "text-slate-500"}`} />
-          {label}
+          <span className="flex-1">{label}</span>
+          {!!badge && (
+            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">
+              {badge}
+            </span>
+          )}
         </>
       )}
     </NavLink>

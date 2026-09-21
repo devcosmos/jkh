@@ -58,6 +58,7 @@ export interface ChannelOut {
   external_channel_id: number;
   object_id: number | null;
   device_id: number | null;
+  device_label: string | null;
   sensor_type: string;
   location_tag: string | null;
   display_name: string | null;

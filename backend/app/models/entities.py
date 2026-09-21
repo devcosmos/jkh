@@ -97,6 +97,18 @@ class Channel(Base, TimestampMixin):
     device: Mapped[Device | None] = relationship(back_populates="channels")
     episodes: Mapped[list["IncidentEpisode"]] = relationship(back_populates="channel")
 
+    @property
+    def device_label(self) -> str | None:
+        """Внешний ID физического устройства — см. scripts/link_channels_to_devices.py."""
+        return self.device.external_id if self.device is not None else None
+
+    @property
+    def label(self) -> str:
+        """Отображаемое имя канала с реальной идентичностью устройства в скобках, если оно
+        сопоставлено — вместо голого ID канала в заявках/карточках (раздел 10 плана)."""
+        base = self.display_name or str(self.external_channel_id)
+        return f"{base} ({self.device_label})" if self.device_label else base
+
 
 class IncidentEpisode(Base, TimestampMixin):
     """Очищенный эпизод отказа — см. docs/label-policy.md и scripts/build_episodes.py."""

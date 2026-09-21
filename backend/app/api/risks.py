@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
 from app.core.db import get_db
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
     response_model=list[RiskCaseOut],
     summary="Получить список риск-кейсов",
     description=(
-        "Фильтры по status, category, channel_id (внешний ID канала — тот же, что показан в реестре "
+        "Фильтры по status, category, priority, channel_id (внешний ID канала — тот же, что показан в реестре "
         "каналов, не внутренний PK), object_id и search (точный ID риск-кейса или внешний ID канала). "
         "Сортировка sort_by: opened_at или probability; sort_dir: asc "
         "или desc. По умолчанию — новые первыми. Учитывает доступ к объектам."
@@ -46,6 +46,7 @@ def list_risk_cases(
     response: Response,
     status_filter: RiskCaseStatus | None = Query(None, alias="status"),
     category: str | None = None,
+    priority: str | None = None,
     channel_id: int | None = None,
     object_id: int | None = None,
     search: int | None = Query(None, description="Точное совпадение по ID риск-кейса или внешнему ID канала"),
@@ -82,6 +83,8 @@ def list_risk_cases(
             s = s.where(RiskCase.status == status_filter)
         if category:
             s = s.where(RiskCase.category == category)
+        if priority:
+            s = s.where(RiskCase.priority == priority)
         if channel_id is not None:
             s = s.where(Channel.external_channel_id == channel_id)
         if object_channel_ids is not None:
@@ -90,8 +93,10 @@ def list_risk_cases(
             s = s.where(or_(RiskCase.id == search, Channel.external_channel_id == search))
         return s
 
-    stmt = select(RiskCase, latest_probability.label("probability"), Channel).join(
-        Channel, Channel.id == RiskCase.channel_id
+    stmt = (
+        select(RiskCase, latest_probability.label("probability"), Channel)
+        .join(Channel, Channel.id == RiskCase.channel_id)
+        .options(selectinload(Channel.device))
     )
     stmt = apply_filters(stmt)
     accessible = get_accessible_object_ids(user, db)
@@ -123,7 +128,7 @@ def list_risk_cases(
             opened_at=rc.opened_at,
             closed_at=rc.closed_at,
             latest_probability=proba,
-            channel_label=channel.display_name or str(channel.external_channel_id),
+            channel_label=channel.label,
             channel_external_id=channel.external_channel_id,
         )
         for rc, proba, channel in rows
@@ -171,7 +176,7 @@ def get_risk_case(
         opened_at=rc.opened_at,
         closed_at=rc.closed_at,
         latest_probability=latest,
-        channel_label=rc.channel.display_name or str(rc.channel.external_channel_id),
+        channel_label=rc.channel.label,
         channel_external_id=rc.channel.external_channel_id,
     )
 

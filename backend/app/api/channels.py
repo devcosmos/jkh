@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user
 from app.core.db import get_db
@@ -66,7 +66,7 @@ def list_channels(
 ) -> list[Channel]:
     """Реестр каналов — раздел «Объекты и каналы» админ-панели, отдельно от иерархической
     схемы рисков (объекты/tree): здесь плоский список для поиска/инвентаризации."""
-    stmt = select(Channel)
+    stmt = select(Channel).options(selectinload(Channel.device))
     if object_id is not None:
         stmt = stmt.where(Channel.object_id == object_id)
     if sensor_type:

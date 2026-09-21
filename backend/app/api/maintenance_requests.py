@@ -48,7 +48,7 @@ def _build_out(mr: MaintenanceRequest, approver_username: str | None) -> Mainten
         approved_at=mr.approved_at,
         created_at=mr.created_at,
         category=rc.category if rc is not None else None,
-        channel_label=(channel.display_name or str(channel.external_channel_id)) if channel is not None else None,
+        channel_label=channel.label if channel is not None else None,
         object_name=obj.name if obj is not None else None,
     )
 
@@ -91,7 +91,12 @@ def list_maintenance_requests(
     по одной строке было понятно, о чём заявка, без перехода в раздел «Риски». `risk_case_id`
     — сквозная ссылка из карточки риска («Смотреть заявку»/бейдж существующей заявки)."""
     stmt = select(MaintenanceRequest).options(
-        joinedload(MaintenanceRequest.risk_case).joinedload(RiskCase.channel).joinedload(Channel.object)
+        joinedload(MaintenanceRequest.risk_case)
+        .joinedload(RiskCase.channel)
+        .joinedload(Channel.object),
+        joinedload(MaintenanceRequest.risk_case)
+        .joinedload(RiskCase.channel)
+        .joinedload(Channel.device),
     )
     if status_filter:
         stmt = stmt.where(MaintenanceRequest.status == status_filter)

@@ -97,6 +97,7 @@ export function RegistryPage() {
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">ID канала</th>
                 <th className="px-4 py-3">Название</th>
+                <th className="px-4 py-3">Устройство</th>
                 <th className="px-4 py-3">Тип датчика</th>
                 <th className="px-4 py-3">Объект</th>
                 <th className="px-4 py-3">Расположение</th>
@@ -116,6 +117,9 @@ export function RegistryPage() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 font-medium text-slate-900">{c.display_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {c.device_label ?? <span className="text-slate-300">не сопоставлено</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone="neutral">{c.sensor_type}</Badge>
                   </td>

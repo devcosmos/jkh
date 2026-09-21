@@ -6,6 +6,7 @@ import { useApi } from "../api/useApi";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
+import { Select } from "../components/Select";
 import { ShapExplanation } from "../components/ShapExplanation";
 import type {
   ChannelOut,
@@ -22,6 +23,19 @@ const ACTIONS: { value: DecisionAction; label: string; primary?: boolean }[] = [
   { value: "observe", label: "Наблюдать" },
   { value: "clarify", label: "Уточнить данные" },
   { value: "reject", label: "Отклонить предупреждение" },
+];
+
+// Справочник причин — раздел 12 ТЗ прямо требует «фиксирует решение… с выбором причины
+// из справочника», не только свободный текст. Выбор подставляет формулировку в поле
+// комментария, которое остаётся редактируемым — не жёсткий enum на backend, чтобы не
+// плодить миграцию под каждую новую причину.
+const REASON_CATALOG = [
+  "Ложное срабатывание датчика",
+  "Известная неисправность, уже устраняется",
+  "Плановое обслуживание рядом с объектом",
+  "Подтверждено визуальным осмотром/камерой",
+  "Недостаточно данных для решения",
+  "Похоже на реальный риск — требует проверки",
 ];
 
 export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDecided: () => void }) {
@@ -118,6 +132,9 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
               {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
             </div>
             <div className="mt-1 text-slate-500">Тип: {channel.data.sensor_type}</div>
+            {channel.data.device_label && (
+              <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
+            )}
             {channel.data.location_tag && (
               <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
             )}
@@ -162,6 +179,20 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Решение диспетчера</h4>
+        <Select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) setReason(e.target.value);
+          }}
+          className="mb-2 w-full"
+        >
+          <option value="">Причина из справочника…</option>
+          {REASON_CATALOG.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </Select>
         <textarea
           className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
           rows={2}
