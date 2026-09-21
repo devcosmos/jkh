@@ -135,7 +135,7 @@ export function ShapExplanation({
                 <span className="shrink-0 font-medium text-slate-500">{featureValue(f)}</span>
               </span>
               <div
-                className={`absolute inset-y-0 left-0 h-full ${positive ? "bg-orange-100" : "bg-sky-100"}`}
+                className={`absolute inset-y-0 left-0 h-full ${positive ? "bg-red-100" : "bg-sky-100"}`}
                 style={{ width: `${widthPct}%` }}
               />
             </li>
@@ -144,7 +144,7 @@ export function ShapExplanation({
       </ul>
       <p className="flex items-center gap-x-3 pt-0.5 text-sm text-slate-400">
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-orange-300" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-red-300" />
           повышает риск отказа
         </span>
         <span className="flex items-center gap-1">
