@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { api } from "../api/client";
-import { useApi } from "../api/useApi";
+import { usePagedApi } from "../api/usePagedApi";
 import { DataState } from "../components/DataState";
+import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import type { AuditLogEntry } from "../api/types";
 
@@ -21,9 +21,10 @@ function formatState(state: Record<string, unknown> | null): string {
 
 export function AuditLogPage() {
   const [entityType, setEntityType] = useState("");
-  const log = useApi<AuditLogEntry[]>(
-    () => api.get(`/audit-log?limit=200${entityType ? `&entity_type=${entityType}` : ""}`),
-    [entityType]
+  const log = usePagedApi<AuditLogEntry>(
+    (limit, offset) => `/audit-log?limit=${limit}&offset=${offset}${entityType ? `&entity_type=${entityType}` : ""}`,
+    [entityType],
+    50
   );
 
   return (
@@ -74,6 +75,13 @@ export function AuditLogPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={log.page}
+            pageSize={log.pageSize}
+            total={log.total}
+            loadedCount={log.data?.length ?? 0}
+            onPageChange={log.setPage}
+          />
         </div>
       </DataState>
     </div>

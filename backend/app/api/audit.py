@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_role
@@ -40,6 +40,7 @@ router = APIRouter(prefix="/audit-log", tags=["audit"], dependencies=[Depends(re
     },
 )
 def list_audit_log(
+    response: Response,
     entity_type: str | None = None,
     limit: int = Query(100, le=1000),
     offset: int = 0,
@@ -49,8 +50,11 @@ def list_audit_log(
     (трассируемость). Доступ только администратору: записи могут содержать причины решений
     по чужим объектам вне матрицы доступа текущего пользователя."""
     stmt = select(AuditLog)
+    count_stmt = select(func.count()).select_from(AuditLog)
     if entity_type:
         stmt = stmt.where(AuditLog.entity_type == entity_type)
+        count_stmt = count_stmt.where(AuditLog.entity_type == entity_type)
+    response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
     stmt = stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
     rows = list(db.scalars(stmt))
 

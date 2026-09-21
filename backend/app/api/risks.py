@@ -1,8 +1,8 @@
 import datetime as dt
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
@@ -41,6 +41,7 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
     },
 )
 def list_risk_cases(
+    response: Response,
     status_filter: RiskCaseStatus | None = Query(None, alias="status"),
     category: str | None = None,
     sort_by: Literal["opened_at", "probability"] = "opened_at",
@@ -72,6 +73,22 @@ def list_risk_cases(
         stmt = stmt.join(Channel, Channel.id == RiskCase.channel_id).where(
             Channel.object_id.in_(accessible)
         )
+
+    # Пагинация по всем страницам (не только "последние N") — раздел «Риски» и остальные
+    # списки админки иначе показывали только первую страницу без способа посмотреть
+    # остальное (см. docs/Статус.md, запись 21 сентября). Total считаем тем же набором
+    # фильтров, но без join/order по вероятности (та нужна только для сортировки, не влияет
+    # на количество строк) — отдельный дешёвый count(*) по RiskCase.
+    count_stmt = select(func.count()).select_from(RiskCase)
+    if status_filter:
+        count_stmt = count_stmt.where(RiskCase.status == status_filter)
+    if category:
+        count_stmt = count_stmt.where(RiskCase.category == category)
+    if accessible is not None:
+        count_stmt = count_stmt.join(Channel, Channel.id == RiskCase.channel_id).where(
+            Channel.object_id.in_(accessible)
+        )
+    response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
 
     order_col = latest_probability if sort_by == "probability" else RiskCase.opened_at
     stmt = stmt.order_by(order_col.desc() if sort_dir == "desc" else order_col.asc())

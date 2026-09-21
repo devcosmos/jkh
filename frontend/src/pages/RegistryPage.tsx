@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { usePagedApi } from "../api/usePagedApi";
 import { Badge } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
+import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import type { ChannelOut, ObjectOut } from "../api/types";
 
@@ -15,16 +17,15 @@ export function RegistryPage() {
   const [objectFilter, setObjectFilter] = useState<number | null>(null);
 
   const objects = useApi<ObjectOut[]>(() => api.get("/objects?limit=500"), []);
-  const channels = useApi<ChannelOut[]>(
-    () =>
-      api.get(
-        `/channels?limit=300&include_trend=true${
-          sensorType ? `&sensor_type=${encodeURIComponent(sensorType)}` : ""
-        }${search ? `&search=${encodeURIComponent(search)}` : ""}${
-          objectFilter ? `&object_id=${objectFilter}` : ""
-        }`
-      ),
-    [sensorType, search, objectFilter]
+  const channels = usePagedApi<ChannelOut>(
+    (limit, offset) =>
+      `/channels?limit=${limit}&offset=${offset}&include_trend=true${
+        sensorType ? `&sensor_type=${encodeURIComponent(sensorType)}` : ""
+      }${search ? `&search=${encodeURIComponent(search)}` : ""}${
+        objectFilter ? `&object_id=${objectFilter}` : ""
+      }`,
+    [sensorType, search, objectFilter],
+    50
   );
 
   const objectNameById = useMemo(() => {
@@ -130,6 +131,13 @@ export function RegistryPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={channels.page}
+            pageSize={channels.pageSize}
+            total={channels.total}
+            loadedCount={channels.data?.length ?? 0}
+            onPageChange={channels.setPage}
+          />
         </div>
       </DataState>
     </div>

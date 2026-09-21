@@ -47,6 +47,15 @@ ANALYSIS_DIR = ROOT / "docs" / "analysis"
 CORE_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"]
 LABEL_POLICY_VERSION = "2026-09-15"
 
+# Бэкфилл risk_cases/predictions сужен с полного test-периода (2025-07-01..2026-06-30, год)
+# до последних 6 месяцев — решение сессии 21 сентября 2026: полный год давал 125k
+# риск-кейсов/8,8М прогнозов (плохая калибровка модели -> много отдельных "прогонов"
+# предупреждений на каждый из ~5400 каналов), что заметно нагружало админку и делало её
+# неудобной для разбора конкретных кейсов. incident_episodes НЕ сужены (остаются
+# 2024-2026) — от них зависит тренд деградации канала (docs/ТЗ_тренд_деградации_канала.md,
+# окно 90+90 дней), а объём там и так небольшой (182k строк), не источник проблемы.
+BACKFILL_WINDOW_START = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+
 # Минимальное автозакрытие (без него на годе данных по тысячам каналов набегает
 # нереалистичный объём вечно открытых риск-кейсов — 113 тыс. при лучших по recall порогах,
 # см. docs/Статус.md, запись от 20 сентября). Если по каналу не было нового прогноза выше
@@ -234,13 +243,17 @@ def import_model_version(track: Track, db) -> int:
 
 
 def import_risk_cases_and_predictions(track: Track, channel_map: dict[int, int], model_version_id: int, db) -> None:
-    print(f"[{track.name}] building alert runs at threshold {track.threshold} (test split only)...", file=sys.stderr)
+    print(
+        f"[{track.name}] building alert runs at threshold {track.threshold} "
+        f"(test split, ts >= {BACKFILL_WINDOW_START.date()})...",
+        file=sys.stderr,
+    )
     con = duckdb.connect()
     con.execute(
         f"""
         CREATE VIEW s AS
         SELECT * FROM read_parquet('{ANALYSIS_DIR / f"scored_{track.name}.parquet"}')
-        WHERE split = 'test'
+        WHERE split = 'test' AND ts >= TIMESTAMP '{BACKFILL_WINDOW_START.strftime('%Y-%m-%d')}'
         """
     )
     con.execute(f"CREATE VIEW alerts AS SELECT *, (score >= {track.threshold}) AS is_alert FROM s")

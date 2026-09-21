@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user
@@ -54,6 +54,7 @@ def _trend_out(channel_id: int, trend: dict) -> DegradationTrendOut:
     },
 )
 def list_channels(
+    response: Response,
     object_id: int | None = None,
     sensor_type: str | None = None,
     search: str | None = None,
@@ -78,6 +79,21 @@ def list_channels(
     accessible = get_accessible_object_ids(user, db)
     if accessible is not None:
         stmt = stmt.where(Channel.object_id.in_(accessible))
+
+    count_stmt = select(func.count()).select_from(Channel)
+    if object_id is not None:
+        count_stmt = count_stmt.where(Channel.object_id == object_id)
+    if sensor_type:
+        count_stmt = count_stmt.where(Channel.sensor_type == sensor_type)
+    if search:
+        pattern = f"%{search}%"
+        count_stmt = count_stmt.where(
+            or_(Channel.display_name.ilike(pattern), Channel.location_tag.ilike(pattern))
+        )
+    if accessible is not None:
+        count_stmt = count_stmt.where(Channel.object_id.in_(accessible))
+    response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
+
     stmt = stmt.order_by(Channel.id)
     channels = list(db.scalars(stmt.offset(offset).limit(limit)))
 

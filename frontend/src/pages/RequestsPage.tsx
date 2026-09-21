@@ -1,11 +1,12 @@
 import { Fragment, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { useApi } from "../api/useApi";
+import { usePagedApi } from "../api/usePagedApi";
 import { categoryLabel, categoryTone } from "../api/categories";
 import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
+import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { exportCsv } from "../lib/exportCsv";
 import type { MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
@@ -33,12 +34,18 @@ export function RequestsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const requests = useApi<MaintenanceRequestOut[]>(() => {
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    if (riskCaseFilter) params.set("risk_case_id", riskCaseFilter);
-    return api.get(`/maintenance-requests?${params.toString()}`);
-  }, [statusFilter, riskCaseFilter]);
+  const requests = usePagedApi<MaintenanceRequestOut>(
+    (limit, offset) => {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (riskCaseFilter) params.set("risk_case_id", riskCaseFilter);
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      return `/maintenance-requests?${params.toString()}`;
+    },
+    [statusFilter, riskCaseFilter],
+    50
+  );
 
   async function transition(id: number, to: MaintenanceRequestStatus) {
     setBusyId(id);
@@ -244,6 +251,13 @@ export function RequestsPage() {
               })}
             </tbody>
           </table>
+          <Pagination
+            page={requests.page}
+            pageSize={requests.pageSize}
+            total={requests.total}
+            loadedCount={requests.data?.length ?? 0}
+            onPageChange={requests.setPage}
+          />
         </div>
       </DataState>
     </div>

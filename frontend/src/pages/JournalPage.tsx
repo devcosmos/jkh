@@ -1,9 +1,9 @@
 import { Fragment, useMemo, useState } from "react";
-import { api } from "../api/client";
-import { useApi } from "../api/useApi";
+import { usePagedApi } from "../api/usePagedApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
 import { Badge } from "../components/Badge";
 import { DataState } from "../components/DataState";
+import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { ShapExplanation } from "../components/ShapExplanation";
 import type { PredictionOut } from "../api/types";
@@ -17,9 +17,11 @@ const STALE_AFTER_HOURS = 24;
 export function JournalPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const predictions = useApi<PredictionOut[]>(
-    () => api.get(`/predictions?limit=200${categoryFilter ? `&category=${categoryFilter}` : ""}`),
-    [categoryFilter]
+  const predictions = usePagedApi<PredictionOut>(
+    (limit, offset) =>
+      `/predictions?limit=${limit}&offset=${offset}${categoryFilter ? `&category=${categoryFilter}` : ""}`,
+    [categoryFilter],
+    50
   );
 
   const latestKnown = useMemo(() => {
@@ -117,6 +119,13 @@ export function JournalPage() {
               })}
             </tbody>
           </table>
+          <Pagination
+            page={predictions.page}
+            pageSize={predictions.pageSize}
+            total={predictions.total}
+            loadedCount={predictions.data?.length ?? 0}
+            onPageChange={predictions.setPage}
+          />
         </div>
       </DataState>
     </div>

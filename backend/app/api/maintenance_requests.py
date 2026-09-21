@@ -1,7 +1,7 @@
 import datetime as dt
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
@@ -79,6 +79,7 @@ def _build_out(mr: MaintenanceRequest, approver_username: str | None) -> Mainten
     },
 )
 def list_maintenance_requests(
+    response: Response,
     status_filter: MaintenanceRequestStatus | None = Query(None, alias="status"),
     risk_case_id: int | None = None,
     limit: int = Query(50, le=500),
@@ -103,6 +104,19 @@ def list_maintenance_requests(
             .join(Channel, Channel.id == RiskCase.channel_id)
             .where(Channel.object_id.in_(accessible))
         )
+    count_stmt = select(func.count()).select_from(MaintenanceRequest)
+    if status_filter:
+        count_stmt = count_stmt.where(MaintenanceRequest.status == status_filter)
+    if risk_case_id is not None:
+        count_stmt = count_stmt.where(MaintenanceRequest.risk_case_id == risk_case_id)
+    if accessible is not None:
+        count_stmt = (
+            count_stmt.join(RiskCase, RiskCase.id == MaintenanceRequest.risk_case_id)
+            .join(Channel, Channel.id == RiskCase.channel_id)
+            .where(Channel.object_id.in_(accessible))
+        )
+    response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
+
     stmt = stmt.order_by(MaintenanceRequest.created_at.desc())
     rows = list(db.scalars(stmt.offset(offset).limit(limit)))
 

@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { usePagedApi } from "../api/usePagedApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { ObjectsTree } from "../components/ObjectsTree";
+import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { StatTile } from "../components/StatTile";
 import { exportCsv } from "../lib/exportCsv";
@@ -27,14 +29,20 @@ export function RisksPage() {
   const [selected, setSelected] = useState<RiskCaseOut | null>(null);
   const initialSelectionDone = useRef(false);
 
-  const risks = useApi<RiskCaseOut[]>(() => {
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    if (categoryFilter) params.set("category", categoryFilter);
-    params.set("sort_by", sortBy);
-    params.set("sort_dir", sortDir);
-    return api.get(`/risk-cases?${params.toString()}`);
-  }, [statusFilter, categoryFilter, sortBy, sortDir]);
+  const risks = usePagedApi<RiskCaseOut>(
+    (limit, offset) => {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (categoryFilter) params.set("category", categoryFilter);
+      params.set("sort_by", sortBy);
+      params.set("sort_dir", sortDir);
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      return `/risk-cases?${params.toString()}`;
+    },
+    [statusFilter, categoryFilter, sortBy, sortDir],
+    50
+  );
   const tree = useApi<ObjectsTreeResponse>(() => api.get("/objects/tree"), []);
 
   // Всегда что-то выбрано, если в выборке есть хоть один риск-кейс: при первой загрузке,
@@ -71,12 +79,15 @@ export function RisksPage() {
   const stats = useMemo(() => {
     const data = risks.data ?? [];
     return {
-      total: data.length,
+      // Общее число в выборке (все страницы) — из X-Total-Count, не только текущая
+      // страница. Остальные счётчики — по текущей странице (та же экономика, что и раньше:
+      // без отдельных агрегирующих запросов на каждый статус/приоритет по всей выборке).
+      total: risks.total ?? data.length,
       critical: data.filter((r) => r.priority === "high").length,
       warning: data.filter((r) => r.priority === "medium").length,
       fresh: data.filter((r) => r.status === "new").length,
     };
-  }, [risks.data]);
+  }, [risks.data, risks.total]);
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) {
@@ -233,6 +244,13 @@ export function RisksPage() {
                     ))}
                   </tbody>
                 </table>
+                <Pagination
+                  page={risks.page}
+                  pageSize={risks.pageSize}
+                  total={risks.total}
+                  loadedCount={risks.data?.length ?? 0}
+                  onPageChange={risks.setPage}
+                />
               </div>
             </DataState>
           ) : (

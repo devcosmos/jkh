@@ -28,7 +28,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
   const token = getToken();
   const headers = new Headers(init?.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -51,6 +51,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, detail);
   }
+  return res;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await requestRaw(path, init);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
@@ -60,6 +65,14 @@ export const api = {
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  // Списковые эндпоинты отдают общее число строк (без учёта limit/offset) в заголовке
+  // X-Total-Count — нужен для постраничной навигации (см. usePagedApi).
+  getPage: async <T>(path: string): Promise<{ items: T[]; total: number | null }> => {
+    const res = await requestRaw(path);
+    const items = (await res.json()) as T[];
+    const totalHeader = res.headers.get("X-Total-Count");
+    return { items, total: totalHeader !== null ? Number(totalHeader) : null };
+  },
 };
 
 export async function login(username: string, password: string): Promise<{ role: string }> {

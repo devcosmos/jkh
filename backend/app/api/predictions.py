@@ -1,7 +1,7 @@
 import datetime as dt
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_accessible_object_ids, get_current_user
@@ -39,6 +39,7 @@ router = APIRouter(prefix="/predictions", tags=["predictions"], dependencies=[De
     },
 )
 def list_predictions(
+    response: Response,
     channel_id: int | None = None,
     risk_case_id: int | None = None,
     category: str | None = None,
@@ -75,5 +76,23 @@ def list_predictions(
         stmt = stmt.join(Channel, Channel.id == Prediction.channel_id).where(
             Channel.object_id.in_(accessible)
         )
+
+    count_stmt = select(func.count()).select_from(Prediction)
+    if channel_id is not None:
+        count_stmt = count_stmt.where(Prediction.channel_id == channel_id)
+    if risk_case_id is not None:
+        count_stmt = count_stmt.where(Prediction.risk_case_id == risk_case_id)
+    if category is not None:
+        count_stmt = count_stmt.where(Prediction.category == category)
+    if since is not None:
+        count_stmt = count_stmt.where(Prediction.created_at >= since)
+    if until is not None:
+        count_stmt = count_stmt.where(Prediction.created_at <= until)
+    if accessible is not None:
+        count_stmt = count_stmt.join(Channel, Channel.id == Prediction.channel_id).where(
+            Channel.object_id.in_(accessible)
+        )
+    response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
+
     stmt = stmt.order_by(Prediction.created_at.desc())
     return list(db.scalars(stmt.offset(offset).limit(limit)))
