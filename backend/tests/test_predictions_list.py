@@ -57,3 +57,39 @@ def test_predictions_filtered_by_risk_case_id_ignores_newer_unrelated_prediction
     assert len(body) == 1
     assert body[0]["risk_case_id"] == old_case.id
     assert body[0]["probability"] == 0.62
+
+
+def test_latest_per_case_collapses_hourly_ticks_to_one_row_per_case(client, db_session, auth_headers):
+    """Журнал прогнозов (JournalPage.tsx) раньше показывал сырой поток всех почасовых
+    тиков — в основном без реального SHAP (backfill_shap_explanations.py считает его только
+    для последнего прогноза каждого кейса). latest_per_case=true должен вернуть ровно один,
+    самый свежий, прогноз на риск-кейс."""
+    channel, mv = _setup(db_session)
+    case = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=NOW - dt.timedelta(hours=5))
+    db_session.add(case)
+    db_session.flush()
+
+    for i, proba in enumerate([0.55, 0.60, 0.70, 0.80]):
+        db_session.add(_prediction(channel, mv, case, proba, NOW - dt.timedelta(hours=4 - i)))
+    db_session.commit()
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get("/api/predictions?latest_per_case=true", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 1
+    assert body[0]["risk_case_id"] == case.id
+    assert body[0]["probability"] == 0.80
+    assert int(r.headers["X-Total-Count"]) == 1
+
+
+def test_latest_per_case_ignores_predictions_without_risk_case(client, db_session, auth_headers):
+    channel, mv = _setup(db_session)
+    db_session.add(_prediction(channel, mv, None, 0.9, NOW))
+    db_session.commit()
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get("/api/predictions?latest_per_case=true", headers=headers)
+    assert r.status_code == 200
+    assert r.json() == []
+    assert int(r.headers["X-Total-Count"]) == 0

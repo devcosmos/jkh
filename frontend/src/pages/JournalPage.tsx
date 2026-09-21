@@ -18,8 +18,14 @@ export function JournalPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const predictions = usePagedApi<PredictionOut>(
+    // latest_per_case — один (последний) прогноз на риск-кейс, а не сырой поток всех
+    // почасовых тиков: реальный SHAP посчитан backfill'ом только для последнего прогноза
+    // каждого кейса (той же выборки, что открывает RiskCard.tsx), без этого фильтра журнал
+    // в основном показывал старые тики с технической заглушкой вместо объяснения.
     (limit, offset) =>
-      `/predictions?limit=${limit}&offset=${offset}${categoryFilter ? `&category=${categoryFilter}` : ""}`,
+      `/predictions?limit=${limit}&offset=${offset}&latest_per_case=true${
+        categoryFilter ? `&category=${categoryFilter}` : ""
+      }`,
     [categoryFilter],
     50
   );
@@ -35,7 +41,9 @@ export function JournalPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Журнал прогнозов</h1>
-          <p className="mt-1 text-sm text-slate-500">Сохранённые прогнозы модели с историей и версией</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Последний прогноз по каждому риск-кейсу, с объяснением модели
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
