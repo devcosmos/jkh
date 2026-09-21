@@ -128,12 +128,19 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
   return (
     <div className="space-y-3">
       {e.anomaly && (
-        <div className="mb-1">
-          {e.anomaly.is_outlier ? (
-            <Badge tone="serious">Аномальное поведение (независимая модель)</Badge>
-          ) : (
-            <Badge tone="neutral">Поведение в норме (независимая модель)</Badge>
-          )}
+        <div className="mb-2">
+          <div className="mb-1">
+            {e.anomaly.is_outlier ? (
+              <Badge tone="serious">Аномальное поведение (независимая модель)</Badge>
+            ) : (
+              <Badge tone="neutral">Поведение в норме (независимая модель)</Badge>
+            )}
+          </div>
+          <p className="text-sm text-slate-400">
+            {e.anomaly.is_outlier
+              ? "Отдельная модель, не обученная на размеченных отказах (IsolationForest), сама заметила необычную комбинацию показаний датчика — не похожую ни на один известный сценарий поломки в обучающих данных."
+              : "Та же независимая проверка (не обученная на размеченных отказах) не нашла ничего необычного в показаниях датчика."}
+          </p>
         </div>
       )}
       {e.top_features.map((f) => {
@@ -162,13 +169,21 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
           </div>
         );
       })}
-      <p className="flex items-center gap-1 pt-1 text-sm text-slate-400">
-        <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />
-        повышает риск отказа
-        <span className="ml-3 inline-block h-2 w-2 rounded-full bg-sky-400" />
-        снижает риск отказа
-        <span className="ml-3">— чем темнее, тем сильнее отклонение от нормы</span>
-      </p>
+      {/* Направление уже видно по цвету каждой полосы выше — эта ось просто напоминает,
+          в какую сторону читать «влево/вправо» единообразно для всех строк. */}
+      <div className="pt-1">
+        <div className="relative h-2">
+          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-200" />
+          <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300">←</span>
+          <span className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300">→</span>
+        </div>
+        <div className="mt-1 flex items-center justify-between text-sm text-slate-400">
+          <span>понижает риск отказа</span>
+          <span>повышает риск отказа</span>
+        </div>
+        <p className="mt-1 text-sm text-slate-300">Чем темнее полоса — тем сильнее отклонение от нормы</p>
+      </div>
     </div>
   );
 }
