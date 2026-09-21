@@ -1,4 +1,4 @@
-import { Badge } from "./Badge";
+import { AnomalyBadge } from "./AnomalyBadge";
 
 interface Feature {
   feature: string;
@@ -129,18 +129,7 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
     <div className="space-y-3">
       {e.anomaly && (
         <div className="mb-2">
-          <div className="mb-1">
-            {e.anomaly.is_outlier ? (
-              <Badge tone="serious">Аномальное поведение (независимая модель)</Badge>
-            ) : (
-              <Badge tone="neutral">Поведение в норме (независимая модель)</Badge>
-            )}
-          </div>
-          <p className="text-sm text-slate-400">
-            {e.anomaly.is_outlier
-              ? "Отдельная модель, не обученная на размеченных отказах (IsolationForest), сама заметила необычную комбинацию показаний датчика — не похожую ни на один известный сценарий поломки в обучающих данных."
-              : "Та же независимая проверка (не обученная на размеченных отказах) не нашла ничего необычного в показаниях датчика."}
-          </p>
+          <AnomalyBadge isOutlier={e.anomaly.is_outlier} />
         </div>
       )}
       {e.top_features.map((f) => {

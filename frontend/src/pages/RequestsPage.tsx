@@ -6,6 +6,7 @@ import { useApi } from "../api/useApi";
 import { categoryLabel, categoryTone } from "../api/categories";
 import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
+import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { Pagination } from "../components/Pagination";
@@ -237,11 +238,7 @@ export function RequestsPage() {
                               </div>
                               {r.anomaly_is_outlier !== null && (
                                 <div className="mb-2">
-                                  {r.anomaly_is_outlier ? (
-                                    <Badge tone="serious">Аномальное поведение (независимая модель)</Badge>
-                                  ) : (
-                                    <Badge tone="neutral">Поведение в норме (независимая модель)</Badge>
-                                  )}
+                                  <AnomalyBadge isOutlier={r.anomaly_is_outlier} />
                                 </div>
                               )}
                               {r.ai_summary && (

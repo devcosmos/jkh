@@ -34,4 +34,16 @@
   h4 {
     font-family: var(--font-display);
   }
+  /* Единый курсор-поинтер на всём, что кликабельно — вместо расстановки cursor-pointer
+     по каждому месту отдельно (браузеры не всегда дают pointer на select/summary сами). */
+  button:not(:disabled),
+  select,
+  summary,
+  a,
+  [role="button"] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }

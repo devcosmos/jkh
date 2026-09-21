@@ -117,55 +117,31 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </Link>
       )}
 
-      <RiskCardSection title="Данные и аналитика">
-        <div>
-          <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Канал</h4>
-          <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
-            {channel.data && (
-              <div className="rounded-xl bg-slate-50 p-3.5 text-sm">
-                <div className="font-semibold text-slate-900">
-                  {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
-                </div>
-                <div className="mt-1 text-slate-500">Тип: {channel.data.sensor_type}</div>
-                {channel.data.device_label && (
-                  <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
-                )}
-                {channel.data.location_tag && (
-                  <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
-                )}
-                {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале
-                    без эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
-                {trend.data && (
-                  <div className="mt-2 flex items-center gap-2 text-slate-500">
-                    <span>Тренд:</span>
-                    <DegradationTrendBadge trend={trend.data} />
-                  </div>
-                )}
+      <RiskCardSection title="Данные">
+        <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
+          {channel.data && (
+            <div className="rounded-xl bg-slate-50 p-3.5 text-sm">
+              <div className="font-semibold text-slate-900">
+                {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
               </div>
-            )}
-          </DataState>
-        </div>
-
-        {latestPrediction.data?.[0] && (
-          <div>
-            <h4 className="mb-2 flex items-baseline gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Почему сработал прогноз
-              <span className="text-sm font-semibold normal-case text-slate-900">
-                {(latestPrediction.data[0].probability * 100).toFixed(0)}% вероятность отказа
-              </span>
-            </h4>
-            <div className="rounded-xl bg-slate-50 p-3.5">
-              {llmSummary.loading ? (
-                <p className="mb-3 text-sm text-slate-400 italic">Формируется краткое резюме…</p>
-              ) : llmSummary.data?.summary ? (
-                <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
-                  {llmSummary.data.summary}
-                </p>
-              ) : null}
-              <ShapExplanation explanation={latestPrediction.data[0].explanation} />
+              <div className="mt-1 text-slate-500">Тип: {channel.data.sensor_type}</div>
+              {channel.data.device_label && (
+                <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
+              )}
+              {channel.data.location_tag && (
+                <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
+              )}
+              {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале
+                  без эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
+              {trend.data && (
+                <div className="mt-2 flex items-center gap-2 text-slate-500">
+                  <span>Тренд:</span>
+                  <DegradationTrendBadge trend={trend.data} />
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </DataState>
 
         {/* Текущая неисправность показывается отдельно от прогноза — раздел 9.1 плана. */}
         {currentEpisode && (
@@ -179,6 +155,25 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           </div>
         )}
       </RiskCardSection>
+
+      {latestPrediction.data?.[0] && (
+        <RiskCardSection title="Аналитика">
+          <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-900">
+            <span>Почему сработал прогноз</span>
+            <span>{(latestPrediction.data[0].probability * 100).toFixed(0)}% отказа</span>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-3.5">
+            {llmSummary.loading ? (
+              <p className="mb-3 text-sm text-slate-400 italic">Формируется краткое резюме…</p>
+            ) : llmSummary.data?.summary ? (
+              <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
+                {llmSummary.data.summary}
+              </p>
+            ) : null}
+            <ShapExplanation explanation={latestPrediction.data[0].explanation} />
+          </div>
+        </RiskCardSection>
+      )}
 
       <RiskCardSection title="Действия диспетчера">
         <Select

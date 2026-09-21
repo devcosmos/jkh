@@ -154,7 +154,7 @@ export function RisksPage() {
                 { header: "ID канала", value: (r) => r.channel_external_id ?? r.channel_id },
                 { header: "Название канала", value: (r) => r.channel_label ?? "" },
                 { header: "Направление", value: (r) => categoryLabel(r.category) },
-                { header: "Вероятность отказа", value: (r) => r.latest_probability ?? "" },
+                { header: "% отказа", value: (r) => r.latest_probability != null ? Math.round(r.latest_probability * 100) : "" },
                 { header: "Статус", value: (r) => RISK_STATUS_LABELS[r.status] ?? r.status },
                 { header: "Приоритет", value: (r) => r.priority ?? "" },
                 { header: "Открыт", value: (r) => new Date(r.opened_at).toLocaleString("ru-RU") },
@@ -292,7 +292,7 @@ export function RisksPage() {
                       <th className="px-4 py-3 whitespace-nowrap">ID</th>
                       <th className="px-4 py-3 whitespace-nowrap">ID канала</th>
                       <th className="px-4 py-3 whitespace-nowrap">Направление</th>
-                      <SortableTh label="Вероятность отказа" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortableTh label="% отказа" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                       <th className="px-4 py-3 whitespace-nowrap">Статус</th>
                       <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
                       <SortableTh label="Открыт" sortKey="opened_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
@@ -403,7 +403,7 @@ function ProbabilityCell({ probability, tone }: { probability: number | null; to
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }} title={`${pct}% вероятность отказа`}>
+    <div className="relative shrink-0" style={{ width: size, height: size }} title={`${pct}% отказа`}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
         <circle
