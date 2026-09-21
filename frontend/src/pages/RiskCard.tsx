@@ -125,13 +125,19 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </Link>
       )}
 
-      <RiskCardSection title="Данные">
+      <RiskCardSection
+        title="Данные"
+        right={
+          channel.data && (
+            <span className="text-sm font-semibold text-slate-900">
+              {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
+            </span>
+          )
+        }
+      >
         <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
           {channel.data && (
             <div className="space-y-2">
-              <div className="text-sm font-semibold text-slate-900">
-                {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
-              </div>
               <div className="flex items-center justify-between gap-x-2">
                 <span className="text-sm text-slate-500">Тип</span>
                 <span className="text-sm font-medium text-slate-700">{channel.data.sensor_type}</span>
@@ -166,19 +172,11 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       </RiskCardSection>
 
       {latestPrediction.data?.[0] && (
-        <RiskCardSection title="Аналитика">
+        <RiskCardSection
+          title="Аналитика"
+          right={predictionAnomaly && <AnomalyBadge isOutlier={predictionAnomaly.is_outlier} />}
+        >
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-x-2">
-              <span className="flex items-center gap-1 text-sm text-slate-500">
-                Поведение
-                <InfoTooltip text="Отдельная от вероятности отказа проверка (независимая модель) — отмечает, насколько сочетание тревог, переходов состояния и пауз между событиями по этому датчику необычно на фоне его собственной истории." />
-              </span>
-              {predictionAnomaly ? (
-                <AnomalyBadge isOutlier={predictionAnomaly.is_outlier} />
-              ) : (
-                <span className="text-sm text-slate-400">—</span>
-              )}
-            </div>
             <div className="flex items-center justify-between gap-x-2">
               <span className="flex items-center gap-1 text-sm text-slate-500">
                 Вероятность отказа
@@ -298,11 +296,14 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
   );
 }
 
-function RiskCardSection({ title, children }: { title: string; children: ReactNode }) {
+function RiskCardSection({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5">
-      <h3 className="font-display text-sm font-semibold text-slate-900">{title}</h3>
-      {children}
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-100 px-5 py-3">
+        <h3 className="font-display text-sm font-semibold text-slate-900">{title}</h3>
+        {right}
+      </div>
+      <div className="flex flex-col gap-4 px-5 py-4">{children}</div>
     </div>
   );
 }
