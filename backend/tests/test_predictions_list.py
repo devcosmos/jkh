@@ -93,3 +93,63 @@ def test_latest_per_case_ignores_predictions_without_risk_case(client, db_sessio
     assert r.status_code == 200
     assert r.json() == []
     assert int(r.headers["X-Total-Count"]) == 0
+
+
+def test_predictions_enriched_with_channel_external_id_and_label(client, db_session, auth_headers):
+    """Журнал прогнозов должен показывать узнаваемый внешний ID канала (тот же, что на
+    «Рисках»/«Объектах»), а не внутренний PK."""
+    channel, mv = _setup(db_session)
+    case = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=NOW)
+    db_session.add(case)
+    db_session.flush()
+    db_session.add(_prediction(channel, mv, case, 0.7, NOW))
+    db_session.commit()
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get("/api/predictions?latest_per_case=true", headers=headers)
+    assert r.status_code == 200
+    body = r.json()[0]
+    assert body["channel_external_id"] == 77001
+    assert body["channel_label"] == "77001"
+
+
+def test_predictions_sort_by_probability(client, db_session, auth_headers):
+    channel, mv = _setup(db_session)
+    case_low = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=NOW)
+    db_session.add(case_low)
+    db_session.flush()
+    db_session.add(_prediction(channel, mv, case_low, 0.4, NOW))
+    db_session.add(_prediction(channel, mv, case_low, 0.9, NOW + dt.timedelta(hours=1)))
+    db_session.commit()
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get("/api/predictions?sort_by=probability&sort_dir=asc", headers=headers)
+    assert r.status_code == 200
+    probs = [p["probability"] for p in r.json()]
+    assert probs == sorted(probs)
+
+
+def test_predictions_search_matches_channel_external_id_or_risk_case_id(client, db_session, auth_headers):
+    channel, mv = _setup(db_session)
+    other_channel = Channel(external_channel_id=77002, sensor_type="Состояние насоса")
+    db_session.add(other_channel)
+    db_session.flush()
+    case = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=NOW)
+    other_case = RiskCase(channel_id=other_channel.id, status=RiskCaseStatus.new, opened_at=NOW)
+    db_session.add_all([case, other_case])
+    db_session.flush()
+    db_session.add(_prediction(channel, mv, case, 0.7, NOW))
+    db_session.add(_prediction(other_channel, mv, other_case, 0.7, NOW))
+    db_session.commit()
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get(f"/api/predictions?search={channel.external_channel_id}", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 1
+    assert body[0]["channel_external_id"] == 77001
+
+    r2 = client.get(f"/api/predictions?search={case.id}", headers=headers)
+    assert r2.status_code == 200
+    assert len(r2.json()) == 1
+    assert r2.json()[0]["risk_case_id"] == case.id

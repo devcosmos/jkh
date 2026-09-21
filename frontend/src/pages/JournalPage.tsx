@@ -1,11 +1,14 @@
 import { Fragment, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { usePagedApi } from "../api/usePagedApi";
 import { useApi } from "../api/useApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
 import { Badge } from "../components/Badge";
-import { SECONDARY_CONTROL } from "../components/controlStyles";
+import { SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
+import { SortableTh } from "../components/SortableTh";
 import { ChevronIcon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
@@ -18,19 +21,35 @@ import type { PredictionOut } from "../api/types";
 // иначе абсолютно все строки всегда выглядели бы «устаревшими».
 const STALE_AFTER_HOURS = 24;
 
+type SortKey = "created_at" | "probability";
+type SortDir = "asc" | "desc";
+
 export function JournalPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchError, setSearchError] = useState(false);
+  const [sortBy, setSortBy] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
   const predictions = usePagedApi<PredictionOut>(
     // latest_per_case — один (последний) прогноз на риск-кейс, а не сырой поток всех
     // почасовых тиков: реальный SHAP посчитан backfill'ом только для последнего прогноза
     // каждого кейса (той же выборки, что открывает RiskCard.tsx), без этого фильтра журнал
     // в основном показывал старые тики с технической заглушкой вместо объяснения.
-    (limit, offset) =>
-      `/predictions?limit=${limit}&offset=${offset}&latest_per_case=true${
-        categoryFilter ? `&category=${categoryFilter}` : ""
-      }`,
-    [categoryFilter],
+    (limit, offset) => {
+      const params = new URLSearchParams();
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      params.set("latest_per_case", "true");
+      if (categoryFilter) params.set("category", categoryFilter);
+      if (searchQuery) params.set("search", searchQuery);
+      params.set("sort_by", sortBy);
+      params.set("sort_dir", sortDir);
+      return `/predictions?${params.toString()}`;
+    },
+    [categoryFilter, searchQuery, sortBy, sortDir],
     50
   );
 
@@ -39,6 +58,32 @@ export function JournalPage() {
     if (!data.length) return Date.now();
     return Math.max(...data.map((p) => new Date(p.created_at).getTime()));
   }, [predictions.data]);
+
+  function submitSearch(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = searchInput.trim();
+    if (trimmed && !/^\d+$/.test(trimmed)) {
+      setSearchError(true);
+      return;
+    }
+    setSearchError(false);
+    setSearchQuery(trimmed);
+  }
+
+  function clearSearch() {
+    setSearchInput("");
+    setSearchQuery("");
+    setSearchError(false);
+  }
+
+  function toggleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortBy(key);
+      setSortDir("desc");
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[100rem] px-6 py-8">
@@ -49,7 +94,39 @@ export function JournalPage() {
             Последний прогноз по каждому риск-кейсу, с объяснением модели
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <form onSubmit={submitSearch} className="flex items-center gap-1.5">
+            <div className="flex flex-col">
+              <input
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                  setSearchError(false);
+                }}
+                placeholder="Поиск по ID риска или канала…"
+                inputMode="numeric"
+                className={`w-56 rounded-xl px-3.5 py-2 text-sm ${
+                  searchError
+                    ? "border border-red-300 bg-red-50 text-slate-900 outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                    : SECONDARY_FIELD
+                }`}
+              />
+              {searchError && <span className="mt-1 text-sm text-red-600">Введите число</span>}
+            </div>
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
+              >
+                ×
+              </button>
+            ) : (
+              <button type="submit" className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}>
+                Найти
+              </button>
+            )}
+          </form>
           <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
             <option value="">Оба направления</option>
             {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
@@ -77,12 +154,13 @@ export function JournalPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Время расчёта</th>
+                <SortableTh label="Время расчёта" sortKey="created_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-3">Канал</th>
                 <th className="px-4 py-3">Направление</th>
-                <th className="px-4 py-3">Вероятность</th>
+                <SortableTh label="Вероятность" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-3">Окно</th>
                 <th className="px-4 py-3">Качество данных</th>
+                <th className="px-4 py-3" />
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -100,7 +178,12 @@ export function JournalPage() {
                       <td className="px-4 py-3 text-slate-500">
                         {new Date(p.created_at).toLocaleString("ru-RU")}
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900">{p.channel_id}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {p.channel_external_id ?? p.channel_id}
+                        {p.channel_label && p.channel_label !== String(p.channel_external_id) && (
+                          <div className="text-sm font-normal text-slate-500">{p.channel_label}</div>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge tone={categoryTone(p.category)}>{categoryLabel(p.category)}</Badge>
                       </td>
@@ -117,6 +200,17 @@ export function JournalPage() {
                           {stale && " · устарел"}
                         </span>
                       </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        {p.risk_case_id != null && (
+                          <Link
+                            to={`/risks?risk_case_id=${p.risk_case_id}`}
+                            className={`flex w-fit shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold ${SECONDARY_CONTROL}`}
+                          >
+                            Риск
+                            <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          </Link>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-slate-400">
                         <ChevronIcon
                           className={`h-4 w-4 transition-transform ${expanded ? "-rotate-90" : "rotate-90"}`}
@@ -126,7 +220,7 @@ export function JournalPage() {
                     </tr>
                     {expanded && (
                       <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
-                        <td colSpan={7} className="px-4 py-4">
+                        <td colSpan={8} className="px-4 py-4">
                           <PredictionSummary predictionId={p.id} />
                           <ShapExplanation explanation={p.explanation} />
                         </td>

@@ -112,6 +112,10 @@ class PredictionOut(BaseModel):
     data_quality_flag: str | None
     created_at: dt.datetime
     llm_summary: str | None = None
+    # Обогащение для «Журнала прогнозов» — узнаваемый номер канала (тот же, что на
+    # «Рисках»/«Объектах»), а не внутренний PK.
+    channel_external_id: int | None = None
+    channel_label: str | None = None
 
 
 class RiskCaseOut(BaseModel):

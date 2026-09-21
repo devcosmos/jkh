@@ -13,6 +13,7 @@ import { ObjectsTree } from "../components/ObjectsTree";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { StatTile } from "../components/StatTile";
+import { SortableTh } from "../components/SortableTh";
 import { ChevronIcon } from "../components/icons";
 import { exportCsv } from "../lib/exportCsv";
 import { RiskCard } from "./RiskCard";
@@ -424,35 +425,6 @@ function ProbabilityCell({ probability }: { probability: number | null }) {
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-900">{pct}</span>
     </div>
-  );
-}
-
-function SortableTh({
-  label,
-  sortKey,
-  sortBy,
-  sortDir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  sortBy: SortKey;
-  sortDir: SortDir;
-  onSort: (key: SortKey) => void;
-}) {
-  const active = sortBy === sortKey;
-  return (
-    <th className="px-4 py-3 whitespace-nowrap">
-      <button
-        onClick={() => onSort(sortKey)}
-        className={`flex items-center gap-1 uppercase tracking-wide transition-colors ${
-          active ? "text-slate-900" : "text-slate-500 hover:text-slate-700"
-        }`}
-      >
-        {label}
-        <span className={`text-[10px] ${active ? "opacity-100" : "opacity-30"}`}>{sortDir === "desc" ? "▼" : "▲"}</span>
-      </button>
-    </th>
   );
 }
 

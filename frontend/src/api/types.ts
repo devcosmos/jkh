@@ -101,6 +101,8 @@ export interface PredictionOut {
   data_quality_flag: string | null;
   created_at: string;
   llm_summary: string | null;
+  channel_external_id: number | null;
+  channel_label: string | null;
 }
 
 export interface MaintenanceRequestOut {
