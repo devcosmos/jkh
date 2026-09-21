@@ -67,7 +67,7 @@ export function ModelsPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="font-display text-base font-semibold text-slate-900">{m.name}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{m.sensor_types}</p>
+                    <p className="mt-1 text-sm text-slate-500">{m.sensor_types.split(",").join(", ")}</p>
                   </div>
                   <Badge tone={targetMet ? "good" : "warning"}>
                     {targetMet ? "Плановая цель достигнута" : "Ниже плановой цели (обоснованно)"}
@@ -90,28 +90,33 @@ export function ModelsPage() {
 
                 {note && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{note}</p>}
 
-                {topFeatures.length > 0 && (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
-                    <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                      Какие признаки важнее всего для этой модели
-                    </h4>
-                    <BarList
-                      items={topFeatures.map(([key, value]) => ({
-                        key,
-                        label: FEATURE_LABELS[key] ?? key,
-                        value,
-                      }))}
-                      formatValue={(v) => v.toFixed(1)}
-                    />
-                  </div>
-                )}
+                {(topFeatures.length > 0 || calibration) && (
+                  <div className="mt-4 grid gap-6 border-t border-slate-100 pt-4 lg:grid-cols-2">
+                    {topFeatures.length > 0 && (
+                      <div>
+                        <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                          Какие признаки важнее всего для этой модели
+                        </h4>
+                        <BarList
+                          variant="fill"
+                          items={topFeatures.map(([key, value]) => ({
+                            key,
+                            label: FEATURE_LABELS[key] ?? key,
+                            value,
+                          }))}
+                          formatValue={(v) => v.toFixed(1)}
+                        />
+                      </div>
+                    )}
 
-                {calibration && (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
-                    <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                      Калибровка вероятности (test)
-                    </h4>
-                    <CalibrationChart bins={calibration} />
+                    {calibration && (
+                      <div>
+                        <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                          Калибровка вероятности (test)
+                        </h4>
+                        <CalibrationChart bins={calibration} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -143,7 +148,7 @@ export function ModelsPage() {
                 {replacedVersions.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100 text-slate-500 last:border-0">
                     <td className="px-4 py-3">{m.name}</td>
-                    <td className="px-4 py-3">{m.sensor_types}</td>
+                    <td className="px-4 py-3">{m.sensor_types.split(",").join(", ")}</td>
                     <td className="px-4 py-3">{new Date(m.trained_at).toLocaleDateString("ru-RU")}</td>
                     <td className="px-4 py-3">{m.threshold?.toFixed(2) ?? "—"}</td>
                   </tr>
