@@ -7,7 +7,7 @@ export function Select({ className = "", children, ...props }: SelectHTMLAttribu
     <div className="relative">
       <select
         {...props}
-        className={`appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-9 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-sky-400 ${className}`}
+        className={`appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-9 text-sm font-medium text-slate-700 outline-none focus:border-sky-400 ${className}`}
       >
         {children}
       </select>

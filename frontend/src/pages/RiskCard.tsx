@@ -5,11 +5,12 @@ import { api } from "../api/client";
 import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { useApi } from "../api/useApi";
+import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { Select } from "../components/Select";
-import { ShapExplanation } from "../components/ShapExplanation";
+import { getAnomaly, ShapExplanation } from "../components/ShapExplanation";
 import type {
   ChannelOut,
   DecisionAction,
@@ -74,6 +75,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
   const [lastDecision, setLastDecision] = useState<string | null>(null);
 
   const currentEpisode = episodes.data?.find((e) => !e.end_time);
+  const predictionAnomaly = getAnomaly(latestPrediction.data?.[0]?.explanation ?? null);
 
   async function submitDecision(action: DecisionAction) {
     setSubmitting(true);
@@ -100,7 +102,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             {RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}
           </Badge>
           {riskCase.priority && (
-            <Badge tone={riskPriorityTone(riskCase.priority)}>
+            <Badge tone={riskPriorityTone(riskCase.priority)} icon="priority">
               {riskCase.priority === "high" ? "Высокий приоритет" : "Средний приоритет"}
             </Badge>
           )}
@@ -113,7 +115,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 hover:border-sky-300 hover:text-sky-700"
         >
           <span>По этому риск-кейсу уже есть заявка на обслуживание</span>
-          <span className="shrink-0 font-semibold">Смотреть →</span>
+          <span className="shrink-0 font-semibold">Смотреть &gt;</span>
         </Link>
       )}
 
@@ -158,16 +160,22 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
 
       {latestPrediction.data?.[0] && (
         <RiskCardSection title="Аналитика">
-          <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-900">
-            <span>Почему сработал прогноз</span>
-            <span>{(latestPrediction.data[0].probability * 100).toFixed(0)}% отказа</span>
+          <div className="flex items-baseline justify-between gap-2">
+            {predictionAnomaly ? (
+              <AnomalyBadge isOutlier={predictionAnomaly.is_outlier} />
+            ) : (
+              <span />
+            )}
+            <span className="text-sm font-semibold text-slate-900">
+              {(latestPrediction.data[0].probability * 100).toFixed(0)}% отказа
+            </span>
           </div>
           {llmSummary.loading ? (
             <p className="text-sm text-slate-400 italic">Формируется краткое резюме…</p>
           ) : llmSummary.data?.summary ? (
             <p className="border-b border-slate-100 pb-3 text-sm text-slate-700 italic">{llmSummary.data.summary}</p>
           ) : null}
-          <ShapExplanation explanation={latestPrediction.data[0].explanation} />
+          <ShapExplanation explanation={latestPrediction.data[0].explanation} showAnomaly={false} />
         </RiskCardSection>
       )}
 
@@ -222,9 +230,9 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             {requestsForCase.data?.[0] && (
               <Link
                 to={`/requests?risk_case_id=${riskCase.id}`}
-                className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100"
+                className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
               >
-                Смотреть заявку →
+                Смотреть заявку &gt;
               </Link>
             )}
           </div>
@@ -263,7 +271,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
 
 function RiskCardSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5">
       <h3 className="font-display text-sm font-semibold text-slate-900">{title}</h3>
       {children}
     </div>

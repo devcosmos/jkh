@@ -82,7 +82,7 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
           <button
             type="submit"
             disabled={submitting || !username || !password}
-            className="mt-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+            className="mt-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
           >
             {submitting ? "Вход…" : "Войти"}
           </button>

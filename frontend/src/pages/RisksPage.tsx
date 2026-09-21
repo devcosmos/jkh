@@ -160,14 +160,14 @@ export function RisksPage() {
                 { header: "Открыт", value: (r) => new Date(r.opened_at).toLocaleString("ru-RU") },
               ])
             }
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <DownloadIcon className="h-4 w-4" />
             Экспорт CSV
           </button>
           <button
             onClick={risks.reload}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
           >
             <RefreshIcon className="h-4 w-4" />
             Обновить
@@ -205,7 +205,7 @@ export function RisksPage() {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="flex rounded-xl border border-slate-200 bg-white p-1">
           <button
             className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
               view === "list" ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-900"
@@ -285,7 +285,7 @@ export function RisksPage() {
               empty={!risks.data?.length}
               emptyText="Активных рисков нет"
             >
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -319,7 +319,7 @@ export function RisksPage() {
                           <Badge tone={categoryTone(r.category)}>{categoryLabel(r.category)}</Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <ProbabilityCell probability={r.latest_probability} tone={riskPriorityTone(r.priority)} />
+                          <ProbabilityCell probability={r.latest_probability} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <Badge tone={RISK_STATUS_TONE[r.status] ?? "neutral"} dot>
@@ -328,7 +328,7 @@ export function RisksPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {r.priority ? (
-                            <Badge tone={riskPriorityTone(r.priority)}>
+                            <Badge tone={riskPriorityTone(r.priority)} icon="priority">
                               {r.priority === "high" ? "Высокий" : "Средний"}
                             </Badge>
                           ) : (
@@ -393,10 +393,15 @@ export function RisksPage() {
   );
 }
 
-function ProbabilityCell({ probability, tone }: { probability: number | null; tone: ReturnType<typeof riskPriorityTone> }) {
+// Цвет кольца — от самого показанного числа, а не от сохранённого приоритета риск-кейса:
+// приоритет выставляется один раз при открытии кейса и дальше не пересчитывается (см.
+// app/workers/replay_worker.py), а вероятность в этой ячейке — самая свежая. Со временем
+// они расходятся (кейс открылся на 90% как «высокий», сейчас 82% — приоритет остался
+// «высокий»), и кольцо, окрашенное по приоритету, начинало противоречить своему же числу.
+function ProbabilityCell({ probability }: { probability: number | null }) {
   if (probability == null) return <span className="text-slate-400">—</span>;
   const pct = Math.round(probability * 100);
-  const color = tone === "critical" ? "#d03b3b" : tone === "warning" ? "#fab219" : "#94a3b8";
+  const color = pct >= 85 ? "#d03b3b" : pct >= 50 ? "#fab219" : "#94a3b8";
   const size = 44;
   const stroke = 4;
   const radius = (size - stroke) / 2;

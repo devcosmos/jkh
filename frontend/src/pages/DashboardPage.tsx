@@ -46,7 +46,7 @@ export function DashboardPage() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5">
                 <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Риск-кейсы по направлениям</h2>
                 <BarList
                   items={Object.entries(CATEGORY_LABELS).map(([key, label]) => ({
@@ -70,7 +70,7 @@ export function DashboardPage() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5">
                 <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Открытые риски по приоритету</h2>
                 <BarList
                   items={[
@@ -93,7 +93,7 @@ export function DashboardPage() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5">
                 <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Заявки по статусу</h2>
                 <BarList
                   items={Object.entries(summary.data.requests.by_status).map(([status, count]) => ({
@@ -106,7 +106,7 @@ export function DashboardPage() {
                 />
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5">
                 <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Топ объектов по риску</h2>
                 <BarList
                   items={summary.data.top_objects.map((o) => ({
@@ -119,7 +119,7 @@ export function DashboardPage() {
               </section>
             </div>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
                 Каналы с растущей частотой сбоев
               </h2>
@@ -139,7 +139,7 @@ export function DashboardPage() {
               />
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
                 Риск-кейсы: открыто / закрыто по дням
               </h2>
@@ -160,7 +160,7 @@ export function DashboardPage() {
               )}
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="mb-4 font-display text-sm font-semibold text-slate-900">Качество моделей (ROC-AUC на test)</h2>
               <BarList
                 items={summary.data.models.map((m) => {

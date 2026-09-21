@@ -177,7 +177,7 @@ export function HelpPage() {
         <p className="mt-1 text-sm text-slate-500">Что это за сервис и как им пользоваться</p>
       </div>
 
-      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="mb-3 font-display text-lg font-semibold text-slate-900">О сервисе</h2>
         <p className="text-sm leading-relaxed text-slate-700">
           Сервис заранее предупреждает о возможном отказе датчика — до того, как он реально
@@ -211,11 +211,11 @@ export function HelpPage() {
         <h2 className="mb-4 font-display text-lg font-semibold text-slate-900">Из чего состоит панель</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {SECTIONS.map((s) => (
-            <div key={s.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={s.title} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="mb-1.5 flex items-center gap-2">
                 {!s.adminOnly || isAdmin ? (
                   <Link to={s.to} className="font-display text-sm font-semibold text-sky-700 hover:underline">
-                    {s.title} →
+                    {s.title} &gt;
                   </Link>
                 ) : (
                   <span className="font-display text-sm font-semibold text-slate-900">{s.title}</span>
@@ -236,7 +236,7 @@ export function HelpPage() {
         </div>
       </section>
 
-      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="mb-1 font-display text-lg font-semibold text-slate-900">Как принять решение по риску</h2>
         <p className="mb-4 text-sm text-slate-500">
           Пошагово, от открытия{" "}
@@ -260,7 +260,7 @@ export function HelpPage() {
         </ol>
       </section>
 
-      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="mb-1 font-display text-lg font-semibold text-slate-900">Как отследить заявку</h2>
         <p className="mb-4 text-sm text-slate-500">
           Заявка на обслуживание, созданная в{" "}
@@ -290,7 +290,7 @@ export function HelpPage() {
         </p>
       </section>
 
-      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 font-display text-lg font-semibold text-slate-900">Термины</h2>
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -347,7 +347,7 @@ export function HelpPage() {
         </dl>
       </section>
 
-      <section id="api" className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section id="api" className="mb-8 rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="mb-3 font-display text-lg font-semibold text-slate-900">API и интеграция</h2>
         <p className="text-sm leading-relaxed text-slate-600">
           Через API можно получать объекты, прогнозы, риски и заявки, принимать
@@ -385,7 +385,7 @@ export function HelpPage() {
         </p>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 font-display text-lg font-semibold text-slate-900">Частые вопросы</h2>
         <div className="divide-y divide-slate-100">
           {FAQ.map((f) => (

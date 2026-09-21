@@ -43,14 +43,14 @@ export function AnalyticsPage() {
           <button
             disabled={downloading !== null}
             onClick={() => download("xlsx")}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {downloading === "xlsx" ? "Формируется…" : "Скачать XLSX"}
           </button>
           <button
             disabled={downloading !== null}
             onClick={() => download("pdf")}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {downloading === "pdf" ? "Формируется…" : "Скачать PDF"}
           </button>
@@ -77,7 +77,7 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Детальная статистика по типам инцидентов
       </h2>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -124,7 +124,7 @@ function SeasonalSection({ data }: { data: AnalyticsReport["seasonal"] }) {
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Сезонность — эпизоды неисправности по месяцам (все годы данных)
       </h2>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-end gap-2" style={{ height: "160px" }}>
           {data.map((row) => (
             <div key={row.month} className="group relative flex flex-1 flex-col items-center justify-end gap-1.5">
@@ -153,7 +153,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
         Исторический отчёт по заявкам на обслуживание
       </h2>
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">По виду работ</h3>
           <div className="space-y-2.5">
             {data.by_work_type.map((row) => (
@@ -174,7 +174,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">По статусу</h3>
           <div className="flex flex-wrap gap-2">
             {data.by_status.map((row) => (
@@ -199,7 +199,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
       </div>
 
       {data.monthly.length > 0 && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Заявки по месяцам
           </h3>

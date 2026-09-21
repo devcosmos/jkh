@@ -58,7 +58,7 @@ export function ObjectsTree({ roots }: { roots: ObjectTreeNode[] }) {
     );
   }
   return (
-    <ul className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+    <ul className="rounded-2xl border border-slate-200 bg-white p-2">
       {roots.map((node) => (
         <TreeNode key={node.id} node={node} depth={0} />
       ))}

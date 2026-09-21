@@ -107,13 +107,13 @@ export function RequestsPage() {
                 { header: "Создана", value: (r) => new Date(r.created_at).toLocaleString("ru-RU") },
               ])
             }
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Экспорт CSV
           </button>
           <button
             onClick={requests.reload}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
           >
             Обновить
           </button>
@@ -146,7 +146,7 @@ export function RequestsPage() {
         empty={!requests.data?.length}
         emptyText="Заявок нет с учётом фильтра"
       >
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -197,7 +197,7 @@ export function RequestsPage() {
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{r.work_type}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {r.priority ? (
-                          <Badge tone={riskPriorityTone(r.priority)}>
+                          <Badge tone={riskPriorityTone(r.priority)} icon="priority">
                             {r.priority === "high" ? "Высокий" : "Средний"}
                           </Badge>
                         ) : (

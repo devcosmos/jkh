@@ -34,7 +34,7 @@ export function StatTile({
   icon?: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TINT_CLASSES[tone]}`}>
         {icon ?? <span className={`h-2.5 w-2.5 rounded-full ${DOT_CLASSES[tone]}`} />}
       </div>

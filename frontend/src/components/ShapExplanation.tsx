@@ -7,7 +7,7 @@ interface Feature {
   contribution: number;
 }
 
-interface Anomaly {
+export interface Anomaly {
   method?: string;
   score: number;
   is_outlier: boolean;
@@ -18,6 +18,12 @@ interface Explanation {
   base_value?: number;
   top_features?: Feature[];
   anomaly?: Anomaly;
+}
+
+/** Достаёт сигнал «независимой модели» из сырого explanation — для мест, которым нужен
+ * только бейдж аномалии отдельно от остального SHAP-объяснения (см. RiskCard.tsx). */
+export function getAnomaly(explanation: Record<string, unknown> | null): Anomaly | undefined {
+  return (explanation as Explanation | null)?.anomaly;
 }
 
 // Дублирует backend/app/workers/replay_worker.py:FEATURE_LABELS — переопределяем на
@@ -117,7 +123,15 @@ function lerpColor(a: [number, number, number], b: [number, number, number], t: 
  * `anomaly` — независимый от CatBoost сигнал (IsolationForest без учителя на тех же
  * поведенческих признаках, scripts/train_anomaly_model.py): может отметить необычное
  * поведение, не похожее ни на один известный сценарий отказа в разметке. */
-export function ShapExplanation({ explanation }: { explanation: Record<string, unknown> | null }) {
+export function ShapExplanation({
+  explanation,
+  showAnomaly = true,
+}: {
+  explanation: Record<string, unknown> | null;
+  /** RiskCard.tsx выносит бейдж аномалии в заголовок карточки «Аналитика» вместо
+   * "Почему сработал прогноз" — здесь его тогда показывать второй раз не нужно. */
+  showAnomaly?: boolean;
+}) {
   const e = explanation as Explanation | null;
   if (!e?.top_features?.length) {
     return <p className="text-sm text-slate-400">Объяснение для этого прогноза недоступно</p>;
@@ -127,7 +141,7 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
 
   return (
     <div className="space-y-3">
-      {e.anomaly && (
+      {showAnomaly && e.anomaly && (
         <div className="mb-2">
           <AnomalyBadge isOutlier={e.anomaly.is_outlier} />
         </div>

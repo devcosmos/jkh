@@ -39,10 +39,15 @@ const DOT_CLASSES = TONE_DOT_CLASSES;
 export function Badge({
   tone = "neutral",
   dot = false,
+  icon,
   children,
 }: {
   tone?: BadgeTone;
+  /** Статус (рабочее состояние) — круглая точка. */
   dot?: boolean;
+  /** Приоритет/серьёзность — треугольник, чтобы не путать с точкой статуса, даже когда
+   * тона совпадают (например, "Новый" и "Средний" — оба warning). */
+  icon?: "priority";
   children: ReactNode;
 }) {
   return (
@@ -50,6 +55,11 @@ export function Badge({
       className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-medium ${TONE_CLASSES[tone]}`}
     >
       {dot && <span className={`h-1.5 w-1.5 rounded-full ${DOT_CLASSES[tone]}`} />}
+      {icon === "priority" && (
+        <svg viewBox="0 0 24 24" className="h-2.5 w-2.5 shrink-0" fill="currentColor">
+          <path d="M12 3 2 20h20L12 3Z" />
+        </svg>
+      )}
       {children}
     </span>
   );

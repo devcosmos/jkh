@@ -116,7 +116,7 @@ function ToastCard({ risk, onOpen, onDismiss }: { risk: RiskCaseOut; onOpen: () 
           Канал {risk.channel_label ?? `#${risk.channel_id}`}
         </div>
         <button onClick={onOpen} className="mt-1.5 text-sm font-semibold text-sky-700 hover:underline">
-          Открыть риск-кейс →
+          Открыть риск-кейс &gt;
         </button>
       </div>
       <button

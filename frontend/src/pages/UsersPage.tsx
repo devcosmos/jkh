@@ -78,7 +78,7 @@ export function UsersPage() {
         </p>
       </div>
 
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 font-display text-sm font-semibold text-slate-900">Новый пользователь</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -125,7 +125,7 @@ export function UsersPage() {
       <DataState loading={users.loading} error={users.error} empty={!users.data?.length} emptyText="Пользователей нет">
         <div className="space-y-4">
           {users.data?.map((u) => (
-            <div key={u.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div key={u.id} className="rounded-2xl border border-slate-200 bg-white p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-display text-sm font-semibold text-slate-900">{u.username}</span>

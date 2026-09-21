@@ -35,7 +35,7 @@ export function Pagination({
           onClick={() => onPageChange(page - 1)}
           className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          ← Назад
+          &lt; Назад
         </button>
         <span className="px-1 tabular-nums">
           Стр. {page + 1}{lastPage !== null && <>{" "}из {lastPage + 1}</>}
@@ -45,7 +45,7 @@ export function Pagination({
           onClick={() => onPageChange(page + 1)}
           className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Вперёд →
+          Вперёд &gt;
         </button>
       </div>
     </div>
