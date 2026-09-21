@@ -11,6 +11,7 @@ import { PRIMARY_CONTROL, SECONDARY_CONTROL, SECONDARY_FIELD } from "../componen
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { ChevronIcon } from "../components/icons";
+import { InfoTooltip } from "../components/InfoTooltip";
 import { Select } from "../components/Select";
 import { getAnomaly, ShapExplanation } from "../components/ShapExplanation";
 import type {
@@ -157,24 +158,39 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
 
       {latestPrediction.data?.[0] && (
         <RiskCardSection title="Аналитика">
-          <div className="flex items-baseline justify-between gap-2">
-            {predictionAnomaly ? (
-              <AnomalyBadge isOutlier={predictionAnomaly.is_outlier} />
-            ) : (
-              <span />
-            )}
-            <span className="text-sm font-semibold text-slate-900">
-              {(latestPrediction.data[0].probability * 100).toFixed(0)}% отказа
-            </span>
-          </div>
-          {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
-              эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
-          {trend.data && (
-            <div className="flex items-center justify-between text-sm text-slate-500">
-              <span>Тренд:</span>
-              <DegradationTrendBadge trend={trend.data} />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-x-2">
+              <span className="flex items-center gap-1 text-sm text-slate-500">
+                Поведение
+                <InfoTooltip text="Отдельная от вероятности отказа проверка (независимая модель) — отмечает, насколько сочетание тревог, переходов состояния и пауз между событиями по этому датчику необычно на фоне его собственной истории." />
+              </span>
+              {predictionAnomaly ? (
+                <AnomalyBadge isOutlier={predictionAnomaly.is_outlier} />
+              ) : (
+                <span className="text-sm text-slate-400">—</span>
+              )}
             </div>
-          )}
+            <div className="flex items-center justify-between gap-x-2">
+              <span className="flex items-center gap-1 text-sm text-slate-500">
+                Вероятность отказа
+                <InfoTooltip text="Оценка модели на ближайшие сутки — не гарантия, а мера уверенности на основе истории похожих случаев по этому направлению." />
+              </span>
+              <span className="text-sm font-semibold text-slate-900">
+                {(latestPrediction.data[0].probability * 100).toFixed(0)}%
+              </span>
+            </div>
+            {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
+                эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
+            {trend.data && (
+              <div className="flex items-center justify-between gap-x-2">
+                <span className="flex items-center gap-1 text-sm text-slate-500">
+                  Тренд
+                  <InfoTooltip text="Динамика частоты неисправностей этого канала за последнее время по сравнению с более длинным периодом — учащаются они, становятся реже или остаются на том же уровне." />
+                </span>
+                <DegradationTrendBadge trend={trend.data} />
+              </div>
+            )}
+          </div>
           {llmSummary.loading ? (
             <p className="text-sm text-slate-400 italic">Формируется краткое резюме…</p>
           ) : llmSummary.data?.summary ? (
