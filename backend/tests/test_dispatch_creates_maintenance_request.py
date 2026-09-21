@@ -46,7 +46,7 @@ def test_dispatch_is_idempotent_with_existing_active_request(client, db_session,
     rc = _make_case(db_session)
     existing = MaintenanceRequest(
         risk_case_id=rc.id,
-        work_type="Диагностика и техническое обслуживание насоса",
+        work_type="Диагностика и ТО насоса",
         status=MaintenanceRequestStatus.draft,
     )
     db_session.add(existing)
