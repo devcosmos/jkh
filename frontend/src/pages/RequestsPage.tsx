@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { usePagedApi } from "../api/usePagedApi";
@@ -10,6 +10,8 @@ import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
+import { DetailSection } from "../components/DetailSection";
+import { ChevronIcon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { exportCsv } from "../lib/exportCsv";
@@ -34,9 +36,7 @@ export function RequestsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const riskCaseFilter = searchParams.get("risk_case_id");
   const [statusFilter, setStatusFilter] = useState("");
-  const [busyId, setBusyId] = useState<number | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<MaintenanceRequestOut | null>(null);
 
   const requests = usePagedApi<MaintenanceRequestOut>(
     (limit, offset) => {
@@ -51,22 +51,19 @@ export function RequestsPage() {
     50
   );
 
-  async function transition(id: number, to: MaintenanceRequestStatus) {
-    setBusyId(id);
-    setActionError(null);
-    try {
-      if (to === "approved") {
-        await api.post(`/maintenance-requests/${id}/approve`);
-      } else {
-        await api.post(`/maintenance-requests/${id}/transitions`, { to_status: to });
-      }
-      requests.reload();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyId(null);
+  // Та же логика, что на «Рисках»/в «Журнале»: всегда что-то выбрано, если в выборке
+  // есть хоть одна строка; после смены/перезагрузки — обновляем данными, но не теряем выбор,
+  // если запись осталась в выборке (например, после смены статуса заявки).
+  useEffect(() => {
+    if (!requests.data) return;
+    const stillPresent = selected && requests.data.find((r) => r.id === selected.id);
+    if (stillPresent) {
+      if (stillPresent !== selected) setSelected(stillPresent);
+      return;
     }
-  }
+    setSelected(requests.data[0] ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requests.data]);
 
   function clearRiskCaseFilter() {
     const next = new URLSearchParams(searchParams);
@@ -80,8 +77,7 @@ export function RequestsPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Заявки на обслуживание</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Заявки, созданные решением диспетчера на странице «Риски» — нажмите на строку, чтобы увидеть полное
-            обоснование
+            Заявки, созданные решением диспетчера на странице «Риски» — нажмите на строку, чтобы увидеть детали
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -132,41 +128,34 @@ export function RequestsPage() {
         </div>
       )}
 
-      {actionError && (
-        <div className="mb-4 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">
-          {actionError}
-        </div>
-      )}
-
-      <DataState
-        loading={requests.loading}
-        error={requests.error}
-        empty={!requests.data?.length}
-        emptyText="Заявок нет с учётом фильтра"
-      >
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3 whitespace-nowrap">ID</th>
-                <th className="px-4 py-3 whitespace-nowrap">Объект / канал</th>
-                <th className="px-4 py-3 whitespace-nowrap">Риск-кейс</th>
-                <th className="px-4 py-3 whitespace-nowrap">Вид работы</th>
-                <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
-                <th className="px-4 py-3 whitespace-nowrap">Статус</th>
-                <th className="px-4 py-3 whitespace-nowrap">Создана</th>
-                <th className="px-4 py-3 whitespace-nowrap">Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.data?.map((r) => {
-                const expanded = expandedId === r.id;
-                return (
-                  <Fragment key={r.id}>
+      <div className="flex flex-col items-start gap-6 lg:flex-row">
+        <div className="min-w-0 w-full flex-1">
+          <DataState
+            loading={requests.loading}
+            error={requests.error}
+            empty={!requests.data?.length}
+            emptyText="Заявок нет с учётом фильтра"
+          >
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3 whitespace-nowrap">ID</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Объект / канал</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Вид работы</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Статус</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Создана</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.data?.map((r) => (
                     <tr
-                      onClick={() => setExpandedId(expanded ? null : r.id)}
+                      key={r.id}
+                      onClick={() => setSelected(r)}
                       className={`cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50 ${
-                        expanded ? "bg-slate-50" : ""
+                        r.id === selected?.id ? "bg-sky-100 hover:bg-sky-100" : ""
                       }`}
                     >
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
@@ -182,15 +171,6 @@ export function RequestsPage() {
                             </span>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <Link
-                          to={`/risks?risk_case_id=${r.risk_case_id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-sky-700 hover:underline"
-                        >
-                          #{r.risk_case_id}
-                        </Link>
                       </td>
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{r.work_type}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -208,100 +188,148 @@ export function RequestsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-slate-500">
-                        {new Date(r.created_at).toLocaleString("ru-RU")}
+                        {new Date(r.created_at).toLocaleDateString("ru-RU")}
                       </td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex flex-wrap gap-1.5">
-                          {NEXT_STATUSES[r.status].map((next) => (
-                            <button
-                              key={next}
-                              disabled={busyId === r.id}
-                              onClick={() => transition(r.id, next)}
-                              className={`rounded-lg px-2.5 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
-                            >
-                              {STATUS_LABELS[next]}
-                            </button>
-                          ))}
-                          {NEXT_STATUSES[r.status].length === 0 && <span className="text-slate-400">—</span>}
-                        </div>
+                      <td className="px-4 py-3 text-slate-400">
+                        <ChevronIcon className="h-5 w-5" strokeWidth={2.6} />
                       </td>
                     </tr>
-                    {expanded && (
-                      <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
-                        <td colSpan={8} className="px-4 py-4">
-                          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_18rem]">
-                            <div>
-                              <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                                Обоснование
-                              </div>
-                              {r.anomaly_is_outlier !== null && (
-                                <div className="mb-2">
-                                  <AnomalyBadge isOutlier={r.anomaly_is_outlier} />
-                                </div>
-                              )}
-                              {r.ai_summary && (
-                                <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
-                                  {r.ai_summary}
-                                </p>
-                              )}
-                              <p className="whitespace-pre-line text-sm text-slate-700">
-                                {r.justification ?? "Обоснование не указано"}
-                              </p>
-                              {r.dispatcher_reason || r.dispatcher_action ? (
-                                <div className="mt-3 border-t border-slate-200 pt-3">
-                                  <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                                    Решение диспетчера
-                                  </div>
-                                  <p className="text-sm text-slate-700">
-                                    {r.dispatcher_action && (
-                                      <span className="font-medium">
-                                        {DECISION_ACTION_LABELS[r.dispatcher_action]}
-                                        {r.dispatcher_username ? ` — ${r.dispatcher_username}` : ""}
-                                      </span>
-                                    )}
-                                    {r.dispatcher_reason && (
-                                      <span className="block text-slate-600">{r.dispatcher_reason}</span>
-                                    )}
-                                  </p>
-                                </div>
-                              ) : null}
-                            </div>
-                            <div>
-                              <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                                Ход выполнения
-                              </div>
-                              <RequestTimeline request={r} />
-                            </div>
-                          </div>
-                          <div className="mt-4 border-t border-slate-200 pt-3">
-                            <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                              История изменений
-                            </div>
-                            <RequestHistory requestId={r.id} />
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-          <Pagination
-            page={requests.page}
-            pageSize={requests.pageSize}
-            total={requests.total}
-            loadedCount={requests.data?.length ?? 0}
-            onPageChange={requests.setPage}
-          />
+                  ))}
+                </tbody>
+              </table>
+              <Pagination
+                page={requests.page}
+                pageSize={requests.pageSize}
+                total={requests.total}
+                loadedCount={requests.data?.length ?? 0}
+                onPageChange={requests.setPage}
+              />
+            </div>
+          </DataState>
         </div>
-      </DataState>
+
+        <div className="w-full shrink-0 lg:w-120">
+          {selected ? (
+            <RequestDetail key={selected.id} request={selected} onChanged={() => requests.reload()} />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+              <p className="text-sm text-slate-500">Выберите заявку в таблице слева, чтобы увидеть обоснование и ход выполнения</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// Кто что нажимал, на какой стадии и что писал — раздел «Заявки», TODO пункт 3 («расширить
-// функционал заявок» — подробная история). Загружается лениво только для развёрнутой строки.
+function RequestDetail({ request, onChanged }: { request: MaintenanceRequestOut; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function transition(to: MaintenanceRequestStatus) {
+    setBusy(true);
+    setActionError(null);
+    try {
+      if (to === "approved") {
+        await api.post(`/maintenance-requests/${request.id}/approve`);
+      } else {
+        await api.post(`/maintenance-requests/${request.id}/transitions`, { to_status: to });
+      }
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 px-1">
+        <h3 className="font-display text-base font-semibold text-slate-900">Заявка #{request.id}</h3>
+        <div className="flex items-center gap-2">
+          <Badge tone={STATUS_TONE[request.status]} dot>
+            {STATUS_LABELS[request.status]}
+          </Badge>
+          {request.priority && (
+            <Badge tone={riskPriorityTone(request.priority)} icon="priority">
+              {request.priority === "high" ? "Высокий приоритет" : "Средний приоритет"}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <Link
+        to={`/risks?risk_case_id=${request.risk_case_id}`}
+        className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium ${SECONDARY_CONTROL}`}
+      >
+        <span>
+          {request.object_name ?? "объект не определён"} — {request.channel_label ?? `канал #${request.risk_case_id}`}
+        </span>
+        <span className="flex shrink-0 items-center gap-1 font-semibold">
+          Риск-кейс
+          <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+        </span>
+      </Link>
+
+      <DetailSection
+        title="Обоснование"
+        right={request.anomaly_is_outlier !== null && <AnomalyBadge isOutlier={request.anomaly_is_outlier} />}
+      >
+        {request.ai_summary && (
+          <p className="border-b border-slate-100 pb-3 text-sm text-slate-700 italic">{request.ai_summary}</p>
+        )}
+        <p className="whitespace-pre-line text-sm text-slate-700">{request.justification ?? "Обоснование не указано"}</p>
+        {(request.dispatcher_reason || request.dispatcher_action) && (
+          <div className="border-t border-slate-100 pt-3">
+            <div className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">Решение диспетчера</div>
+            <p className="text-sm text-slate-700">
+              {request.dispatcher_action && (
+                <span className="font-medium">
+                  {DECISION_ACTION_LABELS[request.dispatcher_action]}
+                  {request.dispatcher_username ? ` — ${request.dispatcher_username}` : ""}
+                </span>
+              )}
+              {request.dispatcher_reason && <span className="block text-slate-600">{request.dispatcher_reason}</span>}
+            </p>
+          </div>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Действия">
+        <div className="flex flex-wrap gap-2">
+          {NEXT_STATUSES[request.status].map((next) => (
+            <button
+              key={next}
+              disabled={busy}
+              onClick={() => transition(next)}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${SECONDARY_CONTROL}`}
+            >
+              {STATUS_LABELS[next]}
+            </button>
+          ))}
+          {NEXT_STATUSES[request.status].length === 0 && (
+            <p className="text-sm text-slate-400">Статус заявки терминальный — дальнейших переходов нет</p>
+          )}
+        </div>
+        {actionError && (
+          <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">{actionError}</div>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Ход выполнения">
+        <RequestTimeline request={request} />
+      </DetailSection>
+
+      <DetailSection title="История">
+        <RequestHistory requestId={request.id} />
+      </DetailSection>
+    </div>
+  );
+}
+
+// Кто что нажимал, на какой стадии и что писал — TODO пункт 3 («расширить функционал
+// заявок» — подробная история).
 function RequestHistory({ requestId }: { requestId: number }) {
   const history = useApi<AuditLogEntry[]>(() => api.get(`/maintenance-requests/${requestId}/history`), [requestId]);
 

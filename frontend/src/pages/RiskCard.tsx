@@ -1,5 +1,4 @@
 import { useState } from "react";
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { DECISION_ACTION_LABELS } from "../api/decisionAction";
@@ -9,6 +8,7 @@ import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { PRIMARY_CONTROL, SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
+import { DetailSection } from "../components/DetailSection";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { ChevronIcon } from "../components/icons";
 import { InfoTooltip } from "../components/InfoTooltip";
@@ -130,7 +130,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </Link>
       )}
 
-      <RiskCardSection
+      <DetailSection
         title="Данные"
         right={
           channel.data && (
@@ -174,10 +174,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             </span>
           </div>
         )}
-      </RiskCardSection>
+      </DetailSection>
 
       {latestPrediction.data?.[0] && (
-        <RiskCardSection
+        <DetailSection
           title="Аналитика"
           right={predictionAnomaly && <AnomalyBadge isOutlier={predictionAnomaly.is_outlier} />}
         >
@@ -209,10 +209,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             <p className="border-b border-slate-100 pb-3 text-sm text-slate-700 italic">{llmSummary.data.summary}</p>
           ) : null}
           <ShapExplanation explanation={latestPrediction.data[0].explanation} showAnomaly={false} />
-        </RiskCardSection>
+        </DetailSection>
       )}
 
-      <RiskCardSection
+      <DetailSection
         title="Действия диспетчера"
         right={
           requestsForCase.data?.[0] && (
@@ -280,11 +280,11 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             )}
           </>
         )}
-      </RiskCardSection>
+      </DetailSection>
 
       {/* Своя прокрутка — история эпизодов может быть очень длинной и не должна
           заставлять листать всю карточку до решения диспетчера. */}
-      <RiskCardSection title="История">
+      <DetailSection title="История">
         <DataState
           loading={episodes.loading}
           error={episodes.error}
@@ -307,19 +307,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             ))}
           </ul>
         </DataState>
-      </RiskCardSection>
-    </div>
-  );
-}
-
-function RiskCardSection({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-100 px-5 py-3">
-        <h3 className="font-display text-sm font-semibold text-slate-900">{title}</h3>
-        {right}
-      </div>
-      <div className="flex flex-col gap-4 px-5 py-4">{children}</div>
+      </DetailSection>
     </div>
   );
 }
