@@ -223,9 +223,9 @@ def add_decision(
         rc.closed_at = dt.datetime.now(dt.timezone.utc)
     elif payload.action.value == "dispatch":
         rc.status = RiskCaseStatus.dispatched
-        # Раньше решение диспетчера и заявка на обслуживание были не связаны — «направить на
-        # проверку» ничего не создавало в разделе «Заявки», если раньше не сработало
-        # авто-правило worker'а по порогу вероятности (см. docs/Статус.md). Идемпотентно.
+        # Единственный источник заявок — раньше решение диспетчера и заявка на обслуживание
+        # были не связаны, «направить на проверку» ничего не создавало в «Заявках» (см.
+        # docs/Статус.md). Идемпотентно.
         ensure_request_for_dispatch(db, rc, rc.channel, user, payload.reason)
     elif payload.action.value == "observe":
         rc.status = RiskCaseStatus.observing
