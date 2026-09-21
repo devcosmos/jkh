@@ -1,7 +1,8 @@
 import datetime as dt
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
@@ -13,6 +14,22 @@ from app.schemas.schemas import AuditLogOut, MaintenanceRequestOut, TransitionIn
 router = APIRouter(
     prefix="/maintenance-requests", tags=["maintenance"], dependencies=[Depends(get_current_user)]
 )
+
+# Порядок стадий воркфлоу для сортировки по статусу — не алфавитный (иначе "cancelled" был
+# бы раньше "draft"), а по ходу выполнения: draft -> approved -> in_progress -> completed,
+# затем два терминальных прерывания.
+_STATUS_ORDER = case(
+    (MaintenanceRequest.status == MaintenanceRequestStatus.draft, 0),
+    (MaintenanceRequest.status == MaintenanceRequestStatus.approved, 1),
+    (MaintenanceRequest.status == MaintenanceRequestStatus.in_progress, 2),
+    (MaintenanceRequest.status == MaintenanceRequestStatus.completed, 3),
+    (MaintenanceRequest.status == MaintenanceRequestStatus.rejected, 4),
+    (MaintenanceRequest.status == MaintenanceRequestStatus.cancelled, 5),
+)
+# Приоритет — строка без гарантированного порядка (high/medium/NULL) — явно по серьёзности.
+_PRIORITY_ORDER = case((MaintenanceRequest.priority == "high", 2), (MaintenanceRequest.priority == "medium", 1), else_=0)
+
+_SORT_COLUMNS = {"created_at": MaintenanceRequest.created_at, "status": _STATUS_ORDER, "priority": _PRIORITY_ORDER}
 
 # Раздел 10 плана: draft -> approved -> in_progress -> completed; + rejected, cancelled.
 ALLOWED_TRANSITIONS: dict[MaintenanceRequestStatus, set[MaintenanceRequestStatus]] = {
@@ -72,7 +89,9 @@ def _build_out(
     description=(
         "Фильтры по status и risk_case_id. Возвращает заявки с контекстом объекта, канала и риска, "
         "резюме ИИ и сигналом аномалии по последнему прогнозу риск-кейса, последним решением "
-        "диспетчера, от новых к старым. Учитывает доступ к объектам."
+        "диспетчера. sort_by: created_at, status (по ходу выполнения, не по алфавиту) или "
+        "priority (high/medium/без приоритета); sort_dir: asc или desc, по умолчанию новые/"
+        "поздние стадии/высокий приоритет первыми. Учитывает доступ к объектам."
     ),
     responses={
         401: {
@@ -95,6 +114,8 @@ def list_maintenance_requests(
     response: Response,
     status_filter: MaintenanceRequestStatus | None = Query(None, alias="status"),
     risk_case_id: int | None = None,
+    sort_by: Literal["created_at", "status", "priority"] = "created_at",
+    sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -137,7 +158,8 @@ def list_maintenance_requests(
         )
     response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
 
-    stmt = stmt.order_by(MaintenanceRequest.created_at.desc())
+    order_col = _SORT_COLUMNS[sort_by]
+    stmt = stmt.order_by(order_col.desc() if sort_dir == "desc" else order_col.asc())
     rows = list(db.scalars(stmt.offset(offset).limit(limit)))
 
     approver_ids = {r.approved_by_user_id for r in rows if r.approved_by_user_id}

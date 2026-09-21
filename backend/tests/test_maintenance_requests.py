@@ -134,3 +134,58 @@ def test_request_history_respects_object_access(client, db_session, auth_headers
 
     r = client.get(f"/api/maintenance-requests/{mr.id}/history", headers=headers)
     assert r.status_code == 403
+
+
+def test_sort_by_status_orders_by_workflow_stage_not_alphabet(client, db_session, auth_headers):
+    """cancelled < draft алфавитно, но по ходу выполнения draft раньше cancelled — сортировка
+    должна идти по стадии воркфлоу (draft -> approved -> in_progress -> completed -> rejected
+    -> cancelled), а не по алфавиту enum-значений."""
+
+    def _make(ext_id, status):
+        channel = Channel(external_channel_id=ext_id, sensor_type="Состояние насоса")
+        db_session.add(channel)
+        db_session.flush()
+        rc = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=dt.datetime.now(dt.timezone.utc))
+        db_session.add(rc)
+        db_session.flush()
+        mr = MaintenanceRequest(risk_case_id=rc.id, work_type="Диагностика насоса", status=status)
+        db_session.add(mr)
+        db_session.commit()
+        db_session.refresh(mr)
+        return mr
+
+    cancelled = _make(101, MaintenanceRequestStatus.cancelled)
+    draft = _make(102, MaintenanceRequestStatus.draft)
+    approved = _make(103, MaintenanceRequestStatus.approved)
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get("/api/maintenance-requests?sort_by=status&sort_dir=asc", headers=headers)
+    assert r.status_code == 200
+    ids = [row["id"] for row in r.json()]
+    assert ids.index(draft.id) < ids.index(approved.id) < ids.index(cancelled.id)
+
+
+def test_sort_by_priority_puts_high_first_by_default(client, db_session, auth_headers):
+    channel = Channel(external_channel_id=2, sensor_type="Состояние насоса")
+    db_session.add(channel)
+    db_session.flush()
+
+    def _make(priority):
+        rc = RiskCase(channel_id=channel.id, status=RiskCaseStatus.new, opened_at=dt.datetime.now(dt.timezone.utc))
+        db_session.add(rc)
+        db_session.flush()
+        mr = MaintenanceRequest(risk_case_id=rc.id, work_type="Диагностика насоса", priority=priority)
+        db_session.add(mr)
+        db_session.commit()
+        db_session.refresh(mr)
+        return mr
+
+    low = _make(None)
+    medium = _make("medium")
+    high = _make("high")
+
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.get("/api/maintenance-requests?sort_by=priority", headers=headers)
+    assert r.status_code == 200
+    ids = [row["id"] for row in r.json()]
+    assert ids.index(high.id) < ids.index(medium.id) < ids.index(low.id)

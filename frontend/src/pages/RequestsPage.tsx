@@ -14,6 +14,7 @@ import { DetailSection } from "../components/DetailSection";
 import { CheckCircleIcon, CheckIcon, ChevronIcon, CloseIcon, DraftIcon, WrenchIcon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
+import { SortableTh } from "../components/SortableTh";
 import { exportCsv } from "../lib/exportCsv";
 import type { AuditLogEntry, MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
 
@@ -32,24 +33,40 @@ const NEXT_STATUSES: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]
 // поэтому для них степпер не рисуется — только терминальный статус-бейдж.
 const HAPPY_PATH: MaintenanceRequestStatus[] = ["draft", "approved", "in_progress", "completed"];
 
+type SortKey = "created_at" | "status" | "priority";
+type SortDir = "asc" | "desc";
+
 export function RequestsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const riskCaseFilter = searchParams.get("risk_case_id");
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequestOut | null>(null);
+  const [sortBy, setSortBy] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const requests = usePagedApi<MaintenanceRequestOut>(
     (limit, offset) => {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (riskCaseFilter) params.set("risk_case_id", riskCaseFilter);
+      params.set("sort_by", sortBy);
+      params.set("sort_dir", sortDir);
       params.set("limit", String(limit));
       params.set("offset", String(offset));
       return `/maintenance-requests?${params.toString()}`;
     },
-    [statusFilter, riskCaseFilter],
+    [statusFilter, riskCaseFilter, sortBy, sortDir],
     50
   );
+
+  function toggleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortBy(key);
+      setSortDir("desc");
+    }
+  }
 
   // Та же логика, что на «Рисках»/в «Журнале»: всегда что-то выбрано, если в выборке
   // есть хоть одна строка; после смены/перезагрузки — обновляем данными, но не теряем выбор,
@@ -143,9 +160,9 @@ export function RequestsPage() {
                     <th className="px-4 py-3 whitespace-nowrap">ID</th>
                     <th className="px-4 py-3 whitespace-nowrap">Объект / канал</th>
                     <th className="px-4 py-3 whitespace-nowrap">Вид работы</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Статус</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Создана</th>
+                    <SortableTh label="Приоритет" sortKey="priority" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Статус" sortKey="status" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Создана" sortKey="created_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
