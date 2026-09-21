@@ -207,7 +207,20 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </RiskCardSection>
       )}
 
-      <RiskCardSection title="Действия диспетчера">
+      <RiskCardSection
+        title="Действия диспетчера"
+        right={
+          requestsForCase.data?.[0] && (
+            <Link
+              to={`/requests?risk_case_id=${riskCase.id}`}
+              className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold ${SECONDARY_CONTROL}`}
+            >
+              Смотреть заявку
+              <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+            </Link>
+          )
+        }
+      >
         <Select
           value=""
           onChange={(e) => {
@@ -247,21 +260,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">{actionError}</div>
         )}
         {lastDecision && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
-            <span>
-              <span className="mr-1.5">✓</span>
-              Решение сохранено: «{lastDecision}». Новый статус — «
-              {RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
-            </span>
-            {requestsForCase.data?.[0] && (
-              <Link
-                to={`/requests?risk_case_id=${riskCase.id}`}
-                className="flex shrink-0 items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-              >
-                Смотреть заявку
-                <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
-              </Link>
-            )}
+          <div className="rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
+            <span className="mr-1.5">✓</span>
+            Решение сохранено: «{lastDecision}». Новый статус — «
+            {RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
           </div>
         )}
       </RiskCardSection>
