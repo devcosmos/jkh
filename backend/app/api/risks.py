@@ -15,7 +15,31 @@ from app.services.maintenance_requests import ensure_request_for_dispatch
 router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("", response_model=list[RiskCaseOut])
+@router.get(
+    "",
+    response_model=list[RiskCaseOut],
+    summary="Получить список риск-кейсов",
+    description=(
+        "Фильтры по status и category. Сортировка sort_by: opened_at или probability; sort_dir: asc "
+        "или desc. По умолчанию — новые первыми. Учитывает доступ к объектам."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        200: {
+            "description": "Страница записей",
+            "headers": {
+                "X-Total-Count": {
+                    "description": "Всего записей с учётом фильтров, до limit и offset",
+                    "schema": {
+                        "type": "integer",
+                    },
+                },
+            },
+        },
+    },
+)
 def list_risk_cases(
     status_filter: RiskCaseStatus | None = Query(None, alias="status"),
     category: str | None = None,
@@ -68,7 +92,23 @@ def list_risk_cases(
     ]
 
 
-@router.get("/{risk_case_id}", response_model=RiskCaseOut)
+@router.get(
+    "/{risk_case_id}",
+    response_model=RiskCaseOut,
+    summary="Получить риск-кейс по ID",
+    description="Учитывает доступ к объекту.",
+    responses={
+        403: {
+            "description": "Нет доступа к объекту",
+        },
+        404: {
+            "description": "Риск-кейс не найден",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def get_risk_case(
     risk_case_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ) -> RiskCase:
@@ -79,7 +119,27 @@ def get_risk_case(
     return rc
 
 
-@router.post("/{risk_case_id}/decisions", response_model=DecisionOut)
+@router.post(
+    "/{risk_case_id}/decisions",
+    response_model=DecisionOut,
+    summary="Принять решение по риску",
+    description=(
+        "Доступно диспетчеру, аналитику и администратору с доступом к объекту. observe переводит "
+        "риск в observing; dispatch — в dispatched и создаёт или связывает заявку; reject закрывает "
+        "риск как rejected; clarify записывает запрос уточнения без смены статуса."
+    ),
+    responses={
+        403: {
+            "description": "Недостаточно прав или нет доступа к объекту",
+        },
+        404: {
+            "description": "Риск-кейс не найден",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def add_decision(
     risk_case_id: int,
     payload: DecisionIn,

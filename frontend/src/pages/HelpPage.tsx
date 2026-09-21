@@ -165,6 +165,10 @@ const FAQ = [
 
 export function HelpPage() {
   const isAdmin = getRole() === "admin";
+  const apiExample = [
+    `curl "${window.location.origin}/api/risk-cases?limit=10&offset=0" \\`,
+    '  -H "Authorization: Bearer <access_token>"',
+  ].join("\n");
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -339,6 +343,44 @@ export function HelpPage() {
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section id="api" className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-3 font-display text-lg font-semibold text-slate-900">API и интеграция</h2>
+        <p className="text-sm leading-relaxed text-slate-600">
+          Через API можно получать объекты, прогнозы, риски и заявки, принимать
+          решения по рискам и обновлять статусы заявок. Параметры запросов, форматы ответов
+          и доступные операции описаны в интерактивной документации Swagger.
+        </p>
+        <div className="my-4 flex flex-wrap items-center gap-3">
+          <a
+            href="/api/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+          >
+            Открыть Swagger ↗
+          </a>
+          <a href="/api/openapi.json" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-sky-700 hover:underline">
+            Схема OpenAPI (JSON) ↗
+          </a>
+        </div>
+        <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
+          <li>Откройте Swagger, нажмите <b>Authorize</b> и введите логин и пароль своей учётной записи.</li>
+          <li>Выберите метод, нажмите <b>Try it out</b>, заполните параметры и нажмите <b>Execute</b>.</li>
+          <li>
+            Для интеграции получите <code>access_token</code> через <code>POST /api/auth/login</code>:
+            передайте поля <code>username</code> и <code>password</code> в формате{" "}
+            <code className="break-all">application/x-www-form-urlencoded</code>.
+            Затем добавляйте токен в заголовок <code>Authorization</code>, как в примере ниже.
+          </li>
+        </ol>
+        <p className="mt-4 text-xs font-medium text-slate-500">Пример: получить первые 10 риск-кейсов</p>
+        <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100"><code>{apiExample}</code></pre>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          Права зависят от роли и настроенного доступа к объектам. Запросы в Swagger
+          выполняются в текущей системе: принятие решения или смена статуса заявки сохранит изменения.
+        </p>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

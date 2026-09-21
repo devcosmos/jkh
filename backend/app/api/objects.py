@@ -14,7 +14,17 @@ _OPEN_STATUSES = (RiskCaseStatus.new, RiskCaseStatus.observing, RiskCaseStatus.d
 _PRIORITY_RANK_LABEL = {0: "none", 1: "medium", 2: "high"}
 
 
-@router.get("", response_model=list[ObjectOut])
+@router.get(
+    "",
+    response_model=list[ObjectOut],
+    summary="Получить список объектов",
+    description="Фильтр district задаёт район. Параметры limit и offset управляют размером страницы и смещением.",
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def list_objects(
     district: str | None = None,
     limit: int = Query(50, le=500),
@@ -27,7 +37,19 @@ def list_objects(
     return list(db.scalars(stmt.offset(offset).limit(limit)))
 
 
-@router.get("/geojson")
+@router.get(
+    "/geojson",
+    summary="Получить объекты с геометрией",
+    description=(
+        "Возвращает только объекты с заполненной геометрией. Геометрия находится в geometry_wkt как "
+        "WKT-текст; это не стандартное поле geometry GeoJSON. Если координат нет, features пуст."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def objects_geojson(db: Session = Depends(get_db)) -> dict:
     """Только объекты с проверенной геометрией — раздел 3.2 плана: без выдуманных координат."""
     objects = db.scalars(select(Object).where(Object.geometry_wkt.is_not(None)))
@@ -48,7 +70,19 @@ def objects_geojson(db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.get("/tree")
+@router.get(
+    "/tree",
+    summary="Получить дерево объектов с рисками",
+    description=(
+        "Иерархия по parent_id с количеством открытых рисков и максимальным приоритетом на каждом "
+        "узле, включая потомков. Учитывает доступ пользователя к объектам."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def objects_tree(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -126,7 +160,19 @@ def objects_tree(
     return {"roots": roots}
 
 
-@router.get("/{object_id}", response_model=ObjectOut)
+@router.get(
+    "/{object_id}",
+    response_model=ObjectOut,
+    summary="Получить объект по ID",
+    responses={
+        404: {
+            "description": "Объект не найден",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def get_object(object_id: int, db: Session = Depends(get_db)) -> Object:
     obj = db.get(Object, object_id)
     if obj is None:

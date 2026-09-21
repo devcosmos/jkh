@@ -28,7 +28,31 @@ def _trend_out(channel_id: int, trend: dict) -> DegradationTrendOut:
     )
 
 
-@router.get("", response_model=list[ChannelOut])
+@router.get(
+    "",
+    response_model=list[ChannelOut],
+    summary="Получить список каналов",
+    description=(
+        "Фильтры по объекту, типу датчика и поисковой строке (название или расположение). "
+        "include_trend=true добавляет динамику частоты неисправностей. Учитывает доступ к объектам."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        200: {
+            "description": "Страница записей",
+            "headers": {
+                "X-Total-Count": {
+                    "description": "Всего записей с учётом фильтров, до limit и offset",
+                    "schema": {
+                        "type": "integer",
+                    },
+                },
+            },
+        },
+    },
+)
 def list_channels(
     object_id: int | None = None,
     sensor_type: str | None = None,
@@ -69,7 +93,19 @@ def list_channels(
     return channels
 
 
-@router.get("/{channel_id}", response_model=ChannelOut)
+@router.get(
+    "/{channel_id}",
+    response_model=ChannelOut,
+    summary="Получить канал по ID",
+    responses={
+        404: {
+            "description": "Канал не найден",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def get_channel(channel_id: int, db: Session = Depends(get_db)) -> Channel:
     ch = db.get(Channel, channel_id)
     if ch is None:
@@ -77,7 +113,26 @@ def get_channel(channel_id: int, db: Session = Depends(get_db)) -> Channel:
     return ch
 
 
-@router.get("/{channel_id}/degradation-trend", response_model=DegradationTrendOut)
+@router.get(
+    "/{channel_id}/degradation-trend",
+    response_model=DegradationTrendOut,
+    summary="Получить динамику неисправностей канала",
+    description=(
+        "Сравнивает частоту эпизодов за недавний и базовый периоды. Статус: worsening, stable, "
+        "improving или insufficient_data. Учитывает доступ к объекту."
+    ),
+    responses={
+        403: {
+            "description": "Нет доступа к объекту",
+        },
+        404: {
+            "description": "Канал не найден или нет данных для расчёта тренда",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def get_channel_degradation_trend(
     channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ) -> DegradationTrendOut:
@@ -96,7 +151,19 @@ def get_channel_degradation_trend(
     return _trend_out(channel_id, trend)
 
 
-@router.get("/{channel_id}/episodes")
+@router.get(
+    "/{channel_id}/episodes",
+    summary="Получить эпизоды неисправностей канала",
+    description=(
+        "История фактических неисправностей, от новых к старым. Содержит границы эпизодов и "
+        "признаки флаппинга и неполных границ наблюдения."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def get_channel_episodes(channel_id: int, db: Session = Depends(get_db)) -> list[dict]:
     """Текущая/прошлая неисправность — отдельно от прогноза (раздел 9.1 плана)."""
     episodes = db.scalars(

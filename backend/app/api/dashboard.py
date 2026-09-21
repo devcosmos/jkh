@@ -35,7 +35,16 @@ def _grouped_counts(db: Session, column, *filters) -> dict[str, int]:
     return {(k.value if hasattr(k, "value") else str(k)): v for k, v in rows}
 
 
-@router.get("/summary")
+@router.get(
+    "/summary",
+    summary="Получить сводку по системе",
+    description="Сводные показатели для обзора: риски, заявки, последние прогнозы и качество моделей.",
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict:
     """Обзорная сводка для стартовой страницы — агрегаты по уже существующим таблицам,
     без выдуманных метрик. Уважает матрицу доступа по объектам (см. get_accessible_object_ids),

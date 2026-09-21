@@ -10,7 +10,17 @@ from app.schemas.schemas import ModelVersionOut
 router = APIRouter(prefix="/models", tags=["models"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/current", response_model=list[ModelVersionOut])
+@router.get(
+    "/current",
+    response_model=list[ModelVersionOut],
+    summary="Получить активные модели",
+    description="Активные версии моделей, типы датчиков, даты обучения, пороги и метрики качества.",
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def current_models(db: Session = Depends(get_db)) -> list[ModelVersion]:
     """Активные версии модели — по одной на независимо оцениваемый трек (насос/вентилятор,
     дым/газ — тема 18 CSV с ответами: «два независимых результата, оцениваются отдельно»),

@@ -11,7 +11,34 @@ from app.schemas.schemas import AuditLogOut
 router = APIRouter(prefix="/audit-log", tags=["audit"], dependencies=[Depends(require_role(UserRole.admin))])
 
 
-@router.get("", response_model=list[AuditLogOut])
+@router.get(
+    "",
+    response_model=list[AuditLogOut],
+    summary="Получить журнал аудита",
+    description=(
+        "Только администратор. Фильтр по entity_type; новые записи идут первыми. Содержит автора, "
+        "время и изменения состояния."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        403: {
+            "description": "Доступно только администратору",
+        },
+        200: {
+            "description": "Страница записей",
+            "headers": {
+                "X-Total-Count": {
+                    "description": "Всего записей с учётом фильтров, до limit и offset",
+                    "schema": {
+                        "type": "integer",
+                    },
+                },
+            },
+        },
+    },
+)
 def list_audit_log(
     entity_type: str | None = None,
     limit: int = Query(100, le=1000),

@@ -24,8 +24,12 @@ uvicorn app.main:app --reload
 переменная `JKH_DATABASE_URL` уже прописана в `docker-compose.yml` и указывает на `db:5432`
 (внутренний DNS докера) — экспортировать её вручную не нужно.
 
-Открыть `http://localhost:8000/docs` — интерактивная OpenAPI-документация (требование
-раздела 11 плана реализации).
+Открыть `http://localhost:8000/api/docs` — интерактивная документация Swagger UI.
+Схема OpenAPI: `/api/openapi.json`, версия для чтения ReDoc: `/api/redoc`.
+Все адреса находятся под `/api`, поэтому работают через Vite и Caddy без дополнительных
+правил проксирования. В интерфейсе ссылка находится в «Справка → API и интеграция».
+Для запросов в Swagger нажать **Authorize** и ввести логин и пароль.
+Кнопка **Execute** выполняет настоящий запрос, включая сохранение изменений.
 
 ## Первый пользователь
 
@@ -43,7 +47,7 @@ db.commit()
 "
 ```
 
-Затем `POST /auth/login` (form-data: `username`, `password`) вернёт JWT для `Authorization:
+Затем `POST /api/auth/login` (`application/x-www-form-urlencoded`: `username`, `password`) вернёт JWT для `Authorization:
 Bearer <token>`.
 
 ## Тесты

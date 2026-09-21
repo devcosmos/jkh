@@ -12,7 +12,32 @@ from app.schemas.schemas import PredictionOut
 router = APIRouter(prefix="/predictions", tags=["predictions"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("", response_model=list[PredictionOut])
+@router.get(
+    "",
+    response_model=list[PredictionOut],
+    summary="Получить журнал прогнозов",
+    description=(
+        "Фильтры по каналу, риск-кейсу и категории. since и until задают включительные границы "
+        "created_at в ISO 8601. Новые записи идут первыми. Вероятность — число от 0 до 1. Учитывает "
+        "доступ к объектам."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        200: {
+            "description": "Страница записей",
+            "headers": {
+                "X-Total-Count": {
+                    "description": "Всего записей с учётом фильтров, до limit и offset",
+                    "schema": {
+                        "type": "integer",
+                    },
+                },
+            },
+        },
+    },
+)
 def list_predictions(
     channel_id: int | None = None,
     risk_case_id: int | None = None,

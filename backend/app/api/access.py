@@ -13,7 +13,20 @@ from app.schemas.schemas import ObjectAccessIn, UserCreateIn, UserOut
 router = APIRouter(prefix="/access", tags=["access"], dependencies=[Depends(require_role(UserRole.admin))])
 
 
-@router.get("/users", response_model=list[UserOut])
+@router.get(
+    "/users",
+    response_model=list[UserOut],
+    summary="Получить пользователей и их доступ",
+    description="Только администратор. Возвращает роли и назначенные object_ids.",
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        403: {
+            "description": "Доступно только администратору",
+        },
+    },
+)
 def list_users(db: Session = Depends(get_db)) -> list[UserOut]:
     """Пользователи + назначенные объекты — раздел «Пользователи и доступ» админ-панели.
     Только администратор (см. зависимость роутера)."""
@@ -34,7 +47,24 @@ def list_users(db: Session = Depends(get_db)) -> list[UserOut]:
     ]
 
 
-@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/users",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать пользователя",
+    description="Только администратор. Логин — от 3 до 64 символов, пароль — не короче 8 символов.",
+    responses={
+        409: {
+            "description": "Логин уже занят",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        403: {
+            "description": "Доступно только администратору",
+        },
+    },
+)
 def create_user(
     payload: UserCreateIn,
     db: Session = Depends(get_db),
@@ -61,7 +91,23 @@ def create_user(
     return UserOut(id=user.id, username=user.username, role=user.role, is_active=user.is_active, object_ids=[])
 
 
-@router.get("/users/{user_id}/objects", response_model=list[int])
+@router.get(
+    "/users/{user_id}/objects",
+    response_model=list[int],
+    summary="Получить назначенные пользователю объекты",
+    description="Только администратор. Пустой список назначений означает отсутствие ограничения по объектам.",
+    responses={
+        404: {
+            "description": "Пользователь не найден",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        403: {
+            "description": "Доступно только администратору",
+        },
+    },
+)
 def list_user_object_access(user_id: int, db: Session = Depends(get_db)) -> list[int]:
     if db.get(User, user_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Пользователь не найден")
@@ -70,7 +116,23 @@ def list_user_object_access(user_id: int, db: Session = Depends(get_db)) -> list
     )
 
 
-@router.post("/users/{user_id}/objects", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/users/{user_id}/objects",
+    status_code=status.HTTP_201_CREATED,
+    summary="Назначить доступ к объекту",
+    description="Только администратор. Повторное назначение не создаёт дубликат.",
+    responses={
+        404: {
+            "description": "Пользователь или объект не найден",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        403: {
+            "description": "Доступно только администратору",
+        },
+    },
+)
 def grant_object_access(
     user_id: int,
     payload: ObjectAccessIn,
@@ -102,7 +164,23 @@ def grant_object_access(
     db.commit()
 
 
-@router.delete("/users/{user_id}/objects/{object_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/users/{user_id}/objects/{object_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Отозвать назначение объекта",
+    description=(
+        "Только администратор. Повторный отзыв возвращает 204. После удаления последнего назначения "
+        "ограничение по объектам перестаёт действовать."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        403: {
+            "description": "Доступно только администратору",
+        },
+    },
+)
 def revoke_object_access(
     user_id: int,
     object_id: int,

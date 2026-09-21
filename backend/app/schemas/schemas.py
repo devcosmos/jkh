@@ -9,7 +9,13 @@ from app.models.enums import DecisionAction, MaintenanceRequestStatus, RiskCaseS
 
 
 class ObjectAccessIn(BaseModel):
-    object_id: int
+    object_id: int = Field(description="Внутренний ID объекта", examples=[1])
+
+
+class TokenOut(BaseModel):
+    access_token: str = Field(description="JWT для заголовка Authorization: Bearer <access_token>")
+    token_type: Literal["bearer"]
+    role: UserRole
 
 
 class UserOut(BaseModel):
@@ -42,8 +48,8 @@ class AuditLogOut(BaseModel):
 
 
 class ChangePasswordIn(BaseModel):
-    current_password: str
-    new_password: str = Field(min_length=8)
+    current_password: str = Field(description="Текущий пароль учётной записи")
+    new_password: str = Field(min_length=8, description="Новый пароль, не короче 8 символов")
 
 
 class ObjectOut(BaseModel):
@@ -94,10 +100,10 @@ class PredictionOut(BaseModel):
     risk_case_id: int | None
     model_version_id: int
     category: str
-    probability: float
+    probability: float = Field(description="Вероятность отказа от 0 до 1", examples=[0.82])
     window_start: dt.datetime
     window_end: dt.datetime
-    threshold_used: float | None
+    threshold_used: float | None = Field(description="Порог модели на момент расчёта", examples=[0.5])
     explanation: dict | None
     data_quality_flag: str | None
     created_at: dt.datetime
@@ -113,12 +119,26 @@ class RiskCaseOut(BaseModel):
     priority: str | None
     opened_at: dt.datetime
     closed_at: dt.datetime | None
-    latest_probability: float | None = None
+    latest_probability: float | None = Field(
+        default=None,
+        description="Вероятность последнего прогноза от 0 до 1, если она включена в ответ",
+        examples=[0.82],
+    )
 
 
 class DecisionIn(BaseModel):
-    action: DecisionAction
-    reason: str | None = None
+    action: DecisionAction = Field(
+        description=(
+            "observe — наблюдать; dispatch — направить на проверку; "
+            "reject — отклонить; clarify — уточнить данные"
+        ),
+        examples=["observe"],
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Комментарий к решению",
+        examples=["Продолжить наблюдение за датчиком"],
+    )
 
 
 class DecisionOut(BaseModel):
@@ -154,8 +174,15 @@ class MaintenanceRequestOut(BaseModel):
 
 
 class TransitionIn(BaseModel):
-    to_status: MaintenanceRequestStatus
-    reason: str | None = None
+    to_status: MaintenanceRequestStatus = Field(
+        description="Целевой статус, допустимый из текущего состояния заявки",
+        examples=["in_progress"],
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Комментарий к смене статуса",
+        examples=["Специалист приступил к проверке"],
+    )
 
 
 class ModelVersionOut(BaseModel):

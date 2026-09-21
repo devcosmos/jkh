@@ -53,7 +53,31 @@ def _build_out(mr: MaintenanceRequest, approver_username: str | None) -> Mainten
     )
 
 
-@router.get("", response_model=list[MaintenanceRequestOut])
+@router.get(
+    "",
+    response_model=list[MaintenanceRequestOut],
+    summary="Получить список заявок",
+    description=(
+        "Фильтры по status и risk_case_id. Возвращает заявки с контекстом объекта, канала и риска, "
+        "от новых к старым. Учитывает доступ к объектам."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+        200: {
+            "description": "Страница записей",
+            "headers": {
+                "X-Total-Count": {
+                    "description": "Всего записей с учётом фильтров, до limit и offset",
+                    "schema": {
+                        "type": "integer",
+                    },
+                },
+            },
+        },
+    },
+)
 def list_maintenance_requests(
     status_filter: MaintenanceRequestStatus | None = Query(None, alias="status"),
     risk_case_id: int | None = None,
@@ -129,7 +153,29 @@ def _transition(
     return _build_out(mr, approver.username if approver else None)
 
 
-@router.post("/{request_id}/approve", response_model=MaintenanceRequestOut)
+@router.post(
+    "/{request_id}/approve",
+    response_model=MaintenanceRequestOut,
+    summary="Утвердить заявку",
+    description=(
+        "Доступно диспетчеру и администратору. Переводит заявку из draft в approved и записывает "
+        "автора и время утверждения."
+    ),
+    responses={
+        403: {
+            "description": "Недостаточно прав или нет доступа к объекту",
+        },
+        404: {
+            "description": "Заявка не найдена",
+        },
+        409: {
+            "description": "Утверждение невозможно из текущего статуса",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def approve(
     request_id: int,
     db: Session = Depends(get_db),
@@ -138,7 +184,30 @@ def approve(
     return _transition(request_id, MaintenanceRequestStatus.approved, None, db, user)
 
 
-@router.post("/{request_id}/transitions", response_model=MaintenanceRequestOut)
+@router.post(
+    "/{request_id}/transitions",
+    response_model=MaintenanceRequestOut,
+    summary="Изменить статус заявки",
+    description=(
+        "Доступно диспетчеру и администратору. Переходы: draft → approved или rejected; approved → "
+        "in_progress или cancelled; in_progress → completed или cancelled. Из completed, rejected и "
+        "cancelled переходов нет."
+    ),
+    responses={
+        403: {
+            "description": "Недостаточно прав или нет доступа к объекту",
+        },
+        404: {
+            "description": "Заявка не найдена",
+        },
+        409: {
+            "description": "Переход из текущего статуса не разрешён",
+        },
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
 def transition(
     request_id: int,
     payload: TransitionIn,
