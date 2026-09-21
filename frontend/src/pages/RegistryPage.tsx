@@ -118,7 +118,7 @@ export function RegistryPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-slate-900">{c.display_name ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-500">
-                    {c.device_label ?? <span className="text-slate-300">не сопоставлено</span>}
+                    {c.device_label ?? <span className="text-slate-300 whitespace-nowrap">не{" "}сопоставлено</span>}
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone="neutral">{c.sensor_type}</Badge>

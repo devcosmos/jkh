@@ -1,5 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
+import { api } from "../api/client";
 import { usePagedApi } from "../api/usePagedApi";
+import { useApi } from "../api/useApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
 import { Badge } from "../components/Badge";
 import { DataState } from "../components/DataState";
@@ -118,6 +120,7 @@ export function JournalPage() {
                     {expanded && (
                       <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
                         <td colSpan={7} className="px-4 py-4">
+                          <PredictionSummary predictionId={p.id} />
                           <ShapExplanation explanation={p.explanation} />
                         </td>
                       </tr>
@@ -137,5 +140,24 @@ export function JournalPage() {
         </div>
       </DataState>
     </div>
+  );
+}
+
+// Резюме ИИ по прогнозу — дублирует то же поле, что карточка риска (Prediction.llm_summary),
+// подгружается лениво только для развёрнутой строки, чтобы список журнала не дёргал LLM
+// на каждую строку сразу при открытии страницы.
+function PredictionSummary({ predictionId }: { predictionId: number }) {
+  const summary = useApi<{ summary: string | null } | null>(
+    () => api.get(`/predictions/${predictionId}/summary`),
+    [predictionId]
+  );
+  if (summary.loading) {
+    return <p className="mb-3 text-sm text-slate-400 italic">Формируется краткое резюме…</p>;
+  }
+  if (!summary.data?.summary) return null;
+  return (
+    <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
+      {summary.data.summary}
+    </p>
   );
 }

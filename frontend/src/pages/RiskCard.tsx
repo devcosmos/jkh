@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
 import { useApi } from "../api/useApi";
 import { Badge, riskPriorityTone } from "../components/Badge";
@@ -19,10 +20,10 @@ import type {
 } from "../api/types";
 
 const ACTIONS: { value: DecisionAction; label: string; primary?: boolean }[] = [
-  { value: "dispatch", label: "Направить на проверку", primary: true },
-  { value: "observe", label: "Наблюдать" },
-  { value: "clarify", label: "Уточнить данные" },
-  { value: "reject", label: "Отклонить предупреждение" },
+  { value: "dispatch", label: DECISION_ACTION_LABELS.dispatch, primary: true },
+  { value: "observe", label: DECISION_ACTION_LABELS.observe },
+  { value: "clarify", label: DECISION_ACTION_LABELS.clarify },
+  { value: "reject", label: DECISION_ACTION_LABELS.reject },
 ];
 
 // Справочник причин — раздел 12 ТЗ прямо требует «фиксирует решение… с выбором причины

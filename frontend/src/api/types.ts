@@ -118,6 +118,11 @@ export interface MaintenanceRequestOut {
   category: string | null;
   channel_label: string | null;
   object_name: string | null;
+  ai_summary: string | null;
+  anomaly_is_outlier: boolean | null;
+  dispatcher_username: string | null;
+  dispatcher_action: DecisionAction | null;
+  dispatcher_reason: string | null;
 }
 
 export interface ModelVersionOut {

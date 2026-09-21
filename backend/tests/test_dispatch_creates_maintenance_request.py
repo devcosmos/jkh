@@ -86,3 +86,22 @@ def test_requests_list_is_enriched_and_filterable_by_risk_case(client, db_sessio
     assert item["channel_label"] == "Насос №1"
     assert item["object_name"] == "Объект для диспетчинга"
     assert "created_at" in item
+
+
+def test_requests_list_shows_dispatcher_decision(client, db_session, auth_headers):
+    """Решение диспетчера («Направить на проверку» + причина) должно быть видно под
+    обоснованием заявки, без перехода в «Риски» — раздел TODO 1."""
+    rc = _make_case(db_session)
+    headers = auth_headers(UserRole.dispatcher)
+    client.post(
+        f"/api/risk-cases/{rc.id}/decisions",
+        json={"action": "dispatch", "reason": "Похоже на реальный риск — требует проверки"},
+        headers=headers,
+    )
+
+    r = client.get(f"/api/maintenance-requests?risk_case_id={rc.id}", headers=headers)
+    assert r.status_code == 200
+    item = r.json()[0]
+    assert item["dispatcher_action"] == "dispatch"
+    assert item["dispatcher_reason"] == "Похоже на реальный риск — требует проверки"
+    assert item["dispatcher_username"]

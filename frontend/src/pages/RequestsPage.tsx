@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { usePagedApi } from "../api/usePagedApi";
 import { categoryLabel, categoryTone } from "../api/categories";
+import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
 import { Badge, riskPriorityTone } from "../components/Badge";
 import { DataState } from "../components/DataState";
@@ -76,7 +77,8 @@ export function RequestsPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Заявки на обслуживание</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Автоматические черновики и решения диспетчера — нажмите на строку, чтобы увидеть полное обоснование
+            Заявки, созданные решением диспетчера на странице «Риски» — нажмите на строку, чтобы увидеть полное
+            обоснование
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -232,9 +234,41 @@ export function RequestsPage() {
                               <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Обоснование
                               </div>
+                              {r.anomaly_is_outlier !== null && (
+                                <div className="mb-2">
+                                  {r.anomaly_is_outlier ? (
+                                    <Badge tone="serious">Аномальное поведение (независимая модель)</Badge>
+                                  ) : (
+                                    <Badge tone="neutral">Поведение в норме (независимая модель)</Badge>
+                                  )}
+                                </div>
+                              )}
+                              {r.ai_summary && (
+                                <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
+                                  {r.ai_summary}
+                                </p>
+                              )}
                               <p className="whitespace-pre-line text-sm text-slate-700">
                                 {r.justification ?? "Обоснование не указано"}
                               </p>
+                              {r.dispatcher_reason || r.dispatcher_action ? (
+                                <div className="mt-3 border-t border-slate-200 pt-3">
+                                  <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Решение диспетчера
+                                  </div>
+                                  <p className="text-sm text-slate-700">
+                                    {r.dispatcher_action && (
+                                      <span className="font-medium">
+                                        {DECISION_ACTION_LABELS[r.dispatcher_action]}
+                                        {r.dispatcher_username ? ` — ${r.dispatcher_username}` : ""}
+                                      </span>
+                                    )}
+                                    {r.dispatcher_reason && (
+                                      <span className="block text-slate-600">{r.dispatcher_reason}</span>
+                                    )}
+                                  </p>
+                                </div>
+                              ) : null}
                             </div>
                             <div>
                               <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">

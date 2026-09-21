@@ -33,20 +33,16 @@ from sqlalchemy.orm import Session
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.core.config import settings  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
-from app.services.maintenance_requests import WORK_TYPE_BY_SENSOR_TYPE, find_active_request  # noqa: E402
 from app.models.entities import (  # noqa: E402
-    AuditLog,
     Channel,
     ChannelEvent,
-    MaintenanceRequest,
     ModelVersion,
     Prediction,
     ReplayState,
     RiskCase,
 )
-from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus  # noqa: E402
+from app.models.enums import RiskCaseStatus  # noqa: E402
 
 DATA_DIR = Path(os.environ.get("REPLAY_DATA_DIR", "/data"))
 TICK = dt.timedelta(hours=int(os.environ.get("REPLAY_TICK_HOURS", "1")))
@@ -141,94 +137,6 @@ def compute_anomaly_signal(anomaly_bundle: dict, features: dict) -> dict:
     score = float(model.decision_function(x)[0])  # выше — более «нормально»
     is_outlier = bool(model.predict(x)[0] == -1)
     return {"method": "isolation_forest", "score": round(score, 4), "is_outlier": is_outlier}
-
-
-def build_draft_justification(
-    track: Track,
-    channel: Channel,
-    risk_case: RiskCase,
-    features: dict,
-    proba: float,
-    tick_end: dt.datetime,
-    anomaly: dict | None = None,
-) -> str:
-    object_name = channel.object.name if channel.object is not None else "не определён"
-    # Устройство определено эвристикой scripts/link_channels_to_devices.py (87.8% покрытия
-    # насос/вентилятор) — при отсутствии используем канал напрямую, честно без выдумывания.
-    device_label = channel.device.external_id if channel.device is not None else None
-    window_end = tick_end + dt.timedelta(hours=24)
-    anomaly_line = (
-        "Независимая модель (IsolationForest, без учителя) также отмечает поведение канала "
-        "как аномальное — не встречалось в известных сценариях отказа при обучении.\n"
-        if anomaly and anomaly.get("is_outlier")
-        else ""
-    )
-    return (
-        f"Автоматически сформировано по риск-кейсу #{risk_case.id} (правило раздела 10 плана реализации).\n"
-        f"Устройство: {device_label or 'не сопоставлено'}. "
-        f"Канал: {channel.display_name or channel.external_channel_id} ({channel.sensor_type}).\n"
-        f"Объект: {object_name}.\n"
-        f"Категория риска: {risk_case.category}.\n"
-        f"Вероятность: {proba:.2f} в окне {tick_end:%Y-%m-%d %H:%M}–{window_end:%Y-%m-%d %H:%M} (UTC).\n"
-        f"Наблюдаемые признаки: состояние={features['current_state']}, "
-        f"событий за 7 сут={features['n_events_7d']}, переходов за 24ч={features['n_transitions_24h']}, "
-        f"с последнего события={features['seconds_since_last_event']:.0f} сек.\n"
-        f"{anomaly_line}"
-        f"Основание: прогноз модели превысил рабочий порог {track.threshold:.2f}, выбранный по лучшей "
-        f"точке эпизодной оценки (целевые Precision>0.7/Recall>0.5 — плановые, не жёсткие требования, "
-        f"см. docs/analysis/model_report_{track.name}.md, раздел 3).\n"
-        f"Срок: нормативный регламент не определён — требуется назначение диспетчером."
-    )
-
-
-def maybe_create_draft_request(
-    db,
-    track: Track,
-    channel: Channel,
-    risk_case: RiskCase,
-    features: dict,
-    proba: float,
-    tick_end: dt.datetime,
-    anomaly: dict | None = None,
-) -> None:
-    """Автосоздание черновика заявки при открытии нового риск-кейса (раздел 10 плана).
-
-    Условие создания и дедупликация — по устройству/каналу, виду работы и активному
-    риск-кейсу, а не по ID прогноза: повторный расчёт на уже открытом риск-кейсе не должен
-    сюда попадать (вызывается только из ветки создания НОВОГО RiskCase в score_and_record).
-    """
-    if proba < settings.auto_draft_risk_threshold:
-        return  # риск не превышает установленный порог автосоздания (раздел 10 плана)
-
-    work_type = WORK_TYPE_BY_SENSOR_TYPE.get(channel.sensor_type)
-    if work_type is None:
-        return  # нет подходящего шаблона рекомендации для этого типа датчика
-
-    if find_active_request(db, risk_case.id, work_type) is not None:
-        return
-
-    request = MaintenanceRequest(
-        risk_case_id=risk_case.id,
-        work_type=work_type,
-        justification=build_draft_justification(track, channel, risk_case, features, proba, tick_end, anomaly),
-        priority=risk_case.priority,
-        recommended_by=None,
-        status=MaintenanceRequestStatus.draft,
-        created_at=tick_end,
-    )
-    db.add(request)
-    db.flush()
-    db.add(
-        AuditLog(
-            user_id=None,
-            role=None,
-            entity_type="maintenance_request",
-            entity_id=request.id,
-            old_state=None,
-            new_state={"status": request.status.value, "source": "auto_worker"},
-            reason=f"Автосоздание по открытию риск-кейса #{risk_case.id}",
-        )
-    )
 
 
 def load_feed(track: Track) -> pd.DataFrame:
@@ -417,7 +325,6 @@ def score_and_record(
             )
             db.add(risk_case)
             db.flush()
-            maybe_create_draft_request(db, track, channel, risk_case, features, proba, tick_end, anomaly)
         db.add(
             Prediction(
                 channel_id=channel.id,

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
 from app.core.db import get_db
-from app.models.entities import AuditLog, Channel, MaintenanceRequest, RiskCase, User
+from app.models.entities import AuditLog, Channel, Decision, MaintenanceRequest, Prediction, RiskCase, User
 from app.models.enums import MaintenanceRequestStatus, UserRole
 from app.schemas.schemas import MaintenanceRequestOut, TransitionIn
 
@@ -31,10 +31,17 @@ ALLOWED_TRANSITIONS: dict[MaintenanceRequestStatus, set[MaintenanceRequestStatus
 }
 
 
-def _build_out(mr: MaintenanceRequest, approver_username: str | None) -> MaintenanceRequestOut:
+def _build_out(
+    mr: MaintenanceRequest,
+    approver_username: str | None,
+    latest_prediction: Prediction | None = None,
+    latest_decision: Decision | None = None,
+    decision_username: str | None = None,
+) -> MaintenanceRequestOut:
     rc = mr.risk_case
     channel = rc.channel if rc is not None else None
     obj = channel.object if channel is not None else None
+    anomaly = (latest_prediction.explanation or {}).get("anomaly") if latest_prediction else None
     return MaintenanceRequestOut(
         id=mr.id,
         risk_case_id=mr.risk_case_id,
@@ -50,6 +57,11 @@ def _build_out(mr: MaintenanceRequest, approver_username: str | None) -> Mainten
         category=rc.category if rc is not None else None,
         channel_label=channel.label if channel is not None else None,
         object_name=obj.name if obj is not None else None,
+        ai_summary=latest_prediction.llm_summary if latest_prediction else None,
+        anomaly_is_outlier=anomaly.get("is_outlier") if anomaly else None,
+        dispatcher_username=decision_username,
+        dispatcher_action=latest_decision.action if latest_decision else None,
+        dispatcher_reason=latest_decision.reason if latest_decision else None,
     )
 
 
@@ -131,7 +143,60 @@ def list_maintenance_requests(
         if approver_ids
         else {}
     )
-    return [_build_out(r, approvers.get(r.approved_by_user_id)) for r in rows]
+
+    risk_case_ids = {r.risk_case_id for r in rows}
+    latest_predictions = _latest_predictions_by_risk_case(db, risk_case_ids)
+    latest_decisions, decision_usernames = _latest_decisions_by_risk_case(db, risk_case_ids)
+
+    return [
+        _build_out(
+            r,
+            approvers.get(r.approved_by_user_id),
+            latest_prediction=latest_predictions.get(r.risk_case_id),
+            latest_decision=latest_decisions.get(r.risk_case_id),
+            decision_username=decision_usernames.get(r.risk_case_id),
+        )
+        for r in rows
+    ]
+
+
+def _latest_predictions_by_risk_case(db: Session, risk_case_ids: set[int]) -> dict[int, Prediction]:
+    """Резюме ИИ и сигнал «независимой модели» — из самого свежего прогноза риск-кейса
+    (тот же источник, что карточка риска), чтобы «Заявки» не выдумывали собственную выборку."""
+    if not risk_case_ids:
+        return {}
+    rows = db.scalars(
+        select(Prediction)
+        .where(Prediction.risk_case_id.in_(risk_case_ids))
+        .order_by(Prediction.risk_case_id, Prediction.created_at.desc())
+    ).all()
+    latest: dict[int, Prediction] = {}
+    for p in rows:
+        if p.risk_case_id not in latest:
+            latest[p.risk_case_id] = p
+    return latest
+
+
+def _latest_decisions_by_risk_case(
+    db: Session, risk_case_ids: set[int]
+) -> tuple[dict[int, Decision], dict[int, str]]:
+    """Последнее «Решение диспетчера» по риск-кейсу — то же, что диспетчер писал в риске,
+    показывается под обоснованием заявки без перехода в «Риски»."""
+    if not risk_case_ids:
+        return {}, {}
+    rows = db.execute(
+        select(Decision, User.username)
+        .join(User, User.id == Decision.user_id)
+        .where(Decision.risk_case_id.in_(risk_case_ids))
+        .order_by(Decision.risk_case_id, Decision.created_at.desc())
+    ).all()
+    latest: dict[int, Decision] = {}
+    usernames: dict[int, str] = {}
+    for decision, username in rows:
+        if decision.risk_case_id not in latest:
+            latest[decision.risk_case_id] = decision
+            usernames[decision.risk_case_id] = username
+    return latest, usernames
 
 
 def _transition(
@@ -169,7 +234,15 @@ def _transition(
     db.commit()
     db.refresh(mr)
     approver = db.get(User, mr.approved_by_user_id) if mr.approved_by_user_id else None
-    return _build_out(mr, approver.username if approver else None)
+    latest_predictions = _latest_predictions_by_risk_case(db, {mr.risk_case_id})
+    latest_decisions, decision_usernames = _latest_decisions_by_risk_case(db, {mr.risk_case_id})
+    return _build_out(
+        mr,
+        approver.username if approver else None,
+        latest_prediction=latest_predictions.get(mr.risk_case_id),
+        latest_decision=latest_decisions.get(mr.risk_case_id),
+        decision_username=decision_usernames.get(mr.risk_case_id),
+    )
 
 
 @router.post(

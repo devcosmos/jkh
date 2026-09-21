@@ -184,6 +184,14 @@ class MaintenanceRequestOut(BaseModel):
     category: str | None = None
     channel_label: str | None = None
     object_name: str | None = None
+    # Дублирует резюме ИИ и сигнал «независимой модели» из риск-кейса под обоснование заявки,
+    # и решение диспетчера (то, что он написал при переводе риска в dispatched) — раздел
+    # «Заявки» иначе не показывал, почему заявка вообще возникла, без перехода в «Риски».
+    ai_summary: str | None = None
+    anomaly_is_outlier: bool | None = None
+    dispatcher_username: str | None = None
+    dispatcher_action: DecisionAction | None = None
+    dispatcher_reason: str | None = None
 
 
 class TransitionIn(BaseModel):
