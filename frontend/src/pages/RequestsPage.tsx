@@ -279,7 +279,34 @@ function RequestDetail({ request, onChanged }: { request: MaintenanceRequestOut;
         {request.ai_summary && (
           <p className="border-b border-slate-100 pb-3 text-sm text-slate-700 italic">{request.ai_summary}</p>
         )}
-        <p className="whitespace-pre-line text-sm text-slate-700">{request.justification ?? "Обоснование не указано"}</p>
+        {/* Раньше был единый абзац "Канал: ...\nОбъект: ...\nКатегория риска: ...\nСрок: ...",
+            сгенерированный на бэкенде (ensure_request_for_dispatch) — те же значения уже
+            приходят отдельными полями в MaintenanceRequestOut, строим из них строки, а не
+            парсим текст. */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-x-2">
+            <span className="text-sm text-slate-500">Канал</span>
+            <span className="text-sm font-medium text-slate-700">
+              {request.channel_label ?? `канал #${request.risk_case_id}`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-x-2">
+            <span className="text-sm text-slate-500">Объект</span>
+            <span className="text-sm font-medium text-slate-700">{request.object_name ?? "не определён"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-x-2">
+            <span className="text-sm text-slate-500">Направление</span>
+            {request.category ? (
+              <Badge tone={categoryTone(request.category)}>{categoryLabel(request.category)}</Badge>
+            ) : (
+              <span className="text-sm text-slate-400">—</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-x-2">
+            <span className="text-sm text-slate-500">Срок</span>
+            <span className="text-sm font-medium text-slate-700">не определён</span>
+          </div>
+        </div>
         {(request.dispatcher_reason || request.dispatcher_action) && (
           <div className="border-t border-slate-100 pt-3">
             <div className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">Решение диспетчера</div>
