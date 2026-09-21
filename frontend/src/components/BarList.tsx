@@ -1,3 +1,5 @@
+import { useEnterAnimation } from "./useEnterAnimation";
+
 interface BarItem {
   key: string;
   label: string;
@@ -21,6 +23,8 @@ export function BarList({
   emptyText?: string;
   variant?: "solid" | "fill";
 }) {
+  const entered = useEnterAnimation();
+
   if (items.length === 0) {
     return <p className="text-sm text-slate-400">{emptyText}</p>;
   }
@@ -30,14 +34,17 @@ export function BarList({
     return (
       <ul className="flex flex-col gap-y-1.5">
         {items.map((item) => {
-          const widthPct = Math.max((item.value / max) * 100, item.value > 0 ? 10 : 0);
+          const widthPct = entered ? Math.max((item.value / max) * 100, item.value > 0 ? 10 : 0) : 0;
           return (
             <li key={item.key} className="relative w-full overflow-hidden rounded-lg">
               <span className="relative z-1 flex w-full items-center justify-between gap-x-2 px-2.5 py-1.5 text-sm">
                 <span className="truncate text-slate-700">{item.label}</span>
                 <span className="shrink-0 font-medium text-slate-500">{formatValue(item.value)}</span>
               </span>
-              <div className="absolute inset-y-0 left-0 h-full bg-sky-100" style={{ width: `${widthPct}%` }} />
+              <div
+                className="absolute inset-y-0 left-0 h-full bg-sky-100 transition-[width] duration-700 ease-out"
+                style={{ width: `${widthPct}%` }}
+              />
             </li>
           );
         })}
@@ -54,8 +61,8 @@ export function BarList({
           </div>
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
             <div
-              className={`h-2.5 rounded-full ${item.colorClass ?? "bg-sky-500"}`}
-              style={{ width: `${Math.max((item.value / max) * 100, item.value > 0 ? 3 : 0)}%` }}
+              className={`h-2.5 rounded-full transition-[width] duration-700 ease-out ${item.colorClass ?? "bg-sky-500"}`}
+              style={{ width: entered ? `${Math.max((item.value / max) * 100, item.value > 0 ? 3 : 0)}%` : "0%" }}
             />
           </div>
           <div className="w-12 shrink-0 text-right font-semibold text-slate-900">{formatValue(item.value)}</div>

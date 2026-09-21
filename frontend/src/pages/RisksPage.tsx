@@ -13,6 +13,7 @@ import { ObjectsTree } from "../components/ObjectsTree";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { StatTile } from "../components/StatTile";
+import { useEnterAnimation } from "../components/useEnterAnimation";
 import { SortableTh } from "../components/SortableTh";
 import { ChevronIcon } from "../components/icons";
 import { exportCsv } from "../lib/exportCsv";
@@ -399,6 +400,7 @@ export function RisksPage() {
 // они расходятся (кейс открылся на 90% как «высокий», сейчас 82% — приоритет остался
 // «высокий»), и кольцо, окрашенное по приоритету, начинало противоречить своему же числу.
 function ProbabilityCell({ probability }: { probability: number | null }) {
+  const entered = useEnterAnimation();
   if (probability == null) return <span className="text-slate-400">—</span>;
   const pct = Math.round(probability * 100);
   const color = pct >= 85 ? "#d03b3b" : pct >= 50 ? "#fab219" : "#94a3b8";
@@ -406,7 +408,7 @@ function ProbabilityCell({ probability }: { probability: number | null }) {
   const stroke = 4;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - pct / 100);
+  const offset = circumference * (1 - (entered ? pct : 0) / 100);
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }} title={`${pct}% отказа`}>
       <svg width={size} height={size} className="-rotate-90">
@@ -421,6 +423,7 @@ function ProbabilityCell({ probability }: { probability: number | null }) {
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
+          className="transition-[stroke-dashoffset] duration-700 ease-out"
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-900">{pct}</span>

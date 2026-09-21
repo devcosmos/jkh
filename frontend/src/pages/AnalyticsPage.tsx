@@ -5,6 +5,7 @@ import { SECONDARY_CONTROL } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
 import { StatTile } from "../components/StatTile";
+import { useEnterAnimation } from "../components/useEnterAnimation";
 import type { AnalyticsReport } from "../api/types";
 
 const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
@@ -74,6 +75,7 @@ export function AnalyticsPage() {
 
 function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"] }) {
   const maxEpisodes = Math.max(...data.map((r) => r.episode_count), 1);
+  const entered = useEnterAnimation();
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -98,8 +100,8 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-2 rounded-full bg-sky-500"
-                        style={{ width: `${(row.episode_count / maxEpisodes) * 100}%` }}
+                        className="h-2 rounded-full bg-sky-500 transition-[width] duration-700 ease-out"
+                        style={{ width: entered ? `${(row.episode_count / maxEpisodes) * 100}%` : "0%" }}
                       />
                     </div>
                     <span className="text-slate-600">{row.episode_count.toLocaleString("ru-RU")}</span>
@@ -121,6 +123,7 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
 
 function SeasonalSection({ data }: { data: AnalyticsReport["seasonal"] }) {
   const max = Math.max(...data.map((r) => r.episode_count), 1);
+  const entered = useEnterAnimation();
   return (
     <DetailSection title="Сезонность — эпизоды неисправности по месяцам (все годы данных)">
       <div className="flex items-end gap-2" style={{ height: "160px" }}>
@@ -130,8 +133,8 @@ function SeasonalSection({ data }: { data: AnalyticsReport["seasonal"] }) {
               {row.episode_count.toLocaleString("ru-RU")}
             </span>
             <div
-              className="w-full rounded-t-md bg-sky-500 transition-colors group-hover:bg-sky-600"
-              style={{ height: `${Math.max((row.episode_count / max) * 130, 2)}px` }}
+              className="w-full rounded-t-md bg-sky-500 transition-[height,background-color] duration-700 ease-out group-hover:bg-sky-600"
+              style={{ height: entered ? `${Math.max((row.episode_count / max) * 130, 2)}px` : "0px" }}
               title={`${row.month_name}: ${row.episode_count} эпизодов`}
             />
             <span className="text-[11px] text-slate-500">{row.month_name.slice(0, 3)}</span>
@@ -144,6 +147,7 @@ function SeasonalSection({ data }: { data: AnalyticsReport["seasonal"] }) {
 
 function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) {
   const maxWorkType = Math.max(...data.by_work_type.map((r) => r.count), 1);
+  const entered = useEnterAnimation();
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -160,8 +164,8 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                   <div
-                    className="h-2 rounded-full bg-violet-500"
-                    style={{ width: `${(row.count / maxWorkType) * 100}%` }}
+                    className="h-2 rounded-full bg-violet-500 transition-[width] duration-700 ease-out"
+                    style={{ width: entered ? `${(row.count / maxWorkType) * 100}%` : "0%" }}
                   />
                 </div>
               </div>

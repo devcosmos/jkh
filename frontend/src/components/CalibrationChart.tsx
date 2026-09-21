@@ -1,3 +1,5 @@
+import { useEnterAnimation } from "./useEnterAnimation";
+
 interface CalibrationBin {
   bin_start: number;
   bin_end: number;
@@ -12,6 +14,7 @@ interface CalibrationBin {
  * идеальная калибровка (X% предсказания = X% реальных отказов). Полые точки — бины с малым
  * числом наблюдений, им доверять меньше. */
 export function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {
+  const entered = useEnterAnimation();
   const size = 180;
   const pad = 6;
   const scale = size - 2 * pad;
@@ -25,7 +28,11 @@ export function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {
 
   return (
     <div className="flex w-full flex-wrap items-center gap-5">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-40 w-40 shrink-0">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        className="h-40 w-40 shrink-0 transition-all duration-700 ease-out"
+        style={{ opacity: entered ? 1 : 0, transform: entered ? "scale(1)" : "scale(0.94)" }}
+      >
         <line x1={toX(0)} y1={toY(0)} x2={toX(0)} y2={toY(1)} stroke="#e2e8f0" strokeWidth={1} />
         <line x1={toX(0)} y1={toY(0)} x2={toX(1)} y2={toY(0)} stroke="#e2e8f0" strokeWidth={1} />
         <line
