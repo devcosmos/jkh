@@ -22,6 +22,9 @@ services:
       # отвечает" на /dashboard/summary (app/api/dashboard.py), не для собственной работы
       # backend. Должны совпадать, иначе индикатор живости врёт.
       REPLAY_SLEEP_SECONDS: ${REPLAY_SLEEP_SECONDS:-2}
+      # Резюме прогноза для диспетчера на естественном языке (app/services/llm_summary.py) —
+      # без ключа функция просто недоступна, не обязателен для остального сервиса.
+      JKH_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

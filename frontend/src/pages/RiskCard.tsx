@@ -51,6 +51,13 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
     () => api.get(`/predictions?risk_case_id=${riskCase.id}&limit=1`),
     [riskCase.id]
   );
+  const latestPredictionId = latestPrediction.data?.[0]?.id;
+  // Лениво по конкретному прогнозу, а не для всех сразу — см. TODO.md: считается один раз
+  // при первом открытии карточки, результат кешируется на backend (Prediction.llm_summary).
+  const llmSummary = useApi<{ summary: string | null } | null>(
+    () => (latestPredictionId ? api.get(`/predictions/${latestPredictionId}/summary`) : Promise.resolve(null)),
+    [latestPredictionId]
+  );
   const requestsForCase = useApi<MaintenanceRequestOut[]>(
     () => api.get(`/maintenance-requests?risk_case_id=${riskCase.id}&limit=1`),
     [riskCase.id]
@@ -160,6 +167,13 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             </span>
           </h4>
           <div className="rounded-xl bg-slate-50 p-3.5">
+            {llmSummary.loading ? (
+              <p className="mb-3 text-sm text-slate-400 italic">Формируется краткое резюме…</p>
+            ) : llmSummary.data?.summary ? (
+              <p className="mb-3 border-b border-slate-200 pb-3 text-sm text-slate-700 italic">
+                {llmSummary.data.summary}
+              </p>
+            ) : null}
             <ShapExplanation explanation={latestPrediction.data[0].explanation} />
           </div>
         </div>

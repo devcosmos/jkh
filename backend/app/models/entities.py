@@ -190,6 +190,10 @@ class Prediction(Base, TimestampMixin):
     threshold_used: Mapped[float | None] = mapped_column(Float)
     explanation: Mapped[dict | None] = mapped_column(JSON)
     data_quality_flag: Mapped[str | None] = mapped_column(String(32))  # ok / stale / insufficient
+    # Краткое резюме для диспетчера на естественном языке по explanation — считается лениво
+    # (по первому запросу карточки, не на каждый тик воркера) и кешируется здесь, чтобы не
+    # дёргать LLM повторно на каждый повторный просмотр. См. app/services/llm_summary.py.
+    llm_summary: Mapped[str | None] = mapped_column(Text)
     # Переопределяет TimestampMixin.created_at только для этой таблицы — добавляет index=True
     # (сама таблица растёт на порядки быстрее остальных: 8.7M+ строк, ORDER BY/MAX по
     # created_at без индекса — full scan, см. docs/Статус.md, инцидент 21 сентября 2026).

@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-only-change-me"
     default_prediction_window_hours: int = 24
     auto_draft_risk_threshold: float = 0.5
+    # Краткое резюме прогноза для диспетчера (app/services/llm_summary.py) — без ключа
+    # функция просто недоступна (None), не роняет карточку риска.
+    anthropic_api_key: str | None = None
 
 
 settings = Settings()

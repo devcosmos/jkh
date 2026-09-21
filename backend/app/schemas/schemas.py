@@ -111,6 +111,7 @@ class PredictionOut(BaseModel):
     explanation: dict | None
     data_quality_flag: str | None
     created_at: dt.datetime
+    llm_summary: str | None = None
 
 
 class RiskCaseOut(BaseModel):

@@ -1,13 +1,14 @@
 import datetime as dt
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
-from app.api.deps import get_accessible_object_ids, get_current_user
+from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user
 from app.core.db import get_db
 from app.models.entities import Channel, Prediction, User
 from app.schemas.schemas import PredictionOut
+from app.services.llm_summary import generate_dispatcher_summary
 
 router = APIRouter(prefix="/predictions", tags=["predictions"], dependencies=[Depends(get_current_user)])
 
@@ -128,3 +129,34 @@ def list_predictions(
 
     stmt = stmt.order_by(Prediction.created_at.desc())
     return list(db.scalars(stmt.offset(offset).limit(limit)))
+
+
+@router.get(
+    "/{prediction_id}/summary",
+    summary="Получить краткое резюме прогноза на естественном языке (для диспетчера)",
+    description=(
+        "Переводит SHAP-объяснение в 1-2 предложения человеческим языком. Считается лениво "
+        "по первому запросу и кешируется в БД — повторные вызовы не дёргают LLM снова. "
+        "Возвращает summary: null, если нет ключа стороннего API, нет объяснения для этого "
+        "прогноза или запрос к LLM не удался — карточка риска не должна падать из-за этого."
+    ),
+    responses={
+        403: {"description": "Нет доступа к объекту"},
+        404: {"description": "Прогноз не найден"},
+        401: {"description": "Требуется вход или токен недействителен"},
+    },
+)
+def get_prediction_summary(
+    prediction_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> dict:
+    prediction = db.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Прогноз не найден")
+    check_object_access(prediction.channel.object_id, user, db)
+
+    if prediction.llm_summary is None:
+        summary = generate_dispatcher_summary(prediction.explanation, prediction.probability)
+        if summary is not None:
+            prediction.llm_summary = summary
+            db.commit()
+    return {"summary": prediction.llm_summary}

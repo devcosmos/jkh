@@ -100,6 +100,7 @@ export interface PredictionOut {
   explanation: Record<string, unknown> | null;
   data_quality_flag: string | null;
   created_at: string;
+  llm_summary: string | null;
 }
 
 export interface MaintenanceRequestOut {
