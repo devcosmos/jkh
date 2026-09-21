@@ -92,6 +92,22 @@ function featureValue(f: Feature): string {
   return String(f.value);
 }
 
+// Интенсивность цвета — по той же доле от максимума среди топ-5, что уже задаёт ширину
+// полосы (не отдельная абсолютная шкала, как раньше): чем ближе полоса к 100% ширины,
+// тем краснее (или синее для отрицательного вклада) её заливка.
+function positiveColor(t: number): string {
+  // fed7aa (бледно-оранжевый) -> b91c1c (тёмно-красный)
+  return lerpColor([0xfe, 0xd7, 0xaa], [0xb9, 0x1c, 0x1c], t);
+}
+function negativeColor(t: number): string {
+  // bae6fd (бледно-голубой) -> 1d4ed8 (тёмно-синий)
+  return lerpColor([0xba, 0xe6, 0xfd], [0x1d, 0x4e, 0xd8], t);
+}
+function lerpColor(a: [number, number, number], b: [number, number, number], t: number): string {
+  const mix = a.map((c, i) => Math.round(c + (b[i] - c) * t));
+  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
+}
+
 /** SHAP-вклад признаков в конкретный прогноз (не глобальная важность модели) — считается
  * той же моделью в момент прогноза (backend/app/workers/replay_worker.py:explain_prediction).
  * Положительный вклад толкает вероятность к отказу, отрицательный — от него.
@@ -124,10 +140,9 @@ export function ShapExplanation({
       )}
       {e.top_features.map((f) => {
         const positive = f.contribution >= 0;
-        // Ширина уже нормирована на максимум среди топ-5 — сама показывает относительную
-        // силу вклада, поэтому цвет плоский (два тона по направлению), без градиента по
-        // величине: одно и то же почти всегда читалось глазом только по ширине полосы.
-        const halfWidth = Math.max((Math.abs(f.contribution) / maxAbs) * 50, 3);
+        const ratio = Math.abs(f.contribution) / maxAbs; // та же доля, что и ширина полосы
+        const halfWidth = Math.max(ratio * 50, 3);
+        const color = positive ? positiveColor(ratio) : negativeColor(ratio);
         return (
           <div key={f.feature}>
             <div className="mb-1 flex items-baseline justify-between gap-x-2 text-sm">
@@ -138,8 +153,12 @@ export function ShapExplanation({
               {/* Нулевая точка вклада — ориентир для «толкает к отказу / от отказа» */}
               <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
               <div
-                className={`absolute inset-y-0 rounded-full ${positive ? "bg-orange-400" : "bg-sky-400"}`}
-                style={positive ? { left: "50%", width: `${halfWidth}%` } : { right: "50%", width: `${halfWidth}%` }}
+                className="absolute inset-y-0 rounded-full"
+                style={
+                  positive
+                    ? { left: "50%", width: `${halfWidth}%`, backgroundColor: color }
+                    : { right: "50%", width: `${halfWidth}%`, backgroundColor: color }
+                }
               />
             </div>
           </div>
