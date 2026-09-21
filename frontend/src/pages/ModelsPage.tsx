@@ -1,4 +1,4 @@
-import { api } from "../api/client";
+import { api, getRole } from "../api/client";
 import { useApi } from "../api/useApi";
 import { Badge } from "../components/Badge";
 import { BarList } from "../components/BarList";
@@ -30,6 +30,9 @@ function metricNumber(metrics: Record<string, unknown> | null, key: string): num
 
 export function ModelsPage() {
   const models = useApi<ModelVersionOut[]>(() => api.get("/models/current"), []);
+  const isAdmin = getRole() === "admin";
+  const history = useApi<ModelVersionOut[]>(() => (isAdmin ? api.get("/models") : Promise.resolve([])), [isAdmin]);
+  const replacedVersions = history.data?.filter((m) => !m.is_active) ?? [];
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
@@ -116,6 +119,40 @@ export function ModelsPage() {
           })}
         </div>
       </DataState>
+
+      {isAdmin && replacedVersions.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            История версий (заменённые дообучением)
+          </h2>
+          <p className="mb-3 text-xs text-slate-400">
+            Раздел 8 ЖКХ.md — регистрация новой версии описана в{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5">scripts/register_model_version.py</code>
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-3">Название</th>
+                  <th className="px-4 py-3">Направление</th>
+                  <th className="px-4 py-3">Обучена</th>
+                  <th className="px-4 py-3">Порог</th>
+                </tr>
+              </thead>
+              <tbody>
+                {replacedVersions.map((m) => (
+                  <tr key={m.id} className="border-b border-slate-100 text-slate-500 last:border-0">
+                    <td className="px-4 py-3">{m.name}</td>
+                    <td className="px-4 py-3">{m.sensor_types}</td>
+                    <td className="px-4 py-3">{new Date(m.trained_at).toLocaleDateString("ru-RU")}</td>
+                    <td className="px-4 py-3">{m.threshold?.toFixed(2) ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

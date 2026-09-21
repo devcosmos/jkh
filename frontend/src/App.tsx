@@ -9,6 +9,7 @@ import { JournalPage } from "./pages/JournalPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { RegistryPage } from "./pages/RegistryPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { UsersPage } from "./pages/UsersPage";
 import { HelpPage } from "./pages/HelpPage";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { to: "/requests", label: "Заявки", icon: RequestsIcon },
   { to: "/models", label: "Модели", icon: ModelsIcon },
   { to: "/registry", label: "Объекты и каналы", icon: RegistryIcon },
+  { to: "/analytics", label: "Аналитика", icon: AnalyticsIcon },
   { to: "/help", label: "Справка", icon: HelpIcon },
 ];
 
@@ -139,6 +141,7 @@ export function App() {
           <Route path="/requests" element={<RequestsPage />} />
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/registry" element={<RegistryPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/help" element={<HelpPage />} />
           {role === "admin" && <Route path="/audit-log" element={<AuditLogPage />} />}
           {role === "admin" && <Route path="/users" element={<UsersPage />} />}
@@ -249,6 +252,14 @@ function RegistryIcon({ className }: { className?: string }) {
       <path d="M4 6a2 2 0 0 1 2-2h9l5 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
       <path d="M15 4v4a1 1 0 0 0 1 1h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
       <path d="M8 13h8M8 16.5h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AnalyticsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M4 20V10M10 20V4M16 20v-7M20 20V8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

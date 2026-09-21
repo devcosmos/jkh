@@ -2,6 +2,7 @@ from fastapi import APIRouter, FastAPI
 
 from app.api import (
     access,
+    analytics,
     audit,
     auth,
     channels,
@@ -58,6 +59,7 @@ Swagger получит JWT через `POST /api/auth/login` и будет от�
         {"name": "maintenance", "description": "Заявки на обслуживание и переходы статусов."},
         {"name": "models", "description": "Активные версии моделей и метрики качества."},
         {"name": "dashboard", "description": "Сводные показатели системы."},
+        {"name": "analytics", "description": "Расширенная аналитика: типы инцидентов, сезонность, отчёты по ремонтам (XLSX/PDF)."},
         {"name": "access", "description": "Пользователи и доступ к объектам. Только администратор."},
         {"name": "audit", "description": "Журнал изменений. Только администратор."},
         {"name": "health", "description": "Проверка работы сервиса и соединения с БД. Без авторизации."},
@@ -78,5 +80,6 @@ api.include_router(models.router)
 api.include_router(access.router)
 api.include_router(audit.router)
 api.include_router(dashboard.router)
+api.include_router(analytics.router)
 
 app.include_router(api)

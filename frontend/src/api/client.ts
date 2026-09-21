@@ -73,6 +73,18 @@ export const api = {
     const totalHeader = res.headers.get("X-Total-Count");
     return { items, total: totalHeader !== null ? Number(totalHeader) : null };
   },
+  // Файловые экспорты (XLSX/PDF) — защищённые эндпоинты, обычная ссылка <a href> не
+  // отправит Authorization-заголовок, поэтому скачиваем как blob через fetch.
+  downloadFile: async (path: string, filename: string): Promise<void> => {
+    const res = await requestRaw(path);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
 };
 
 export async function login(username: string, password: string): Promise<{ role: string }> {

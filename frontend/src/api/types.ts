@@ -190,3 +190,31 @@ export interface AuditLogEntry {
   reason: string | null;
   created_at: string;
 }
+
+export interface IncidentTypeStat {
+  sensor_type: string;
+  episode_count: number;
+  risk_case_count: number;
+  open_risk_case_count: number;
+  avg_open_probability: number | null;
+}
+
+export interface SeasonalStat {
+  month: number;
+  month_name: string;
+  episode_count: number;
+}
+
+export interface MaintenanceHistoryStat {
+  by_work_type: { work_type: string; count: number }[];
+  by_status: { status: string; count: number }[];
+  monthly: { month: string; request_count: number }[];
+  avg_hours_to_approval: number | null;
+}
+
+export interface AnalyticsReport {
+  generated_at: string;
+  incident_types: IncidentTypeStat[];
+  seasonal: SeasonalStat[];
+  maintenance: MaintenanceHistoryStat;
+}
