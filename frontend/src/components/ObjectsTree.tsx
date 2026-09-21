@@ -31,9 +31,9 @@ function TreeNode({ node, depth }: { node: ObjectTreeNode; depth: number }) {
           title={`Открытых рисков в поддереве: ${node.aggregated_open_risk_count}`}
         />
         <span className="truncate font-medium text-slate-800">{node.name}</span>
-        {node.kind && <span className="shrink-0 text-xs text-slate-400">{node.kind}</span>}
+        {node.kind && <span className="shrink-0 text-sm text-slate-400">{node.kind}</span>}
         {node.aggregated_open_risk_count > 0 && (
-          <span className="ml-auto shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">
+          <span className="ml-auto shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-sm font-semibold text-red-600">
             {node.aggregated_open_risk_count}
           </span>
         )}

@@ -106,23 +106,6 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </div>
       </div>
 
-      {lastDecision && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
-          <span>
-            <span className="mr-1.5">✓</span>
-            Решение сохранено: «{lastDecision}». Новый статус — «{RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
-          </span>
-          {requestsForCase.data?.[0] && (
-            <Link
-              to={`/requests?risk_case_id=${riskCase.id}`}
-              className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100"
-            >
-              Смотреть заявку →
-            </Link>
-          )}
-        </div>
-      )}
-
       {!lastDecision && requestsForCase.data?.[0] && (
         <Link
           to={`/requests?risk_case_id=${riskCase.id}`}
@@ -133,35 +116,38 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         </Link>
       )}
 
-      <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
-        {channel.data && (
-          <div className="rounded-xl bg-slate-50 p-3.5 text-sm">
-            <div className="font-semibold text-slate-900">
-              {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
+      <div>
+        <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Канал</h4>
+        <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
+          {channel.data && (
+            <div className="rounded-xl bg-slate-50 p-3.5 text-sm">
+              <div className="font-semibold text-slate-900">
+                {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
+              </div>
+              <div className="mt-1 text-slate-500">Тип: {channel.data.sensor_type}</div>
+              {channel.data.device_label && (
+                <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
+              )}
+              {channel.data.location_tag && (
+                <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
+              )}
             </div>
-            <div className="mt-1 text-slate-500">Тип: {channel.data.sensor_type}</div>
-            {channel.data.device_label && (
-              <div className="text-slate-500">Устройство: {channel.data.device_label}</div>
-            )}
-            {channel.data.location_tag && (
-              <div className="text-slate-500">Расположение: {channel.data.location_tag}</div>
-            )}
-          </div>
-        )}
-      </DataState>
+          )}
+        </DataState>
+      </div>
 
       {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
           эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
       {trend.data && (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Тренд по каналу</span>
+        <div>
+          <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Тренд по каналу</h4>
           <DegradationTrendBadge trend={trend.data} />
         </div>
       )}
 
       {latestPrediction.data?.[0] && (
         <div>
-          <h4 className="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-2 flex items-baseline gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Почему сработал прогноз
             <span className="text-sm font-semibold normal-case text-slate-900">
               {(latestPrediction.data[0].probability * 100).toFixed(0)}% вероятность отказа
@@ -193,7 +179,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       )}
 
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Решение диспетчера</h4>
+        <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Решение диспетчера</h4>
         <Select
           value=""
           onChange={(e) => {
@@ -236,12 +222,29 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             {actionError}
           </div>
         )}
+        {lastDecision && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-medium text-emerald-700">
+            <span>
+              <span className="mr-1.5">✓</span>
+              Решение сохранено: «{lastDecision}». Новый статус — «
+              {RISK_STATUS_LABELS[riskCase.status] ?? riskCase.status}».
+            </span>
+            {requestsForCase.data?.[0] && (
+              <Link
+                to={`/requests?risk_case_id=${riskCase.id}`}
+                className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100"
+              >
+                Смотреть заявку →
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       {/* В конце и со своим скроллом — история эпизодов может быть очень длинной и не должна
           заставлять листать всю карточку до решения диспетчера. */}
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">История эпизодов</h4>
+        <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">История эпизодов</h4>
         <DataState
           loading={episodes.loading}
           error={episodes.error}
@@ -257,7 +260,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
                     {e.end_time ? new Date(e.end_time).toLocaleString("ru-RU") : "продолжается"}
                   </div>
                   {e.is_flapping_incident && (
-                    <div className="text-xs text-slate-400">помечен как флаппинг/инцидент</div>
+                    <div className="text-sm text-slate-400">помечен как флаппинг/инцидент</div>
                   )}
                 </div>
               </li>

@@ -31,7 +31,7 @@ export function AnalyticsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Аналитика</h1>
@@ -80,7 +80,7 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
               <th className="px-4 py-3">Тип датчика</th>
               <th className="px-4 py-3">Эпизодов (реальных)</th>
               <th className="px-4 py-3">Риск-кейсов</th>
@@ -154,7 +154,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
       </h2>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">По виду работ</h3>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">По виду работ</h3>
           <div className="space-y-2.5">
             {data.by_work_type.map((row) => (
               <div key={row.work_type}>
@@ -175,7 +175,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">По статусу</h3>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">По статусу</h3>
           <div className="flex flex-wrap gap-2">
             {data.by_status.map((row) => (
               <span
@@ -200,7 +200,7 @@ function MaintenanceSection({ data }: { data: AnalyticsReport["maintenance"] }) 
 
       {data.monthly.length > 0 && (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Заявки по месяцам
           </h3>
           <div className="flex flex-wrap gap-3 text-sm text-slate-600">

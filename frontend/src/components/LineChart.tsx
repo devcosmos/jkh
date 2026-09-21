@@ -40,7 +40,7 @@ export function LineChart({
         <span>{dates[0]}</span>
         <span>{dates[dates.length - 1]}</span>
       </div>
-      <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
+      <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
         {series.map((s) => (
           <span key={s.label} className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />

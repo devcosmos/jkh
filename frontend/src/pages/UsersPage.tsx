@@ -70,7 +70,7 @@ export function UsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6">
         <h1 className="font-display text-2xl font-semibold text-slate-900">Пользователи и доступ</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -82,7 +82,7 @@ export function UsersPage() {
         <h2 className="mb-3 font-display text-sm font-semibold text-slate-900">Новый пользователь</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Логин</label>
+            <label className="mb-1 block text-sm font-medium text-slate-500">Логин</label>
             <input
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
@@ -90,7 +90,7 @@ export function UsersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Пароль</label>
+            <label className="mb-1 block text-sm font-medium text-slate-500">Пароль</label>
             <input
               type="password"
               value={newPassword}
@@ -99,7 +99,7 @@ export function UsersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Роль</label>
+            <label className="mb-1 block text-sm font-medium text-slate-500">Роль</label>
             <Select value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)}>
               {Object.entries(ROLE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -117,7 +117,7 @@ export function UsersPage() {
           </button>
         </div>
         {newPassword && newPassword.length < 8 && (
-          <p className="mt-2 text-xs text-slate-400">Пароль должен быть не короче 8 символов</p>
+          <p className="mt-2 text-sm text-slate-400">Пароль должен быть не короче 8 символов</p>
         )}
         {createError && <p className="mt-2 text-sm font-medium text-red-600">{createError}</p>}
       </section>
@@ -142,14 +142,14 @@ export function UsersPage() {
 
               {u.role !== "admin" && (
                 <div className="mt-3">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
                     Доступ к объектам {u.object_ids.length === 0 && "(без ограничений — доступ ко всему)"}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {u.object_ids.map((oid) => (
                       <span
                         key={oid}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2.5 pr-1.5 text-xs font-medium text-slate-700"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2.5 pr-1.5 text-sm font-medium text-slate-700"
                       >
                         {objectNameById.get(oid) ?? `#${oid}`}
                         <button
@@ -164,7 +164,7 @@ export function UsersPage() {
                     <Select
                       value={grantSelection[u.id] ?? ""}
                       onChange={(e) => setGrantSelection((s) => ({ ...s, [u.id]: e.target.value }))}
-                      className="!py-1.5 !text-xs"
+                      className="!py-1.5 !text-sm"
                     >
                       <option value="">+ добавить объект…</option>
                       {objects.data
@@ -178,7 +178,7 @@ export function UsersPage() {
                     <button
                       disabled={busyUserId === u.id || !grantSelection[u.id]}
                       onClick={() => grantAccess(u.id)}
-                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Добавить
                     </button>

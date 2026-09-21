@@ -112,10 +112,10 @@ function ToastCard({ risk, onOpen, onDismiss }: { risk: RiskCaseOut; onOpen: () 
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-sm font-semibold text-slate-900">Новый критический риск</div>
-        <div className="mt-0.5 truncate text-xs text-slate-500">
+        <div className="mt-0.5 truncate text-sm text-slate-500">
           Канал {risk.channel_label ?? `#${risk.channel_id}`}
         </div>
-        <button onClick={onOpen} className="mt-1.5 text-xs font-semibold text-sky-700 hover:underline">
+        <button onClick={onOpen} className="mt-1.5 text-sm font-semibold text-sky-700 hover:underline">
           Открыть риск-кейс →
         </button>
       </div>

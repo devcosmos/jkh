@@ -28,7 +28,7 @@ export function AuditLogPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Журнал аудита</h1>
@@ -48,7 +48,7 @@ export function AuditLogPage() {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">Время</th>
                 <th className="px-4 py-3">Кто</th>
                 <th className="px-4 py-3">Тип</th>

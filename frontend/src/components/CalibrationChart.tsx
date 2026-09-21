@@ -59,7 +59,7 @@ export function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {
         <text x={pad} y={size - 1} fontSize={7} fill="#94a3b8">0%</text>
         <text x={size - 18} y={size - 1} fontSize={7} fill="#94a3b8">100%</text>
       </svg>
-      <div className="max-w-[14rem] space-y-1.5 text-xs text-slate-500">
+      <div className="max-w-[14rem] space-y-1.5 text-sm text-slate-500">
         <div className="flex items-center gap-1.5">
           <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="3 2" /></svg>
           идеальная калибровка (X% = X%)

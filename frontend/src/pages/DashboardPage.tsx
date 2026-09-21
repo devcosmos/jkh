@@ -13,7 +13,7 @@ export function DashboardPage() {
   const summary = useApi<DashboardSummary>(() => api.get("/dashboard/summary"), []);
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Обзор</h1>
@@ -56,7 +56,7 @@ export function DashboardPage() {
                     colorClass: TONE_DOT_CLASSES[categoryTone(key)],
                   }))}
                 />
-                <div className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <div className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-500">
                   {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                     <div key={key} className="flex items-center justify-between">
                       <span>{label} · последний прогноз</span>
@@ -123,7 +123,7 @@ export function DashboardPage() {
               <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
                 Каналы с растущей частотой сбоев
               </h2>
-              <p className="mb-4 text-xs text-slate-500">
+              <p className="mb-4 text-sm text-slate-500">
                 Динамика частоты эпизодов неисправности за последние 90 дней против предыдущих
                 90 — не прогноз износа оборудования (данных о возрасте/дате установки нет), а
                 наблюдаемый факт по уже собранной истории.
@@ -143,7 +143,7 @@ export function DashboardPage() {
               <h2 className="mb-1 font-display text-sm font-semibold text-slate-900">
                 Риск-кейсы: открыто / закрыто по дням
               </h2>
-              <p className="mb-4 text-xs text-slate-500">
+              <p className="mb-4 text-sm text-slate-500">
                 Закрытие идёт наравне с открытием — очередь не растёт бесконтрольно благодаря
                 автозакрытию неактивных случаев
               </p>
@@ -176,7 +176,7 @@ export function DashboardPage() {
               />
               <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-3">
                 {summary.data.models.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2 text-xs text-slate-500">
+                  <div key={m.id} className="flex items-center gap-2 text-sm text-slate-500">
                     <span className="font-medium text-slate-700">{m.name}</span>
                     <span>порог {m.threshold?.toFixed(2)}</span>
                     <Badge tone={m.target_met ? "good" : "warning"}>
@@ -196,7 +196,7 @@ export function DashboardPage() {
 function WorkerStatus({ worker }: { worker: NonNullable<DashboardSummary["worker"]> }) {
   return (
     <div
-      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium ${
+      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium ${
         worker.is_stale ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
       }`}
       title={`Виртуальное время воркера: ${new Date(worker.virtual_time).toLocaleString("ru-RU")}`}

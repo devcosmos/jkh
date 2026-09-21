@@ -171,7 +171,7 @@ export function HelpPage() {
   ].join("\n");
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-8">
         <h1 className="font-display text-2xl font-semibold text-slate-900">Справка</h1>
         <p className="mt-1 text-sm text-slate-500">Что это за сервис и как им пользоваться</p>
@@ -223,7 +223,7 @@ export function HelpPage() {
                 {s.adminOnly && <Badge tone="neutral">Только администратор</Badge>}
               </div>
               <p className="mb-2 text-sm text-slate-600">{s.text}</p>
-              <ul className="space-y-1 text-xs text-slate-500">
+              <ul className="space-y-1 text-sm text-slate-500">
                 {s.details.map((d) => (
                   <li key={d} className="flex gap-1.5">
                     <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
@@ -248,7 +248,7 @@ export function HelpPage() {
         <ol className="space-y-4">
           {STEPS.map((s, i) => (
             <li key={s.title} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-semibold text-sky-700">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sm font-semibold text-sky-700">
                 {i + 1}
               </span>
               <div>
@@ -375,8 +375,8 @@ export function HelpPage() {
             Затем добавляйте токен в заголовок <code>Authorization</code>, как в примере ниже.
           </li>
         </ol>
-        <p className="mt-4 text-xs font-medium text-slate-500">Пример: получить первые 10 риск-кейсов</p>
-        <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100"><code>{apiExample}</code></pre>
+        <p className="mt-4 text-sm font-medium text-slate-500">Пример: получить первые 10 риск-кейсов</p>
+        <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-900 p-4 text-sm leading-relaxed text-slate-100"><code>{apiExample}</code></pre>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
           Права зависят от роли и настроенного доступа к объектам. Запросы в Swagger
           выполняются в текущей системе: принятие решения или смена статуса заявки сохранит изменения.

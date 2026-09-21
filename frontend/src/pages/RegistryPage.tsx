@@ -41,7 +41,7 @@ export function RegistryPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6">
         <h1 className="font-display text-2xl font-semibold text-slate-900">Объекты и каналы</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -94,7 +94,7 @@ export function RegistryPage() {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">ID канала</th>
                 <th className="px-4 py-3">Название</th>
                 <th className="px-4 py-3">Устройство</th>
@@ -135,7 +135,7 @@ export function RegistryPage() {
                         </button>
                         <Link
                           to={`/risks?object_id=${c.object_id}`}
-                          className="text-xs text-slate-400 hover:text-sky-700 hover:underline"
+                          className="text-sm text-slate-400 hover:text-sky-700 hover:underline"
                           title="Показать риски по этому объекту"
                         >
                           риски

@@ -162,7 +162,7 @@ export function ShapExplanation({ explanation }: { explanation: Record<string, u
           </div>
         );
       })}
-      <p className="flex items-center gap-1 pt-1 text-xs text-slate-400">
+      <p className="flex items-center gap-1 pt-1 text-sm text-slate-400">
         <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />
         повышает риск отказа
         <span className="ml-3 inline-block h-2 w-2 rounded-full bg-sky-400" />

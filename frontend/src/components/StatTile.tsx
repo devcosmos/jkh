@@ -40,7 +40,7 @@ export function StatTile({
       </div>
       <div>
         <div className="font-display text-2xl font-semibold leading-none text-slate-900">{value}</div>
-        <div className="mt-1 text-xs font-medium text-slate-500">{label}</div>
+        <div className="mt-1 text-sm font-medium text-slate-500">{label}</div>
       </div>
     </div>
   );

@@ -239,7 +239,7 @@ export function RisksPage() {
                   : "border-slate-200 focus:border-sky-400 focus:ring-sky-100"
               }`}
             />
-            {searchError && <span className="mt-1 text-xs text-red-600">Введите число</span>}
+            {searchError && <span className="mt-1 text-sm text-red-600">Введите число</span>}
           </div>
           {searchQuery ? (
             <button
@@ -288,7 +288,7 @@ export function RisksPage() {
               <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
                       <th className="px-4 py-3 whitespace-nowrap">ID</th>
                       <th className="px-4 py-3 whitespace-nowrap">ID канала</th>
                       <th className="px-4 py-3 whitespace-nowrap">Направление</th>
@@ -312,7 +312,7 @@ export function RisksPage() {
                         <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">
                           <div>{r.channel_external_id ?? r.channel_id}</div>
                           {r.channel_label && r.channel_label !== String(r.channel_external_id) && (
-                            <div className="text-xs font-normal text-slate-500">{r.channel_label}</div>
+                            <div className="text-sm font-normal text-slate-500">{r.channel_label}</div>
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -364,7 +364,7 @@ export function RisksPage() {
               {tree.data && (
                 <>
                   <ObjectsTree roots={tree.data.roots} />
-                  <p className="mt-3 text-xs text-slate-500">
+                  <p className="mt-3 text-sm text-slate-500">
                     Реальные координаты объектов организаторами не предоставляются (только
                     текущие, теряются при демонтаже датчика) — вместо GPS-карты иерархическая
                     схема объектов с цветовой индикацией риска, как рекомендовано организаторами.

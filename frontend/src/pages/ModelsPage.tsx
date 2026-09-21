@@ -35,7 +35,7 @@ export function ModelsPage() {
   const replacedVersions = history.data?.filter((m) => !m.is_active) ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6">
         <h1 className="font-display text-2xl font-semibold text-slate-900">Модели</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -84,15 +84,15 @@ export function ModelsPage() {
                   />
                 </div>
 
-                <div className="mt-3 text-xs text-slate-400">
+                <div className="mt-3 text-sm text-slate-400">
                   Обучена {new Date(m.trained_at).toLocaleDateString("ru-RU")}
                 </div>
 
-                {note && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">{note}</p>}
+                {note && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{note}</p>}
 
                 {topFeatures.length > 0 && (
                   <div className="mt-4 border-t border-slate-100 pt-4">
-                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
                       Какие признаки важнее всего для этой модели
                     </h4>
                     <BarList
@@ -108,7 +108,7 @@ export function ModelsPage() {
 
                 {calibration && (
                   <div className="mt-4 border-t border-slate-100 pt-4">
-                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
                       Калибровка вероятности (test)
                     </h4>
                     <CalibrationChart bins={calibration} />
@@ -125,14 +125,14 @@ export function ModelsPage() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
             История версий (заменённые дообучением)
           </h2>
-          <p className="mb-3 text-xs text-slate-400">
+          <p className="mb-3 text-sm text-slate-400">
             Раздел 8 ЖКХ.md — регистрация новой версии описана в{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5">scripts/register_model_version.py</code>
           </p>
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
                   <th className="px-4 py-3">Название</th>
                   <th className="px-4 py-3">Направление</th>
                   <th className="px-4 py-3">Обучена</th>
@@ -161,7 +161,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="font-display text-lg font-semibold text-slate-900">{value}</div>
-      <div className="mt-0.5 text-xs text-slate-500">{label}</div>
+      <div className="mt-0.5 text-sm text-slate-500">{label}</div>
     </div>
   );
 }

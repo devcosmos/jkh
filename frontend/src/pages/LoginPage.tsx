@@ -86,7 +86,7 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
           >
             {submitting ? "Вход…" : "Войти"}
           </button>
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-sm text-slate-400">
             Демо-доступ: {DEMO_USERNAME} / {DEMO_PASSWORD} — поля уже заполнены
           </p>
         </form>

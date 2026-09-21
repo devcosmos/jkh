@@ -73,7 +73,7 @@ export function RequestsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-8">
+    <div className="mx-auto max-w-[100rem] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900">Заявки на обслуживание</h1>
@@ -148,7 +148,7 @@ export function RequestsPage() {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3 whitespace-nowrap">ID</th>
                 <th className="px-4 py-3 whitespace-nowrap">Объект / канал</th>
                 <th className="px-4 py-3 whitespace-nowrap">Риск-кейс</th>
@@ -175,7 +175,7 @@ export function RequestsPage() {
                         <div className="font-medium whitespace-nowrap text-slate-900">
                           {r.object_name ?? "объект не определён"}
                         </div>
-                        <div className="text-xs whitespace-nowrap text-slate-500">
+                        <div className="text-sm whitespace-nowrap text-slate-500">
                           {r.channel_label ?? `канал #${r.risk_case_id}`}
                           {r.category && (
                             <span className="ml-1.5">
@@ -218,7 +218,7 @@ export function RequestsPage() {
                               key={next}
                               disabled={busyId === r.id}
                               onClick={() => transition(r.id, next)}
-                              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {STATUS_LABELS[next]}
                             </button>
@@ -232,7 +232,7 @@ export function RequestsPage() {
                         <td colSpan={8} className="px-4 py-4">
                           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_18rem]">
                             <div>
-                              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
                                 Обоснование
                               </div>
                               {r.anomaly_is_outlier !== null && (
@@ -254,7 +254,7 @@ export function RequestsPage() {
                               </p>
                               {r.dispatcher_reason || r.dispatcher_action ? (
                                 <div className="mt-3 border-t border-slate-200 pt-3">
-                                  <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
                                     Решение диспетчера
                                   </div>
                                   <p className="text-sm text-slate-700">
@@ -272,14 +272,14 @@ export function RequestsPage() {
                               ) : null}
                             </div>
                             <div>
-                              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
                                 Ход выполнения
                               </div>
                               <RequestTimeline request={r} />
                             </div>
                           </div>
                           <div className="mt-4 border-t border-slate-200 pt-3">
-                            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <div className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
                               История изменений
                             </div>
                             <RequestHistory requestId={r.id} />
@@ -341,7 +341,7 @@ function RequestHistory({ requestId }: { requestId: number }) {
                     ? `Статус: ${STATUS_LABELS[to as MaintenanceRequestStatus] ?? to}`
                     : null}
               </div>
-              {entry.reason && <div className="text-xs text-slate-400">{entry.reason}</div>}
+              {entry.reason && <div className="text-sm text-slate-400">{entry.reason}</div>}
             </div>
           </li>
         );
@@ -388,7 +388,7 @@ function RequestTimeline({ request }: { request: MaintenanceRequestOut }) {
           );
         })}
       </ol>
-      <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs text-slate-500">
+      <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-sm text-slate-500">
         <div className="flex justify-between">
           <span>Создана</span>
           <span className="font-medium text-slate-700">{new Date(request.created_at).toLocaleString("ru-RU")}</span>
