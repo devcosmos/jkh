@@ -336,7 +336,8 @@ export function RisksPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-slate-500">
-                          {new Date(r.opened_at).toLocaleString("ru-RU")}
+                          <div>{new Date(r.opened_at).toLocaleDateString("ru-RU")}</div>
+                          <div className="text-slate-400">{new Date(r.opened_at).toLocaleTimeString("ru-RU")}</div>
                         </td>
                         <td className="px-4 py-3 text-slate-300">
                           <ChevronIcon className="h-4 w-4" />
