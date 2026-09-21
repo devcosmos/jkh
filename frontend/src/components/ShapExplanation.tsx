@@ -178,8 +178,8 @@ export function ShapExplanation({
         <div className="relative h-2">
           <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-200" />
           <div className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300">←</span>
-          <span className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300">→</span>
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300">&lt;</span>
+          <span className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300">&gt;</span>
         </div>
         <div className="mt-1 flex items-center justify-between text-sm text-slate-400">
           <span>понижает риск отказа</span>

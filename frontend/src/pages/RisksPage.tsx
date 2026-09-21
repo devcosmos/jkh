@@ -13,6 +13,7 @@ import { ObjectsTree } from "../components/ObjectsTree";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { StatTile } from "../components/StatTile";
+import { ChevronIcon } from "../components/icons";
 import { exportCsv } from "../lib/exportCsv";
 import { RiskCard } from "./RiskCard";
 import type { ObjectsTreeResponse, RiskCaseOut } from "../api/types";
@@ -474,14 +475,6 @@ function RefreshIcon({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function ChevronIcon({ className, strokeWidth = 1.8 }: { className?: string; strokeWidth?: number }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -10,6 +10,7 @@ import { Badge, riskPriorityTone } from "../components/Badge";
 import { PRIMARY_CONTROL, SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
+import { ChevronIcon } from "../components/icons";
 import { Select } from "../components/Select";
 import { getAnomaly, ShapExplanation } from "../components/ShapExplanation";
 import type {
@@ -113,10 +114,15 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
       {!lastDecision && requestsForCase.data?.[0] && (
         <Link
           to={`/requests?risk_case_id=${riskCase.id}`}
-          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 hover:border-sky-300 hover:text-sky-700"
+          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300"
         >
           <span>По этому риск-кейсу уже есть заявка на обслуживание</span>
-          <span className="shrink-0 font-semibold">Смотреть &gt;</span>
+          <span
+            className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold ${SECONDARY_CONTROL}`}
+          >
+            Смотреть
+            <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+          </span>
         </Link>
       )}
 
@@ -166,7 +172,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           {/* Не показывать сломанной, если не загрузилось/нет данных (404 на канале без
               эпизодов) — это дополнительный сигнал, не критичный для карточки. */}
           {trend.data && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center justify-between text-sm text-slate-500">
               <span>Тренд:</span>
               <DegradationTrendBadge trend={trend.data} />
             </div>
@@ -229,9 +235,10 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
             {requestsForCase.data?.[0] && (
               <Link
                 to={`/requests?risk_case_id=${riskCase.id}`}
-                className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
               >
-                Смотреть заявку &gt;
+                Смотреть заявку
+                <ChevronIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
               </Link>
             )}
           </div>
