@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import Base  # noqa: E402
-from app.models.entities import Channel, ChannelEvent  # noqa: E402
+from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark  # noqa: E402
 from app.workers.replay_worker import compute_features_for_channel  # noqa: E402
 
 ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
@@ -103,11 +103,30 @@ def worker_features_at(con: duckdb.DuckDBPyConnection, db, channel_id: int, ts: 
         """
     ).fetchdf()
 
-    db.execute(text("TRUNCATE TABLE channel_events RESTART IDENTITY CASCADE"))
+    db.execute(text("TRUNCATE TABLE channel_events, channel_retention_watermark RESTART IDENTITY CASCADE"))
     db.execute(text("TRUNCATE TABLE channels RESTART IDENTITY CASCADE"))
     channel = Channel(external_channel_id=channel_id, sensor_type="Состояние насоса")
     db.add(channel)
     db.flush()
+
+    # Событие, которое prune_old_events реально вытеснил бы к этому моменту — без него
+    # проверяется старое (неисправленное) поведение worker'а.
+    pruned = con.execute(
+        f"""
+        SELECT state FROM read_parquet('{FEED_PARQUET}')
+        WHERE channel_id = {channel_id} AND event_time <= TIMESTAMP '{window_start.replace(tzinfo=None)}'
+        ORDER BY event_time DESC LIMIT 1
+        """
+    ).fetchdf()
+    if not pruned.empty:
+        db.add(
+            ChannelRetentionWatermark(
+                channel_id=channel.id,
+                last_pruned_state=pruned.iloc[0]["state"],
+                last_pruned_event_time=window_start,
+            )
+        )
+
     if not events.empty:
         db.bulk_insert_mappings(
             ChannelEvent,

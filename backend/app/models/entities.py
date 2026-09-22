@@ -309,6 +309,20 @@ class ChannelEvent(Base):
     )
 
 
+class ChannelRetentionWatermark(Base):
+    """Состояние последнего события канала, вытесненного 7-суточным retention из
+    channel_events (см. ChannelEvent). Без него LAG(state) по оставшимся строкам теряет
+    prev_state у самой старой сохранённой записи, и переход состояния на границе retention
+    молча выпадает из n_transitions_* (обнаружено scripts/check_worker_feature_parity.py —
+    воркер систематически недосчитывал ровно один переход, когда он случался на границе)."""
+
+    __tablename__ = "channel_retention_watermark"
+
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), primary_key=True)
+    last_pruned_state: Mapped[str] = mapped_column(String(32))
+    last_pruned_event_time: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
 class ReplayState(Base):
     """Курсор воспроизведения истории — простая сохраняемая точка возобновления вместо
     брокера сообщений (раздел 3 ТЗ MVP: «простая сохраняемая очередь/таблица заданий»)."""

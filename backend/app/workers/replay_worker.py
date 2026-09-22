@@ -37,6 +37,7 @@ from app.core.db import SessionLocal  # noqa: E402
 from app.models.entities import (  # noqa: E402
     Channel,
     ChannelEvent,
+    ChannelRetentionWatermark,
     ModelVersion,
     Prediction,
     ReplayState,
@@ -179,6 +180,25 @@ def ingest_tick(db, feed: pd.DataFrame, cursor: int, tick_end: dt.datetime, chan
 
 def prune_old_events(db, tick_end: dt.datetime) -> None:
     cutoff = tick_end - RETENTION
+    # Сохранить состояние на момент вытеснения — иначе LAG(state) в compute_features_for_channel
+    # теряет prev_state у самой старой оставшейся записи и граничный переход состояния молча
+    # выпадает из n_transitions_* (см. ChannelRetentionWatermark).
+    db.execute(
+        text(
+            """
+            INSERT INTO channel_retention_watermark (channel_id, last_pruned_state, last_pruned_event_time)
+            SELECT DISTINCT ON (channel_id) channel_id, state, event_time
+            FROM channel_events
+            WHERE event_time < :cutoff
+            ORDER BY channel_id, event_time DESC
+            ON CONFLICT (channel_id) DO UPDATE
+            SET last_pruned_state = EXCLUDED.last_pruned_state,
+                last_pruned_event_time = EXCLUDED.last_pruned_event_time
+            WHERE EXCLUDED.last_pruned_event_time > channel_retention_watermark.last_pruned_event_time
+            """
+        ),
+        {"cutoff": cutoff},
+    )
     db.execute(delete(ChannelEvent).where(ChannelEvent.event_time < cutoff))
 
 
@@ -247,10 +267,17 @@ def compute_features_for_channel(db, channel: Channel, tick_end: dt.datetime) ->
         ),
         {"cid": channel.id, "tick_end": tick_end},
     ).all()
+    watermark_state = db.execute(
+        text("SELECT last_pruned_state FROM channel_retention_watermark WHERE channel_id = :cid"),
+        {"cid": channel.id},
+    ).scalar()
+
     t1h_cut = tick_end - dt.timedelta(hours=1)
     t24h_cut = tick_end - dt.timedelta(hours=24)
     n_trans_1h = n_trans_24h = n_trans_7d = 0
-    for event_time, state, prev_state in transitions:
+    for i, (event_time, state, prev_state) in enumerate(transitions):
+        if i == 0 and prev_state is None:
+            prev_state = watermark_state
         if state != prev_state and prev_state is not None:
             n_trans_7d += 1
             if event_time > t24h_cut:
