@@ -5,7 +5,9 @@ LLM API повторно (см. app/api/predictions.py:get_prediction_summary)."
 import datetime as dt
 from unittest.mock import patch
 
-from app.models.entities import Channel, ModelVersion, Prediction, RiskCase
+from app.api.predictions import get_prediction_summary
+from app.core.db import SessionLocal
+from app.models.entities import Channel, ModelVersion, Prediction, RiskCase, User
 from app.models.enums import RiskCaseStatus, UserRole
 
 NOW = dt.datetime(2026, 1, 10, tzinfo=dt.timezone.utc)
@@ -68,3 +70,38 @@ def test_result_is_cached_after_first_successful_call(client, db_session, auth_h
         r2 = client.get(f"/api/predictions/{prediction.id}/summary", headers=auth_headers(UserRole.dispatcher))
         assert r2.json()["summary"] == "новое резюме"
         assert mocked.call_count == 1  # второй запрос не дёргает LLM снова — уже закешировано
+
+
+def test_concurrent_calls_see_committed_summary_not_stale_none(db_session):
+    """APP-03: два запроса карточки одного прогноза почти одновременно, две настоящие сессии
+    БД. Session A успевает загрузить Prediction (identity map хранит llm_summary=None) ДО
+    того, как Session B посчитала и закоммитила своё резюме. Без populate_existing() в
+    get_prediction_summary повторный SELECT ... FOR UPDATE в Session A вернул бы ТОТ ЖЕ
+    Python-объект с устаревшим None из identity map вместо свежей строки из БД — LLM был бы
+    вызван повторно вместо использования уже посчитанного Session B результата."""
+    prediction = _setup(db_session)
+    user = User(username="race-summary", password_hash="x", role=UserRole.admin)
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    session_a = SessionLocal()
+    try:
+        loaded = session_a.get(Prediction, prediction.id)
+        assert loaded.llm_summary is None  # identity map "отравлена" старым значением
+
+        session_b = SessionLocal()
+        try:
+            b_pred = session_b.get(Prediction, prediction.id)
+            b_pred.llm_summary = "резюме от параллельной сессии"
+            session_b.commit()
+        finally:
+            session_b.close()
+
+        with patch("app.api.predictions.generate_dispatcher_summary") as mocked:
+            result = get_prediction_summary(prediction_id=prediction.id, db=session_a, user=user)
+
+        assert result == {"summary": "резюме от параллельной сессии"}
+        mocked.assert_not_called()
+    finally:
+        session_a.close()

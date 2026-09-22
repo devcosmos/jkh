@@ -210,8 +210,19 @@ def get_prediction_summary(
         # одновременно, второй ждёт здесь коммита первого и затем видит уже посчитанный
         # llm_summary вместо повторного (платного) обращения к LLM. Без блокировки оба
         # прочли бы llm_summary=None и оба вызвали бы API.
+        #
+        # populate_existing() обязателен (APP-02/APP-03 в analys_and_todo.md): prediction уже
+        # загружен в identity map этой сессии по тому же PK — без него SQLAlchemy возвращает
+        # тот же Python-объект и НЕ перечитывает его атрибуты из новой строки, даже с
+        # FOR UPDATE. Если конкурирующая сессия успела закоммитить llm_summary, пока этот
+        # запрос ждал блокировку, locked.llm_summary всё равно останется прочитанным ранее
+        # None — и обращение к LLM выполнится повторно вместо использования уже посчитанного
+        # результата, ровно то, для чего блокировка задумывалась.
         locked = db.execute(
-            select(Prediction).where(Prediction.id == prediction_id).with_for_update()
+            select(Prediction)
+            .where(Prediction.id == prediction_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         ).scalar_one()
         if locked.llm_summary is None:
             summary = generate_dispatcher_summary(locked.explanation, locked.probability)
