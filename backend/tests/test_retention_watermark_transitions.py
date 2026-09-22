@@ -13,8 +13,9 @@ tie-break по id (см. compute_features_for_channel и ml/features/build_repla
 ниже, test_tie_break_by_id_for_duplicate_timestamps."""
 import datetime as dt
 
+from app.ml.features import compute_features_for_channel
 from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark
-from app.workers.replay_worker import RETENTION, compute_features_for_channel, prune_old_events
+from app.workers.replay_worker import RETENTION, prune_old_events
 
 NOW = dt.datetime(2026, 1, 10, tzinfo=dt.timezone.utc)
 

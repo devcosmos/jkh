@@ -14,13 +14,10 @@
 период, поэтому виртуальное время едино. При перезапуске worker продолжает с последнего
 сохранённого виртуального времени, а не с начала.
 
-Рабочий порог каждого трека — не «жёсткий» 0.7/0.5, а лучшая точка эпизодной оценки, та же,
-что и при бэкфилле (scripts/data/import_analysis_to_db.py); см. artifacts/model_report_*.md,
-раздел 3. Источник порога — активная ModelVersion.threshold в БД (пишется
-scripts/maintenance/register_model_version.py / import_analysis_to_db.py), а не переменная окружения:
-раньше регистрация новой версии могла молча разойтись с порогом, который worker реально
-применяет, потому что тот читался из TRACKS/env независимо от БД. DEFAULT_THRESHOLDS ниже —
-запасной вариант только для случая, когда у активной версии threshold не задан.
+Контракт признаков, загрузка моделей (CatBoost/IsolationForest) и объяснение прогноза
+(SHAP + аномальность) вынесены в app/ml/ (шаг 3 реструктуризации каталогов) — этот модуль
+отвечает только за доставку событий и оркестрацию тика (ingest -> features -> score ->
+persist), сам не знает деталей контракта признаков или формата файлов моделей.
 
 Известное ограничение — холодный старт: первые ~7 виртуальных суток после чистого
 разворачивания (пустой replay_state) признаки по каждому каналу занижены, потому что
@@ -31,135 +28,39 @@ import datetime as dt
 import os
 import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
-import joblib
 import pandas as pd
-from catboost import CatBoostClassifier, Pool
 from sqlalchemy import delete, select, text
-from sqlalchemy.orm import Session
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.core.db import SessionLocal  # noqa: E402
+from app.ml.explain import compute_anomaly_signal, explain_prediction  # noqa: E402
+from app.ml.features import ALL_FEATURES, compute_features_for_channel  # noqa: E402
+from app.ml.models import DATA_DIR, TRACKS, load_track_runtime  # noqa: E402
 from app.models.entities import (  # noqa: E402
     Channel,
     ChannelEvent,
-    ChannelRetentionWatermark,
-    ModelVersion,
     Prediction,
     ReplayState,
     RiskCase,
 )
 from app.models.enums import RiskCaseStatus  # noqa: E402
 
-DATA_DIR = Path(os.environ.get("REPLAY_DATA_DIR", "/artifacts"))
 TICK = dt.timedelta(hours=int(os.environ.get("REPLAY_TICK_HOURS", "1")))
 RETENTION = dt.timedelta(days=7)
 SLEEP_SECONDS = float(os.environ.get("REPLAY_SLEEP_SECONDS", "2"))
 
 
-@dataclass(frozen=True)
-class Track:
-    name: str  # суффикс файлов в /artifacts — совпадает с ml/features/build_replay_feed.py и train_model*.py
-    category: str  # RiskCase.category / Prediction.category — тот же, что в scripts/data/import_analysis_to_db.py
-    sensor_types: list[str]
-
-
-TRACKS = [
-    Track(
-        name="насос_вентилятор",
-        category="sensor_failure_pump_fan",
-        sensor_types=["Состояние насоса", "Состояние вентилятора"],
-    ),
-    Track(
-        name="дым_газ",
-        category="sensor_failure_smoke_gas",
-        sensor_types=["Датчик дыма", "Газовый датчик"],
-    ),
-]
-
-# Запасной порог — только если у активной ModelVersion threshold не задан (например, версия
-# зарегистрирована в обход register_model_version.py). Нормальный путь — порог из БД.
-DEFAULT_THRESHOLDS = {
-    "насос_вентилятор": float(os.environ.get("REPLAY_THRESHOLD_PUMP_FAN", "0.55")),
-    "дым_газ": float(os.environ.get("REPLAY_THRESHOLD_SMOKE_GAS", "0.53")),
-}
-
-NUM_FEATURES = [
-    "n_alarms_1h", "n_alarms_24h", "n_alarms_7d",
-    "n_transitions_1h", "n_transitions_24h", "n_transitions_7d",
-    "n_events_1h", "n_events_24h", "n_events_7d",
-    "seconds_since_last_event",
-    "n_neighbors_in_fault", "frac_neighbors_in_fault",
-]
-CAT_FEATURES = ["current_state", "тип_датчика"]
-ALL_FEATURES = NUM_FEATURES + CAT_FEATURES
-CAT_FEATURE_IDX = [ALL_FEATURES.index(f) for f in CAT_FEATURES]
-
-FEATURE_LABELS = {
-    "n_alarms_1h": "Тревог за 1 час",
-    "n_alarms_24h": "Тревог за 24 часа",
-    "n_alarms_7d": "Тревог за 7 суток",
-    "n_transitions_1h": "Переходов состояния за 1 час",
-    "n_transitions_24h": "Переходов состояния за 24 часа",
-    "n_transitions_7d": "Переходов состояния за 7 суток",
-    "n_events_1h": "Событий за 1 час",
-    "n_events_24h": "Событий за 24 часа",
-    "n_events_7d": "Событий за 7 суток",
-    "seconds_since_last_event": "Время с последнего события",
-    "n_neighbors_in_fault": "Соседей в отказе",
-    "frac_neighbors_in_fault": "Доля соседей в отказе",
-    "current_state": "Текущее состояние",
-    "тип_датчика": "Тип датчика",
-}
-
-
-def explain_prediction(model: CatBoostClassifier, row: list[list]) -> dict:
-    """SHAP-объяснение конкретного прогноза (не глобальная важность признаков) —
-    per-tick, той же моделью, что и сам прогноз (get_feature_importance(..., ShapValues)).
-    Топ-5 признаков по модулю вклада, со знаком (в сторону риска / против)."""
-    pool = Pool(row, cat_features=CAT_FEATURE_IDX)
-    shap_row = model.get_feature_importance(pool, type="ShapValues")[0]
-    base_value = float(shap_row[-1])
-    contributions = list(zip(ALL_FEATURES, shap_row[:-1], row[0]))
-    contributions.sort(key=lambda t: abs(t[1]), reverse=True)
-    return {
-        "method": "catboost_shap",
-        "base_value": round(base_value, 4),
-        "top_features": [
-            {
-                "feature": name,
-                "label": FEATURE_LABELS.get(name, name),
-                "value": round(float(value), 3) if isinstance(value, (int, float)) else str(value),
-                "contribution": round(float(contribution), 4),
-            }
-            for name, contribution, value in contributions[:5]
-        ],
-    }
-
-
-def compute_anomaly_signal(anomaly_bundle: dict, features: dict) -> dict:
-    """Независимый от CatBoost сигнал: IsolationForest без учителя на тех же поведенческих
-    признаках (ml/training/train_anomaly_model.py). Не заменяет прогноз модели, а дополняет его —
-    может отметить необычное поведение канала, не похожее ни на один известный сценарий
-    отказа в разметке (в отличие от CatBoost, который находит только виденные паттерны)."""
-    model = anomaly_bundle["model"]
-    feature_names = anomaly_bundle["features"]
-    x = [[features[f] for f in feature_names]]
-    score = float(model.decision_function(x)[0])  # выше — более «нормально»
-    is_outlier = bool(model.predict(x)[0] == -1)
-    return {"method": "isolation_forest", "score": round(score, 4), "is_outlier": is_outlier}
-
-
-def load_feed(track: Track) -> pd.DataFrame:
+def load_feed(track) -> pd.DataFrame:
     df = pd.read_parquet(DATA_DIR / f"replay_feed_{track.name}.parquet")
     df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
     # event_id — тай-брейк порядка вставки для событий одного канала с одинаковым event_time
     # (секундная точность источника): ChannelEvent.id (автоинкремент) получает правильный
     # хронологический порядок только если вставка идёт в этом порядке — см.
-    # ml/features/build_replay_feed.py и compute_features_for_channel ниже (ORDER BY ..., id).
+    # ml/features/build_replay_feed.py и compute_features_for_channel (app/ml/features.py,
+    # ORDER BY ..., id).
     return df.sort_values(["event_time", "event_id"]).reset_index(drop=True)
 
 
@@ -249,114 +150,11 @@ def close_stale_risk_cases(db, tick_end: dt.datetime) -> int:
     return result.rowcount
 
 
-def compute_features_for_channel(
-    db, channel: Channel, tick_end: dt.datetime, sensor_types: list[str]
-) -> dict | None:
-    row = db.execute(
-        text(
-            """
-            SELECT
-                count(*) FILTER (WHERE event_time > :t1h AND is_alarm) AS n_alarms_1h,
-                count(*) FILTER (WHERE event_time > :t24h AND is_alarm) AS n_alarms_24h,
-                count(*) FILTER (WHERE is_alarm) AS n_alarms_7d,
-                count(*) FILTER (WHERE event_time > :t1h) AS n_events_1h,
-                count(*) FILTER (WHERE event_time > :t24h) AS n_events_24h,
-                count(*) AS n_events_7d,
-                max(event_time) AS last_event_time,
-                -- id (PK) как тай-брейк: несколько событий канала с одинаковым event_time
-                -- (секундная точность источника) вставляются в правильном хронологическом
-                -- порядке (см. load_feed/main — сортировка по event_time, event_id перед
-                -- ingest_tick), поэтому больший id внутри одинакового event_time — более
-                -- поздняя по факту запись. Без этого тай-брейка current_state мог разойтись
-                -- с обучением (build_features.py — тот же тай-брейк по ид_события).
-                (array_agg(state ORDER BY event_time DESC, id DESC))[1] AS current_state
-            FROM channel_events
-            WHERE channel_id = :cid AND event_time <= :tick_end
-            """
-        ),
-        {"cid": channel.id, "t1h": tick_end - dt.timedelta(hours=1), "t24h": tick_end - dt.timedelta(hours=24), "tick_end": tick_end},
-    ).mappings().first()
-
-    if row is None or row["last_event_time"] is None:
-        return None
-
-    transitions = db.execute(
-        text(
-            """
-            SELECT event_time, state,
-                   LAG(state) OVER (ORDER BY event_time, id) AS prev_state
-            FROM channel_events
-            WHERE channel_id = :cid AND event_time <= :tick_end
-            ORDER BY event_time, id
-            """
-        ),
-        {"cid": channel.id, "tick_end": tick_end},
-    ).all()
-    watermark_state = db.execute(
-        text("SELECT last_pruned_state FROM channel_retention_watermark WHERE channel_id = :cid"),
-        {"cid": channel.id},
-    ).scalar()
-
-    t1h_cut = tick_end - dt.timedelta(hours=1)
-    t24h_cut = tick_end - dt.timedelta(hours=24)
-    n_trans_1h = n_trans_24h = n_trans_7d = 0
-    for i, (event_time, state, prev_state) in enumerate(transitions):
-        if i == 0 and prev_state is None:
-            prev_state = watermark_state
-        if state != prev_state and prev_state is not None:
-            n_trans_7d += 1
-            if event_time > t24h_cut:
-                n_trans_24h += 1
-            if event_time > t1h_cut:
-                n_trans_1h += 1
-
-    # Соседи считаются только среди каналов своего трека (насос/вентилятор отдельно от
-    # дым/газ) — так же, как в обучающей витрине, где events_raw уже отфильтрован по
-    # TARGET_TYPES (ml/features/build_features.py). Без этого фильтра worker подмешивал бы
-    # чужой трек в n_neighbors_in_fault (найдено при сверке с scripts/maintenance/check_worker_feature_parity.py).
-    neighbors = db.execute(
-        text(
-            """
-            SELECT c.id, (array_agg(ce.state ORDER BY ce.event_time DESC, ce.id DESC))[1] AS state
-            FROM channels c
-            JOIN channel_events ce ON ce.channel_id = c.id AND ce.event_time <= :tick_end
-            WHERE c.location_group = :grp AND c.id != :cid AND c.sensor_type = ANY(:sensor_types)
-            GROUP BY c.id
-            """
-        ),
-        {
-            "grp": channel.location_group,
-            "cid": channel.id,
-            "tick_end": tick_end,
-            "sensor_types": sensor_types,
-        },
-    ).all()
-    n_neighbors_total = len(neighbors)
-    n_neighbors_in_fault = sum(1 for _, s in neighbors if s == "Неисправен")
-
-    return {
-        "n_alarms_1h": row["n_alarms_1h"],
-        "n_alarms_24h": row["n_alarms_24h"],
-        "n_alarms_7d": row["n_alarms_7d"],
-        "n_transitions_1h": n_trans_1h,
-        "n_transitions_24h": n_trans_24h,
-        "n_transitions_7d": n_trans_7d,
-        "n_events_1h": row["n_events_1h"],
-        "n_events_24h": row["n_events_24h"],
-        "n_events_7d": row["n_events_7d"],
-        "seconds_since_last_event": (tick_end - row["last_event_time"]).total_seconds(),
-        "n_neighbors_in_fault": n_neighbors_in_fault,
-        "n_neighbors_total": n_neighbors_total,
-        "frac_neighbors_in_fault": n_neighbors_in_fault / max(n_neighbors_total, 1),
-        "current_state": str(row["current_state"]),
-    }
-
-
 def score_and_record(
     db,
-    track: Track,
+    track,
     threshold: float,
-    model: CatBoostClassifier,
+    model,
     anomaly_bundle: dict,
     channel: Channel,
     features: dict,
@@ -403,59 +201,6 @@ def score_and_record(
             )
         )
     return proba
-
-
-@dataclass
-class TrackRuntime:
-    track: Track
-    model: CatBoostClassifier
-    anomaly_bundle: dict
-    channels: list[Channel]
-    model_version_id: int
-    threshold: float
-
-
-def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
-    model_path = DATA_DIR / f"catboost_{track.name}.cbm"
-    print(f"[{track.name}] loading model from {model_path}...", file=sys.stderr)
-    model = CatBoostClassifier()
-    model.load_model(str(model_path))
-
-    anomaly_path = DATA_DIR / f"isolation_forest_{track.name}.joblib"
-    print(f"[{track.name}] loading anomaly model from {anomaly_path}...", file=sys.stderr)
-    anomaly_bundle = joblib.load(anomaly_path)
-
-    channels = list(db.scalars(select(Channel).where(Channel.sensor_type.in_(track.sensor_types))))
-    model_version = db.scalar(
-        select(ModelVersion).where(
-            ModelVersion.is_active.is_(True),
-            ModelVersion.sensor_types == ",".join(track.sensor_types),
-        )
-    )
-    if model_version is None:
-        print(
-            f"[{track.name}] no active model_version in DB — run scripts/data/import_analysis_to_db.py first",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if model_version.threshold is not None:
-        threshold = model_version.threshold
-    else:
-        threshold = DEFAULT_THRESHOLDS[track.name]
-        print(
-            f"[{track.name}] active model_version {model_version.id} has no threshold — "
-            f"falling back to default {threshold}",
-            file=sys.stderr,
-        )
-    return TrackRuntime(
-        track=track,
-        model=model,
-        anomaly_bundle=anomaly_bundle,
-        channels=channels,
-        model_version_id=model_version.id,
-        threshold=threshold,
-    )
 
 
 def main() -> None:

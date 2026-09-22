@@ -11,7 +11,7 @@ artifacts/features_насос_вентилятор_2024_2026.parquet как эт
 сравнения берутся из уже посчитанной витрины, поэтому число расхождений — не артефакт выбора
 случайных моментов, а сопоставление с теми же точками, что видела модель при обучении.
 
-Признаки worker считаются НАСТОЯЩЕЙ функцией backend.app.workers.replay_worker.compute_features_for_channel
+Признаки worker считаются НАСТОЯЩЕЙ функцией backend.app.ml.features.compute_features_for_channel
 против тестового Postgres (jkh_test_db, тот же, что использует pytest) — не переписаны заново,
 чтобы не завести отдельный источник расхождений.
 
@@ -34,8 +34,8 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import Base  # noqa: E402
+from app.ml.features import compute_features_for_channel  # noqa: E402
 from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark  # noqa: E402
-from app.workers.replay_worker import compute_features_for_channel  # noqa: E402
 
 ARTIFACTS_DIR = ROOT / "artifacts"
 FEED_PARQUET = ARTIFACTS_DIR / "replay_feed_насос_вентилятор.parquet"

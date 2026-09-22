@@ -6,9 +6,10 @@ from pathlib import Path
 import joblib
 import pytest
 
-from app.workers.replay_worker import NUM_FEATURES, compute_anomaly_signal
+from app.ml.explain import compute_anomaly_signal
+from app.ml.features import NUM_FEATURES
 
-BUNDLE_PATH = Path(__file__).resolve().parents[2] / "docs" / "documentation" / "analysis" / "isolation_forest_насос_вентилятор.joblib"
+BUNDLE_PATH = Path(__file__).resolve().parents[2] / "artifacts" / "isolation_forest_насос_вентилятор.joblib"
 
 
 @pytest.fixture(scope="module")

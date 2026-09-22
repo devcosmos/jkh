@@ -6,9 +6,10 @@ from pathlib import Path
 import pytest
 from catboost import CatBoostClassifier
 
-from app.workers.replay_worker import ALL_FEATURES, explain_prediction
+from app.ml.explain import explain_prediction
+from app.ml.features import ALL_FEATURES
 
-MODEL_PATH = Path(__file__).resolve().parents[2] / "docs" / "documentation" / "analysis" / "catboost_насос_вентилятор.cbm"
+MODEL_PATH = Path(__file__).resolve().parents[2] / "artifacts" / "catboost_насос_вентилятор.cbm"
 
 
 @pytest.fixture(scope="module")

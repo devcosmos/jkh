@@ -6,8 +6,10 @@ import datetime as dt
 
 import numpy as np
 
+from app.ml.features import ALL_FEATURES, NUM_FEATURES
+from app.ml.models import TRACKS
 from app.models.entities import Channel, ModelVersion, RiskCase
-from app.workers.replay_worker import ALL_FEATURES, NUM_FEATURES, TRACKS, score_and_record
+from app.workers.replay_worker import score_and_record
 
 PUMP_FAN_TRACK = TRACKS[0]
 PUMP_FAN_THRESHOLD = 0.55

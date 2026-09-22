@@ -21,12 +21,9 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 ARTIFACTS_DIR = ROOT / "artifacts"
 sys.path.insert(0, str(ROOT / "backend"))
 
-from app.workers.replay_worker import (  # noqa: E402
-    ALL_FEATURES,
-    TRACKS,
-    compute_anomaly_signal,
-    explain_prediction,
-)
+from app.ml.explain import compute_anomaly_signal, explain_prediction  # noqa: E402
+from app.ml.features import ALL_FEATURES  # noqa: E402
+from app.ml.models import TRACKS  # noqa: E402
 from catboost import CatBoostClassifier  # noqa: E402
 
 
