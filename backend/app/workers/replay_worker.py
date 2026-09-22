@@ -15,8 +15,12 @@
 сохранённого виртуального времени, а не с начала.
 
 Рабочий порог каждого трека — не «жёсткий» 0.7/0.5, а лучшая точка эпизодной оценки, та же,
-что и при бэкфилле (scripts/import_analysis_to_db.py); см. TRACKS ниже и
-docs/documentation/analysis/model_report_*.md, раздел 3.
+что и при бэкфилле (scripts/import_analysis_to_db.py); см. docs/documentation/analysis/model_report_*.md,
+раздел 3. Источник порога — активная ModelVersion.threshold в БД (пишется
+scripts/register_model_version.py / import_analysis_to_db.py), а не переменная окружения:
+раньше регистрация новой версии могла молча разойтись с порогом, который worker реально
+применяет, потому что тот читался из TRACKS/env независимо от БД. DEFAULT_THRESHOLDS ниже —
+запасной вариант только для случая, когда у активной версии threshold не задан.
 """
 import datetime as dt
 import os
@@ -56,7 +60,6 @@ class Track:
     name: str  # суффикс файлов в /data — совпадает с scripts/build_replay_feed.py и train_model*.py
     category: str  # RiskCase.category / Prediction.category — тот же, что в scripts/import_analysis_to_db.py
     sensor_types: list[str]
-    threshold: float  # лучшая точка эпизодной оценки, не целевой 0.7/0.5 — см. model_report_*.md, раздел 3
 
 
 TRACKS = [
@@ -64,15 +67,20 @@ TRACKS = [
         name="насос_вентилятор",
         category="sensor_failure_pump_fan",
         sensor_types=["Состояние насоса", "Состояние вентилятора"],
-        threshold=float(os.environ.get("REPLAY_THRESHOLD_PUMP_FAN", "0.55")),
     ),
     Track(
         name="дым_газ",
         category="sensor_failure_smoke_gas",
         sensor_types=["Датчик дыма", "Газовый датчик"],
-        threshold=float(os.environ.get("REPLAY_THRESHOLD_SMOKE_GAS", "0.53")),
     ),
 ]
+
+# Запасной порог — только если у активной ModelVersion threshold не задан (например, версия
+# зарегистрирована в обход register_model_version.py). Нормальный путь — порог из БД.
+DEFAULT_THRESHOLDS = {
+    "насос_вентилятор": float(os.environ.get("REPLAY_THRESHOLD_PUMP_FAN", "0.55")),
+    "дым_газ": float(os.environ.get("REPLAY_THRESHOLD_SMOKE_GAS", "0.53")),
+}
 
 NUM_FEATURES = [
     "n_alarms_1h", "n_alarms_24h", "n_alarms_7d",
@@ -332,6 +340,7 @@ def compute_features_for_channel(
 def score_and_record(
     db,
     track: Track,
+    threshold: float,
     model: CatBoostClassifier,
     anomaly_bundle: dict,
     channel: Channel,
@@ -342,7 +351,7 @@ def score_and_record(
     row = [[features[f] if f != "тип_датчика" else channel.sensor_type for f in ALL_FEATURES]]
     proba = float(model.predict_proba(row)[0][1])
 
-    if proba >= track.threshold:
+    if proba >= threshold:
         anomaly = compute_anomaly_signal(anomaly_bundle, features)
         risk_case = db.scalar(
             select(RiskCase).where(
@@ -372,7 +381,7 @@ def score_and_record(
                 probability=proba,
                 window_start=tick_end,
                 window_end=tick_end + dt.timedelta(hours=24),
-                threshold_used=track.threshold,
+                threshold_used=threshold,
                 explanation={**explain_prediction(model, row), "anomaly": anomaly},
                 data_quality_flag="ok",
                 created_at=tick_end,
@@ -388,6 +397,7 @@ class TrackRuntime:
     anomaly_bundle: dict
     channels: list[Channel]
     model_version_id: int
+    threshold: float
 
 
 def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
@@ -413,8 +423,23 @@ def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if model_version.threshold is not None:
+        threshold = model_version.threshold
+    else:
+        threshold = DEFAULT_THRESHOLDS[track.name]
+        print(
+            f"[{track.name}] active model_version {model_version.id} has no threshold — "
+            f"falling back to default {threshold}",
+            file=sys.stderr,
+        )
     return TrackRuntime(
-        track=track, model=model, anomaly_bundle=anomaly_bundle, channels=channels, model_version_id=model_version.id
+        track=track,
+        model=model,
+        anomaly_bundle=anomaly_bundle,
+        channels=channels,
+        model_version_id=model_version.id,
+        threshold=threshold,
     )
 
 
@@ -455,9 +480,10 @@ def main() -> None:
                 if features is None:
                     continue
                 proba = score_and_record(
-                    db, rt.track, rt.model, rt.anomaly_bundle, channel, features, tick_end, rt.model_version_id
+                    db, rt.track, rt.threshold, rt.model, rt.anomaly_bundle, channel, features, tick_end,
+                    rt.model_version_id,
                 )
-                if proba >= rt.track.threshold:
+                if proba >= rt.threshold:
                     n_alerts += 1
 
         n_closed = close_stale_risk_cases(db, tick_end)

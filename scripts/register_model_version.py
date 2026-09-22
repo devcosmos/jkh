@@ -23,9 +23,9 @@ import_analysis_to_db.py — повторно обучить и подключи
      на лету — грузит один раз при старте, см. replay_worker.py:load_track):
        docker compose restart worker
 
-Метрики (--report) необязательны, но рекомендуются — тот же report.json, что печатает
-train_model*.py, целиком копируется в ModelVersion.metrics (как и при первичном импорте,
-см. import_analysis_to_db.py:load_extra_metrics).
+Метрики (--report) необязательны, но рекомендуются — report.json, что печатает train_model*.py,
+разворачивается в тот же плоский вид, что ждёт интерфейс (см. import_analysis_to_db.py:
+import_model_version/load_extra_metrics), а не копируется как есть.
 """
 import argparse
 import datetime as dt
@@ -47,7 +47,7 @@ TRACK_SENSOR_TYPES = {
 }
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--track", required=True, choices=sorted(TRACK_SENSOR_TYPES), help="насос_вентилятор | дым_газ")
     p.add_argument("--threshold", type=float, required=True, help="Рабочий порог по эпизодной оценке")
@@ -59,7 +59,32 @@ def parse_args() -> argparse.Namespace:
         "--artifact-path",
         help="Путь артефакта для записи в БД (справочно) — по умолчанию data/catboost_<track>.cbm",
     )
-    return p.parse_args()
+    return p.parse_args(argv)
+
+
+def build_metrics(args: argparse.Namespace, report: dict) -> dict:
+    """Тот же вид, что и при первичном импорте (scripts/import_analysis_to_db.py:import_model_version)
+    — интерфейс (ModelsPage.tsx) читает верхнеуровневые ключи (roc_auc_test, target_precision, ...),
+    а --report — сырой model_report_<track>.json с вложенным catboost. Раньше register_model_version.py
+    сохранял report как есть, без разворачивания — после регистрации новой версии через этот скрипт
+    показатели на странице «Модели» пропадали."""
+    metrics = {
+        "roc_auc_test": report.get("catboost", {}).get("roc_auc_test"),
+        "pr_auc_test": report.get("catboost", {}).get("pr_auc_test"),
+        "target_precision": report.get("target_precision"),
+        "target_recall": report.get("target_recall"),
+        "target_met": False,
+        "operating_threshold_note": (
+            f"Порог {args.threshold} выбран по лучшей точке эпизодной оценки, не по целевым "
+            "Precision>0.7/Recall>0.5 — тема 3 CSV с ответами организаторов подтверждает, что это "
+            "плановые, не жёсткие требования, порог можно снижать при обосновании."
+        ),
+        "feature_importance": report.get("catboost", {}).get("feature_importance"),
+    }
+    calibration_path = Path(args.report).parent / f"calibration_{args.track}.json"
+    if calibration_path.exists():
+        metrics["calibration"] = json.loads(calibration_path.read_text(encoding="utf-8"))
+    return metrics
 
 
 def main() -> None:
@@ -68,7 +93,7 @@ def main() -> None:
 
     metrics = None
     if args.report:
-        metrics = json.loads(Path(args.report).read_text(encoding="utf-8"))
+        metrics = build_metrics(args, json.loads(Path(args.report).read_text(encoding="utf-8")))
 
     db = SessionLocal()
     try:

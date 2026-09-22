@@ -10,6 +10,7 @@ from app.models.entities import Channel, ModelVersion, RiskCase
 from app.workers.replay_worker import ALL_FEATURES, NUM_FEATURES, TRACKS, score_and_record
 
 PUMP_FAN_TRACK = TRACKS[0]
+PUMP_FAN_THRESHOLD = 0.55
 NOW = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
 
 FEATURES = {
@@ -63,7 +64,7 @@ def test_moderate_probability_without_anomaly_is_medium_priority(db_session):
     channel, mv = _setup(db_session)
     anomaly_bundle = {"model": FakeIsolationForest(is_outlier=False), "features": NUM_FEATURES}
 
-    score_and_record(db_session, PUMP_FAN_TRACK, FakeCatBoost(0.6), anomaly_bundle, channel, FEATURES, NOW, mv.id)
+    score_and_record(db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.6), anomaly_bundle, channel, FEATURES, NOW, mv.id)
     db_session.commit()
 
     rc = db_session.query(RiskCase).filter_by(channel_id=channel.id).one()
@@ -74,7 +75,7 @@ def test_moderate_probability_with_anomaly_is_escalated_to_high(db_session):
     channel, mv = _setup(db_session)
     anomaly_bundle = {"model": FakeIsolationForest(is_outlier=True), "features": NUM_FEATURES}
 
-    score_and_record(db_session, PUMP_FAN_TRACK, FakeCatBoost(0.6), anomaly_bundle, channel, FEATURES, NOW, mv.id)
+    score_and_record(db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.6), anomaly_bundle, channel, FEATURES, NOW, mv.id)
     db_session.commit()
 
     rc = db_session.query(RiskCase).filter_by(channel_id=channel.id).one()
@@ -88,10 +89,10 @@ def test_priority_is_not_recomputed_for_already_open_risk_case(db_session):
     calm_bundle = {"model": FakeIsolationForest(is_outlier=False), "features": NUM_FEATURES}
     anomalous_bundle = {"model": FakeIsolationForest(is_outlier=True), "features": NUM_FEATURES}
 
-    score_and_record(db_session, PUMP_FAN_TRACK, FakeCatBoost(0.6), calm_bundle, channel, FEATURES, NOW, mv.id)
+    score_and_record(db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.6), calm_bundle, channel, FEATURES, NOW, mv.id)
     db_session.commit()
     score_and_record(
-        db_session, PUMP_FAN_TRACK, FakeCatBoost(0.6), anomalous_bundle, channel, FEATURES,
+        db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.6), anomalous_bundle, channel, FEATURES,
         NOW + dt.timedelta(hours=1), mv.id,
     )
     db_session.commit()
