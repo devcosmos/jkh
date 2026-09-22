@@ -1,9 +1,14 @@
 -r requirements.txt
-# catboost/pandas/pyarrow не через requirements-worker.txt: версии там без готового wheel
-# под некоторые платформы/интерпретаторы (сборка из исходников падает) — для тестов
-# достаточно последних доступных версий, а не точного прод-пиннинга worker'а.
+# catboost/pandas/pyarrow/scikit-learn/joblib не через requirements-worker.txt: версии там
+# без готового wheel под некоторые платформы/интерпретаторы (сборка из исходников падает) —
+# для тестов достаточно последних доступных версий, а не точного прод-пиннинга worker'а.
+# joblib/scikit-learn обязательны — backend.app.workers.replay_worker импортирует joblib на
+# уровне модуля (загрузка isolation_forest_*.joblib), поэтому любой тест, который трогает
+# worker, падает с ModuleNotFoundError без них.
 catboost
 pandas
 pyarrow
+scikit-learn
+joblib
 pytest==8.3.4
 httpx==0.28.1
