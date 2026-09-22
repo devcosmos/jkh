@@ -35,6 +35,32 @@ docker compose exec backend alembic upgrade head
 Caddy сам получит и обновит сертификат Let's Encrypt по домену `DOMAIN` — вручную
 настраивать certbot/nginx не нужно.
 
+## Автодеплой при коммите в main
+
+С 22 сентября 2026 сервер обновляется из `git clone` (раньше — ручное копирование файлов,
+без `.git`, что отставало от репозитория на десятки коммитов — см. `analys_and_todo.md`).
+`deploy/auto_deploy.sh` опрашивается по cron, не по webhook: не нужно открывать порт для
+GitHub или хранить SSH-секрет в GitHub Actions — на сервере уже стоит read-only deploy key.
+
+Настройка (один раз):
+
+```bash
+# 1. Deploy key уже сгенерирован на сервере (~/.ssh/jkh_deploy_key) и добавлен в
+#    GitHub → Settings → Deploy keys (без права записи).
+# 2. cron — опрос раз в 2 минуты:
+crontab -e
+# */2 * * * * /opt/jkh/deploy/auto_deploy.sh
+```
+
+Скрипт ничего не делает, если `origin/main` не ушёл вперёд (`git fetch` + сравнение
+`HEAD`/`origin/main`). При новых коммитах: `git reset --hard origin/main` (не трогает
+`.env` и большие ML-артефакты — они не в индексе git вообще, не просто незакоммичены),
+`docker compose build` (пересобирает только изменившиеся слои/сервисы), `up -d`,
+`alembic upgrade head`. Лог — `deploy/auto_deploy.log`, не в git.
+
+**Компромисс:** обновление приходит с задержкой до интервала опроса (2 минуты), не мгновенно
+по push — сознательный выбор простоты и без открытых портов, а не webhook-задержка.
+
 ## Backup/restore (раздел 12 ТЗ: RTO ≤ 4 часа)
 
 `deploy/backup.sh` — `pg_dump -Fc` из контейнера `db` в `<репозиторий>/backups/jkh_<UTC-время>.dump`
