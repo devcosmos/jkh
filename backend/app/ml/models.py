@@ -12,6 +12,7 @@ scripts/maintenance/register_model_version.py / import_analysis_to_db.py), а н
 DEFAULT_THRESHOLDS ниже — запасной вариант только для случая, когда у активной версии
 threshold не задан.
 """
+import hashlib
 import os
 import sys
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from catboost import CatBoostClassifier
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ml.features import ALL_FEATURES
 from app.models.entities import Channel, ModelVersion
 
 # Каталог с файлами моделей и replay-фидами worker'а — в контейнере том же, что в
@@ -68,16 +70,50 @@ class TrackRuntime:
     threshold: float
 
 
+def _resolve_artifact_path(default_name: str, artifact_path: str | None) -> Path:
+    """ML-07 (analys_and_todo.md): имя файла берётся из artifact_path зарегистрированной
+    версии (только basename — путь мог быть сохранён относительно другого окружения/этапа
+    реструктуризации каталогов, сам файл всегда ищется в DATA_DIR), а не всегда из фиксированного
+    catboost_<track>.cbm. Регистрация новой версии с другим именем файла (scripts/maintenance/
+    register_model_version.py --artifact-path) теперь реально меняет то, что грузит worker."""
+    name = Path(artifact_path).name if artifact_path else default_name
+    return DATA_DIR / name
+
+
+def _verify_artifact_hash(path: Path, expected_sha256: str | None, track_name: str) -> None:
+    if expected_sha256 is None:
+        print(
+            f"[{track_name}] активная версия без artifact_sha256 (зарегистрирована до ML-07) — "
+            "проверка целостности файла пропущена",
+            file=sys.stderr,
+        )
+        return
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected_sha256:
+        print(
+            f"[{track_name}] СТОП: {path} не совпадает по sha256 с зарегистрированной версией "
+            f"(ожидался {expected_sha256}, получен {actual}) — файл на диске подменён или устарел "
+            "относительно записи в БД",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _verify_feature_schema(model: CatBoostClassifier, track_name: str) -> None:
+    """Контракт признаков (app.ml.features.ALL_FEATURES) — та же гарантия, что и хеш файла, но
+    ловит другой класс ошибки: файл технически валиден и не подменён, но обучен на другом
+    наборе/порядке признаков (например, файл перепутан между треками)."""
+    actual = list(model.feature_names_)
+    if actual != ALL_FEATURES:
+        print(
+            f"[{track_name}] СТОП: схема признаков загруженной модели не совпадает с контрактом "
+            f"compute_features_for_channel — модель: {actual}, контракт: {ALL_FEATURES}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
-    model_path = DATA_DIR / f"catboost_{track.name}.cbm"
-    print(f"[{track.name}] loading model from {model_path}...", file=sys.stderr)
-    model = CatBoostClassifier()
-    model.load_model(str(model_path))
-
-    anomaly_path = DATA_DIR / f"isolation_forest_{track.name}.joblib"
-    print(f"[{track.name}] loading anomaly model from {anomaly_path}...", file=sys.stderr)
-    anomaly_bundle = joblib.load(anomaly_path)
-
     channels = list(db.scalars(select(Channel).where(Channel.sensor_type.in_(track.sensor_types))))
     model_version = db.scalar(
         select(ModelVersion).where(
@@ -91,6 +127,17 @@ def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    model_path = _resolve_artifact_path(f"catboost_{track.name}.cbm", model_version.artifact_path)
+    print(f"[{track.name}] loading model from {model_path} (model_version.id={model_version.id})...", file=sys.stderr)
+    _verify_artifact_hash(model_path, model_version.artifact_sha256, track.name)
+    model = CatBoostClassifier()
+    model.load_model(str(model_path))
+    _verify_feature_schema(model, track.name)
+
+    anomaly_path = DATA_DIR / f"isolation_forest_{track.name}.joblib"
+    print(f"[{track.name}] loading anomaly model from {anomaly_path}...", file=sys.stderr)
+    anomaly_bundle = joblib.load(anomaly_path)
 
     if model_version.threshold is not None:
         threshold = model_version.threshold

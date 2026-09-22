@@ -33,6 +33,7 @@ import_model_version/load_extra_metrics), а не копируется как е
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -99,6 +100,19 @@ def main() -> None:
     if args.report:
         metrics = build_metrics(args, json.loads(Path(args.report).read_text(encoding="utf-8")))
 
+    # ML-07 (analys_and_todo.md): worker (app/ml/models.py:load_track_runtime) сверяет sha256
+    # реально загруженного файла с этим значением при старте и отказывается запускаться при
+    # расхождении — записанный путь без проверки, что файл там реально существует, был бы
+    # молчаливой ложью в БД. artifact_path — только для человека (справочно, worker берёт
+    # basename и ищет в DATA_DIR — файл может физически лежать не там, где обучался).
+    artifact_path_str = args.artifact_path or f"artifacts/catboost_{args.track}.cbm"
+    artifact_file = Path(artifact_path_str)
+    if not artifact_file.is_absolute():
+        artifact_file = ROOT / artifact_file
+    if not artifact_file.exists():
+        sys.exit(f"файл артефакта не найден: {artifact_file} — регистрация отменена")
+    artifact_sha256 = hashlib.sha256(artifact_file.read_bytes()).hexdigest()
+
     db = SessionLocal()
     try:
         previous = list(
@@ -122,7 +136,8 @@ def main() -> None:
             train_period_end=dt.datetime.fromisoformat(args.train_end).replace(tzinfo=dt.timezone.utc),
             threshold=args.threshold,
             metrics=metrics,
-            artifact_path=args.artifact_path or f"artifacts/catboost_{args.track}.cbm",
+            artifact_path=artifact_path_str,
+            artifact_sha256=artifact_sha256,
             is_active=True,
         )
         db.add(new_version)

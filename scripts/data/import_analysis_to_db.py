@@ -19,6 +19,7 @@ dataset/, чтобы UI показывал реальные данные вме�
     source .venv/bin/activate && python3 scripts/data/import_analysis_to_db.py
 """
 import datetime as dt
+import hashlib
 import json
 import sys
 from dataclasses import dataclass
@@ -211,6 +212,9 @@ def load_extra_metrics(track: Track, report: dict) -> dict:
 def import_model_version(track: Track, db) -> int:
     print(f"[{track.name}] importing model version...", file=sys.stderr)
     report = json.loads((ARTIFACTS_DIR / f"model_report_{track.name}.json").read_text())
+    artifact_file = ARTIFACTS_DIR / f"catboost_{track.name}.cbm"
+    # ML-07 (analys_and_todo.md): worker сверяет это с реально загруженным файлом при старте.
+    artifact_sha256 = hashlib.sha256(artifact_file.read_bytes()).hexdigest()
     mv = ModelVersion(
         name=f"catboost_{track.name}_v1",
         sensor_types=track.sensor_types,
@@ -233,6 +237,7 @@ def import_model_version(track: Track, db) -> int:
             **load_extra_metrics(track, report),
         },
         artifact_path=f"artifacts/catboost_{track.name}.cbm",
+        artifact_sha256=artifact_sha256,
         is_active=True,
     )
     db.add(mv)

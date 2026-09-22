@@ -143,6 +143,11 @@ class ModelVersion(Base, TimestampMixin):
     threshold: Mapped[float | None] = mapped_column(Float)
     metrics: Mapped[dict | None] = mapped_column(JSON)
     artifact_path: Mapped[str | None] = mapped_column(String(512))
+    # ML-07 (analys_and_todo.md): hex sha256 файла модели на момент регистрации — worker
+    # (app/ml/models.py:load_track_runtime) сверяет с реально загруженным файлом при старте и
+    # отказывается запускаться при расхождении. NULL — для версий, зарегистрированных до
+    # появления этого поля (проверка тогда пропускается, не блокирует уже работающий демо-стенд).
+    artifact_sha256: Mapped[str | None] = mapped_column(String(64))
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
 
     predictions: Mapped[list["Prediction"]] = relationship(back_populates="model_version")
