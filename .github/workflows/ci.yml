@@ -37,6 +37,13 @@ jobs:
         # никогда не выполняется до прод-разворачивания.
         working-directory: backend
         run: alembic upgrade head
+      - name: Verify ORM matches migrations
+        # DB-01 (analys_and_todo.md): pytest создаёт схему через create_all, не через
+        # alembic — само по себе это скрывает расхождение определений между ORM и
+        # миграциями (найдено вручную на отдельной чистой БД). alembic check ловит его
+        # в CI на каждый PR, а не только при ручной проверке.
+        working-directory: backend
+        run: alembic check
       - name: Backend tests
         working-directory: backend
         run: python -m pytest tests/ -v

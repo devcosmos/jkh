@@ -176,8 +176,14 @@ class Prediction(Base, TimestampMixin):
         # Обслуживает паттерн "последний прогноз по риск-кейсу" (risks.py: latest_probability,
         # dashboard.py: open_with_anomaly) без сортировки всех прогнозов кейса в памяти —
         # см. миграцию a1b2c3d4e5f6 и docs/documentation/Технические_заметки.md, инцидент 21 сентября 2026.
-        Index("ix_predictions_risk_case_id_created_at", "risk_case_id", "created_at"),
-        Index("ix_predictions_category_created_at", "category", "created_at"),
+        #
+        # DB-01 (analys_and_todo.md): порядок сортировки второй колонки должен буквально
+        # совпадать с миграцией (created_at DESC) — plain "created_at" (ASC) даёт другой
+        # физический индекс, alembic check находил расхождение схемы между ORM и БД, хотя
+        # запросы всё ещё могли работать (Postgres умеет читать ASC-индекс в обратном
+        # порядке) - несовпадающее определение маскировало бы будущий дрейф схемы.
+        Index("ix_predictions_risk_case_id_created_at", "risk_case_id", text("created_at DESC")),
+        Index("ix_predictions_category_created_at", "category", text("created_at DESC")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
