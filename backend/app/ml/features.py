@@ -27,6 +27,15 @@ CAT_FEATURES = ["current_state", "тип_датчика"]
 ALL_FEATURES = NUM_FEATURES + CAT_FEATURES
 CAT_FEATURE_IDX = [ALL_FEATURES.index(f) for f in CAT_FEATURES]
 
+# ML-05 (analys_and_todo.md): realtime-приближение офлайновой «очищенного эпизода» без
+# доступа к будущему (label-policy.md, раздел 2 — офлайн строит эпизоды по всей истории,
+# включая ещё не наступившее восстановление). Тот же порог флаппинга, что и
+# ml/features/build_episodes.py (FLAP_THRESHOLD_PER_DAY), и тот же debounce (label-policy.md:
+# устойчивый эпизод — не короче часа).
+FAULT_STATE = "Неисправен"
+FLAP_THRESHOLD_PER_DAY = 10
+DEBOUNCE = dt.timedelta(hours=1)
+
 FEATURE_LABELS = {
     "n_alarms_1h": "Тревог за 1 час",
     "n_alarms_24h": "Тревог за 24 часа",
@@ -94,9 +103,17 @@ def compute_features_for_channel(
         {"cid": channel.id},
     ).scalar()
 
+    current_state = str(row["current_state"])
+    day_start = tick_end.replace(hour=0, minute=0, second=0, microsecond=0)
+
     t1h_cut = tick_end - dt.timedelta(hours=1)
     t24h_cut = tick_end - dt.timedelta(hours=24)
     n_trans_1h = n_trans_24h = n_trans_7d = 0
+    # Начало текущего непрерывного пробега current_state и число входов в "Неисправен" за
+    # сегодня — оба нужны только для in_fault_now ниже, без доступа к будущему (offline знает
+    # восстановление эпизода заранее, worker — нет).
+    current_run_start = None
+    n_fault_starts_today = 0
     for i, (event_time, state, prev_state) in enumerate(transitions):
         if i == 0 and prev_state is None:
             prev_state = watermark_state
@@ -106,6 +123,21 @@ def compute_features_for_channel(
                 n_trans_24h += 1
             if event_time > t1h_cut:
                 n_trans_1h += 1
+            if state == current_state:
+                current_run_start = event_time
+            if state == FAULT_STATE and event_time >= day_start:
+                n_fault_starts_today += 1
+
+    if current_run_start is None:
+        # Переход В текущее состояние не виден в пределах сохранённой истории — пробег
+        # левоцензурирован (label-policy.md: такие эпизоды не считаются новым, но заведомо
+        # длятся не меньше всей сохранённой истории) — debounce консервативно считаем пройденным.
+        run_duration = DEBOUNCE
+    else:
+        run_duration = tick_end - current_run_start
+
+    is_flapping_today = n_fault_starts_today > FLAP_THRESHOLD_PER_DAY
+    in_fault_now = current_state == FAULT_STATE and run_duration >= DEBOUNCE and not is_flapping_today
 
     # Соседи считаются только среди каналов своего трека (насос/вентилятор отдельно от
     # дым/газ) — так же, как в обучающей витрине, где events_raw уже отфильтрован по
@@ -146,5 +178,6 @@ def compute_features_for_channel(
         "n_neighbors_in_fault": n_neighbors_in_fault,
         "n_neighbors_total": n_neighbors_total,
         "frac_neighbors_in_fault": n_neighbors_in_fault / max(n_neighbors_total, 1),
-        "current_state": str(row["current_state"]),
+        "current_state": current_state,
+        "in_fault_now": in_fault_now,
     }

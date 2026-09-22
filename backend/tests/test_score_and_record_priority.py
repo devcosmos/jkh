@@ -22,6 +22,7 @@ FEATURES = {
     "seconds_since_last_event": 100.0,
     "n_neighbors_in_fault": 0, "frac_neighbors_in_fault": 0.0,
     "current_state": "Неисправен",
+    "in_fault_now": False,
 }
 
 
@@ -82,6 +83,49 @@ def test_moderate_probability_with_anomaly_is_escalated_to_high(db_session):
 
     rc = db_session.query(RiskCase).filter_by(channel_id=channel.id).one()
     assert rc.priority == "high"
+
+
+def test_in_fault_now_does_not_open_new_risk_case(db_session):
+    """ML-05 (analys_and_todo.md): label-policy.md, раздел 4 — канал, уже находящийся в
+    отказе, не входит в набор "исправных", для которых прогнозируется НОВЫЙ отказ; модель
+    никогда не обучалась и не оценивалась на этой популяции. compute_features_for_channel
+    ставит in_fault_now=True для устойчивого (не короче debounce, не флаппинг) "Неисправен" —
+    score_and_record не должен открывать риск-кейс в этом случае, даже если proba >= порога."""
+    channel, mv = _setup(db_session)
+    anomaly_bundle = {"model": FakeIsolationForest(is_outlier=False), "features": NUM_FEATURES}
+    features_in_fault = {**FEATURES, "in_fault_now": True}
+
+    proba = score_and_record(
+        db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.9), anomaly_bundle, channel,
+        features_in_fault, NOW, mv.id,
+    )
+    db_session.commit()
+
+    assert proba == 0.9  # вероятность по-прежнему возвращается (для журнала/логов тика)
+    assert db_session.query(RiskCase).filter_by(channel_id=channel.id).count() == 0
+
+
+def test_in_fault_now_still_updates_already_open_risk_case(db_session):
+    """in_fault_now касается только ОТКРЫТИЯ нового риск-кейса — уже открытый должен
+    продолжать получать новые Prediction (иначе close_stale_risk_cases закрыл бы его по
+    таймауту 48 часов, хотя канал всё ещё фактически неисправен)."""
+    channel, mv = _setup(db_session)
+    anomaly_bundle = {"model": FakeIsolationForest(is_outlier=False), "features": NUM_FEATURES}
+
+    score_and_record(db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.9), anomaly_bundle, channel, FEATURES, NOW, mv.id)
+    db_session.commit()
+    rc = db_session.query(RiskCase).filter_by(channel_id=channel.id).one()
+
+    features_in_fault = {**FEATURES, "in_fault_now": True}
+    score_and_record(
+        db_session, PUMP_FAN_TRACK, PUMP_FAN_THRESHOLD, FakeCatBoost(0.9), anomaly_bundle, channel,
+        features_in_fault, NOW + dt.timedelta(hours=1), mv.id,
+    )
+    db_session.commit()
+
+    assert db_session.query(RiskCase).filter_by(channel_id=channel.id).count() == 1
+    from app.models.entities import Prediction
+    assert db_session.query(Prediction).filter_by(risk_case_id=rc.id).count() == 2
 
 
 def test_priority_is_not_recomputed_for_already_open_risk_case(db_session):
