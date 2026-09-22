@@ -29,7 +29,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depend
 _OPEN_STATUSES = (RiskCaseStatus.new, RiskCaseStatus.observing, RiskCaseStatus.dispatched)
 # Раньше был захардкожен в 300с — ложно загорался красным каждый раз, когда
 # REPLAY_SLEEP_SECONDS (пауза между тиками воркера) увеличивали выше этого порога (см.
-# docs/Статус.md, инцидент 21 сентября: подняли до 365с, чтобы не наплодить риск-кейсов за
+# docs/documentation/Технические_заметки.md, инцидент 21 сентября: подняли до 365с, чтобы не наплодить риск-кейсов за
 # неделю, — индикатор тут же стал "протухшим" между каждым тиком). Читаем ту же переменную
 # окружения, что и сам воркер (app/workers/replay_worker.py), с запасом x2 + 60с на джиттер
 # автозакрытия/сети — не тот же процесс, поэтому дублируем чтение env, а не импортируем
@@ -107,7 +107,7 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
     # всех прогнозов когда-либо») — иначе и семантически неверно (важно текущее состояние,
     # не вся история), и на выросшей таблице (10M+ строк) join по ВСЕМ прогнозам каждого
     # кейса с JSONB-фильтром на каждой строке — full nested loop, ~1.2 сек даже с индексами
-    # (см. docs/Статус.md, инцидент 21 сентября 2026). Через «последний прогноз» —
+    # (см. docs/documentation/Технические_заметки.md, инцидент 21 сентября 2026). Через «последний прогноз» —
     # ровно одна JSONB-проверка на кейс.
     latest_prediction_id = (
         select(Prediction.id)
@@ -161,7 +161,7 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
     #
     # Точка отсчёта — max(opened_at) в самих данных, не datetime.now(): на выросшей таблице
     # (120k+ строк, часть дат виртуальная/историческая) агрегация БЕЗ границы по времени —
-    # full scan всей таблицы (см. docs/Статус.md, инцидент 21 сентября 2026: /dashboard/summary
+    # full scan всей таблицы (см. docs/documentation/Технические_заметки.md, инцидент 21 сентября 2026: /dashboard/summary
     # — 16.7 сек на проде). Граница отсекает 99%+ строк ДО group by, а не после.
     anchor_stmt = select(func.max(RiskCase.opened_at))
     if accessible is not None:
@@ -198,7 +198,7 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
         ]
 
     # Топ-5 каналов с растущей частотой "чистых" эпизодов — доп. сигнал внутри «Отказ
-    # датчика», не «Износ инфраструктуры» (см. docs/ТЗ_тренд_деградации_канала.md, раздел
+    # датчика», не «Износ инфраструктуры» (см. docs/documentation/Тренд_частоты_эпизодов.md, раздел
     # 5.2.3). Кандидаты — каналы, у которых вообще есть хоть один не-флаппинг эпизод
     # (иначе тренд для них всегда insufficient_data и они не полезны в топе).
     candidate_channels_stmt = (

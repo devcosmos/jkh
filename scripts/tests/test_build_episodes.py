@@ -1,5 +1,5 @@
-"""Тесты границ эпизода и правила флаппинга scripts/build_episodes.py (docs/label-policy.md,
-раздел 2; docs/data-audit.md, разделы 6.1-6.6): run-length по состоянию, left/right
+"""Тесты границ эпизода и правила флаппинга scripts/build_episodes.py (docs/documentation/label-policy.md,
+раздел 2; docs/documentation/data-audit.md, разделы 6.1-6.6): run-length по состоянию, left/right
 censoring, порог >10 переходов в «Неисправен» за календарные сутки = технический инцидент.
 
 Запуск: source .venv/bin/activate && python3 -m pytest scripts/tests/ -v

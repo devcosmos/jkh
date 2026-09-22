@@ -11,7 +11,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-OUT_DIR = ROOT / "docs" / "analysis"
+OUT_DIR = ROOT / "docs" / "documentation" / "analysis"
 
 REPLAY_START = "2025-07-01"  # начало test-периода в train_model*.py — честно "невиданные" данные
 STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]  # см. scripts/build_episodes.py

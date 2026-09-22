@@ -1,12 +1,12 @@
 """Тренд деградации канала — доп. сигнал внутри направления «Отказ датчика», не отдельное
 направление «Износ инфраструктуры» (для него нет и не будет данных о возрасте оборудования,
-см. docs/ТЗ_тренд_деградации_канала.md, раздел 1). Считает, растёт или падает частота
+см. docs/documentation/Тренд_частоты_эпизодов.md, раздел 1). Считает, растёт или падает частота
 «чистых» (не флаппинг) эпизодов неисправности канала за последние 90 дней против
 предыдущих 90 — наблюдаемый факт по истории, не прогноз физического износа.
 
 Пороги (RECENT/BASELINE_WINDOW_DAYS, MIN_TOTAL_EPISODES, WORSENING/IMPROVING_RATIO,
 MIN_ABSOLUTE_DELTA) — рабочая эвристика, ревизуемая, того же рода, что debounce/флаппинг-пороги
-в docs/label-policy.md и MIN_BIN_SIZE в scripts/compute_calibration.py.
+в docs/documentation/label-policy.md и MIN_BIN_SIZE в scripts/compute_calibration.py.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ TrendStatus = Literal["worsening", "stable", "improving", "insufficient_data"]
 def get_as_of(db: Session) -> dt.datetime | None:
     """Точка отсчёта — максимальная дата в самих данных, не datetime.now(): таблица
     incident_episodes наполняется только разовым импортом и не растёт со временем
-    (см. docs/ТЗ_тренд_деградации_канала.md, раздел 2/3 — та же ловушка, что уже была
+    (см. docs/documentation/Тренд_частоты_эпизодов.md, раздел 2/3 — та же ловушка, что уже была
     в JournalPage.tsx с датой "устаревания")."""
     return db.scalar(select(func.max(IncidentEpisode.start_time)))
 

@@ -1,5 +1,5 @@
 """Обучает базовую линию и CatBoost на витрине признаков дыма/газа
-(scripts/build_features_дым_газ.py) — второй проверенный тип (docs/data-audit.md, 6.6).
+(scripts/build_features_дым_газ.py) — второй проверенный тип (docs/documentation/data-audit.md, 6.6).
 Тот же протокол train/validation/test и разрыв 24ч, что и в scripts/train_model.py.
 
 Запуск: source .venv/bin/activate && python3 scripts/train_model_дым_газ.py
@@ -14,8 +14,8 @@ from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
 ROOT = Path(__file__).resolve().parent.parent
-FEATURES_PARQUET = ROOT / "docs" / "analysis" / "features_дым_газ_2024_2026.parquet"
-OUT_REPORT = ROOT / "docs" / "analysis" / "model_report_дым_газ.json"
+FEATURES_PARQUET = ROOT / "docs" / "documentation" / "analysis" / "features_дым_газ_2024_2026.parquet"
+OUT_REPORT = ROOT / "docs" / "documentation" / "analysis" / "model_report_дым_газ.json"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 VAL_END = pd.Timestamp("2025-07-01")
@@ -147,7 +147,7 @@ def main() -> None:
     baseline_result["roc_auc_val"] = float(roc_auc_score(y_val, baseline_val))
     baseline_result["pr_auc_val"] = float(average_precision_score(y_val, baseline_val))
 
-    model.save_model(str(ROOT / "docs" / "analysis" / "catboost_дым_газ.cbm"))
+    model.save_model(str(ROOT / "docs" / "documentation" / "analysis" / "catboost_дым_газ.cbm"))
     scored = pd.concat(
         [
             val[["channel_id", "ts", "y_true"]].assign(score=scores_val, split="val"),
@@ -155,7 +155,7 @@ def main() -> None:
         ],
         ignore_index=True,
     )
-    scored.to_parquet(ROOT / "docs" / "analysis" / "scored_дым_газ.parquet")
+    scored.to_parquet(ROOT / "docs" / "documentation" / "analysis" / "scored_дым_газ.parquet")
 
     report = {
         "train_end": str(TRAIN_END), "val_end": str(VAL_END), "gap_hours": 24,

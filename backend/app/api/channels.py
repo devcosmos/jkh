@@ -99,7 +99,7 @@ def list_channels(
 
     if include_trend and channels:
         # Батч-запрос на всю уже отфильтрованную/пагинированную страницу — не по одному
-        # каналу (см. docs/ТЗ_тренд_деградации_канала.md, раздел 5.2.2). Не считается по
+        # каналу (см. docs/documentation/Тренд_частоты_эпизодов.md, раздел 5). Не считается по
         # умолчанию — лишняя нагрузка, если фронту не нужно.
         trends = compute_trend_for_channels(db, [c.id for c in channels])
         for c in channels:
@@ -153,7 +153,7 @@ def get_channel_degradation_trend(
     channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ) -> DegradationTrendOut:
     """Доп. сигнал внутри «Отказ датчика» — динамика частоты эпизодов, не прогноз износа
-    оборудования. См. docs/ТЗ_тренд_деградации_канала.md."""
+    оборудования. См. docs/documentation/Тренд_частоты_эпизодов.md."""
     ch = db.get(Channel, channel_id)
     if ch is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Канал не найден")

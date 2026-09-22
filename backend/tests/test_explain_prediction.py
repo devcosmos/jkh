@@ -8,7 +8,7 @@ from catboost import CatBoostClassifier
 
 from app.workers.replay_worker import ALL_FEATURES, explain_prediction
 
-MODEL_PATH = Path(__file__).resolve().parents[2] / "docs" / "analysis" / "catboost_насос_вентилятор.cbm"
+MODEL_PATH = Path(__file__).resolve().parents[2] / "docs" / "documentation" / "analysis" / "catboost_насос_вентилятор.cbm"
 
 
 @pytest.fixture(scope="module")

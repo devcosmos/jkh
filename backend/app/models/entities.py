@@ -1,6 +1,6 @@
 """ORM-модели по разделу 7.3 плана реализации.
 
-Упрощения для MVP (см. docs/Статус.md за 15 сентября 2026):
+Упрощения для MVP (см. docs/documentation/Технические_заметки.md за 15 сентября 2026):
 - Геометрия объекта хранится как nullable WKT-текст, а не PostGIS Geometry — в
   справочнике объектов сейчас нет ни одной координаты (95 объектов без геометрии),
   подключать PostGIS до появления реальных геоданных нет смысла. Переход на
@@ -111,7 +111,7 @@ class Channel(Base, TimestampMixin):
 
 
 class IncidentEpisode(Base, TimestampMixin):
-    """Очищенный эпизод отказа — см. docs/label-policy.md и scripts/build_episodes.py."""
+    """Очищенный эпизод отказа — см. docs/documentation/label-policy.md и scripts/build_episodes.py."""
 
     __tablename__ = "incident_episodes"
 
@@ -155,7 +155,7 @@ class RiskCase(Base, TimestampMixin):
     category: Mapped[str] = mapped_column(String(64), default="sensor_failure")
     # index=True на status/opened_at/closed_at — без них /dashboard/summary и /risk-cases на
     # выросшей за время работы воркера таблице (120k+ строк) делают full scan (см.
-    # docs/Статус.md, инцидент 21 сентября 2026: /dashboard/summary — 16.7 сек).
+    # docs/documentation/Технические_заметки.md, инцидент 21 сентября 2026: /dashboard/summary — 16.7 сек).
     status: Mapped[RiskCaseStatus] = mapped_column(Enum(RiskCaseStatus), default=RiskCaseStatus.new, index=True)
     priority: Mapped[str | None] = mapped_column(String(32))
     opened_at: Mapped[dt.datetime] = mapped_column(
@@ -174,7 +174,7 @@ class Prediction(Base, TimestampMixin):
     __table_args__ = (
         # Обслуживает паттерн "последний прогноз по риск-кейсу" (risks.py: latest_probability,
         # dashboard.py: open_with_anomaly) без сортировки всех прогнозов кейса в памяти —
-        # см. миграцию a1b2c3d4e5f6 и docs/Статус.md, инцидент 21 сентября 2026.
+        # см. миграцию a1b2c3d4e5f6 и docs/documentation/Технические_заметки.md, инцидент 21 сентября 2026.
         Index("ix_predictions_risk_case_id_created_at", "risk_case_id", "created_at"),
         Index("ix_predictions_category_created_at", "category", "created_at"),
     )
@@ -196,7 +196,7 @@ class Prediction(Base, TimestampMixin):
     llm_summary: Mapped[str | None] = mapped_column(Text)
     # Переопределяет TimestampMixin.created_at только для этой таблицы — добавляет index=True
     # (сама таблица растёт на порядки быстрее остальных: 8.7M+ строк, ORDER BY/MAX по
-    # created_at без индекса — full scan, см. docs/Статус.md, инцидент 21 сентября 2026).
+    # created_at без индекса — full scan, см. docs/documentation/Технические_заметки.md, инцидент 21 сентября 2026).
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc), index=True
     )

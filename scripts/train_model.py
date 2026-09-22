@@ -14,8 +14,8 @@ from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
 ROOT = Path(__file__).resolve().parent.parent
-FEATURES_PARQUET = ROOT / "docs" / "analysis" / "features_насос_вентилятор_2024_2026.parquet"
-OUT_REPORT = ROOT / "docs" / "analysis" / "model_report_насос_вентилятор.json"
+FEATURES_PARQUET = ROOT / "docs" / "documentation" / "analysis" / "features_насос_вентилятор_2024_2026.parquet"
+OUT_REPORT = ROOT / "docs" / "documentation" / "analysis" / "model_report_насос_вентилятор.json"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 VAL_END = pd.Timestamp("2025-07-01")
@@ -148,7 +148,7 @@ def main() -> None:
     baseline_result["roc_auc_val"] = float(roc_auc_score(y_val, baseline_val))
     baseline_result["pr_auc_val"] = float(average_precision_score(y_val, baseline_val))
 
-    model.save_model(str(ROOT / "docs" / "analysis" / "catboost_насос_вентилятор.cbm"))
+    model.save_model(str(ROOT / "docs" / "documentation" / "analysis" / "catboost_насос_вентилятор.cbm"))
     scored = pd.concat(
         [
             val[["channel_id", "ts", "y_true"]].assign(score=scores_val, split="val"),
@@ -156,7 +156,7 @@ def main() -> None:
         ],
         ignore_index=True,
     )
-    scored.to_parquet(ROOT / "docs" / "analysis" / "scored_насос_вентилятор.parquet")
+    scored.to_parquet(ROOT / "docs" / "documentation" / "analysis" / "scored_насос_вентилятор.parquet")
 
     report = {
         "train_end": str(TRAIN_END), "val_end": str(VAL_END), "gap_hours": 24,

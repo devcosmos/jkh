@@ -1,6 +1,6 @@
 """Считает SHAP-объяснения ЛОКАЛЬНО (без подключения к прод-БД) для набора прогнозов,
 выгруженного с прода заранее, и генерирует один SQL-файл с UPDATE-выражениями — применяется
-на проде отдельной командой через `docker exec -i ... psql -f -` (см. docs/Статус.md,
+на проде отдельной командой через `docker exec -i ... psql -f -` (см. docs/documentation/Технические_заметки.md,
 запись 21 сентября — "локальные вычисления, потом дамп на прод", не живой SSH-туннель).
 
 Вход: CSV без заголовка, колонки category,prediction_id,external_channel_id,created_at —
@@ -18,7 +18,7 @@ import duckdb
 import joblib
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "analysis"
+ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.workers.replay_worker import (  # noqa: E402

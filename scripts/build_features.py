@@ -1,5 +1,5 @@
 """Строит витрину признаков на часовой сетке для «Отказ датчика» (насос, вентилятор)
-согласно docs/label-policy.md: окна 1ч/24ч/7сут, цель y(t) = новый очищенный эпизод
+согласно docs/documentation/label-policy.md: окна 1ч/24ч/7сут, цель y(t) = новый очищенный эпизод
 в (t, t+24ч]. Текущая неисправность на момент t исключается из обучающей популяции.
 
 Запуск: source .venv/bin/activate && python3 scripts/build_features.py
@@ -11,7 +11,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "docs" / "analysis"
+ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
 
 YEARS = ["2024", "2025", "2026"]
 TARGET_TYPES = ["Состояние насоса", "Состояние вентилятора"]

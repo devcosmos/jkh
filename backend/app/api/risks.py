@@ -105,7 +105,7 @@ def list_risk_cases(
 
     # Пагинация по всем страницам (не только "последние N") — раздел «Риски» и остальные
     # списки админки иначе показывали только первую страницу без способа посмотреть
-    # остальное (см. docs/Статус.md, запись 21 сентября). Total считаем тем же набором
+    # остальное (см. docs/documentation/Технические_заметки.md, запись 21 сентября). Total считаем тем же набором
     # фильтров, но без join/order по вероятности (та нужна только для сортировки, не влияет
     # на количество строк) — отдельный дешёвый count(*) по RiskCase.
     count_stmt = select(func.count()).select_from(RiskCase).join(Channel, Channel.id == RiskCase.channel_id)
@@ -225,7 +225,7 @@ def add_decision(
         rc.status = RiskCaseStatus.dispatched
         # Единственный источник заявок — раньше решение диспетчера и заявка на обслуживание
         # были не связаны, «направить на проверку» ничего не создавало в «Заявках» (см.
-        # docs/Статус.md). Идемпотентно.
+        # docs/documentation/Технические_заметки.md). Идемпотентно.
         ensure_request_for_dispatch(db, rc, rc.channel, user, payload.reason)
     elif payload.action.value == "observe":
         rc.status = RiskCaseStatus.observing

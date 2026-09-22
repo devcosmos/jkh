@@ -2,7 +2,7 @@
 
 Мотивация: CatBoost — обучен на размеченных отказах, поэтому находит только уже виденные
 паттерны (раздел «Открытые вопросы»: разметка по состоянию датчика, не по факту поломки —
-см. docs/label-policy.md). IsolationForest — без учителя, на тех же поведенческих
+см. docs/documentation/label-policy.md). IsolationForest — без учителя, на тех же поведенческих
 признаках (частоты событий/тревог/переходов, время с последнего события, доля соседей в
 отказе), поэтому может заметить необычное поведение канала, не похожее ни на один из
 известных сценариев отказа — независимая проверка вместо второго мнения той же модели.
@@ -23,7 +23,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "analysis"
+ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 GAP = pd.Timedelta(hours=24)
@@ -83,7 +83,7 @@ def main() -> None:
         print(f"[{track}] saved -> {out_path}")
 
     (ANALYSIS_DIR / "anomaly_model_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    print("report -> docs/analysis/anomaly_model_report.json")
+    print("report -> docs/documentation/analysis/anomaly_model_report.json")
 
 
 if __name__ == "__main__":

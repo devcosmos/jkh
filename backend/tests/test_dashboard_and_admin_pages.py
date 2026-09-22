@@ -152,7 +152,7 @@ def test_dashboard_summary_flags_stale_worker(client, db_session, auth_headers):
 def test_stale_threshold_tracks_replay_sleep_seconds(client, db_session, auth_headers, monkeypatch):
     """Порог "протух" должен расти вместе с паузой между тиками воркера (REPLAY_SLEEP_SECONDS)
     — иначе индикатор ложно горит красным между каждым тиком, если паузу увеличили (см.
-    docs/Статус.md, инцидент 21 сентября: подняли REPLAY_SLEEP_SECONDS до 365с, порог
+    docs/documentation/Технические_заметки.md, инцидент 21 сентября: подняли REPLAY_SLEEP_SECONDS до 365с, порог
     остался захардкожен в 300с)."""
     import app.api.dashboard as dashboard_module
 
@@ -193,7 +193,7 @@ def test_dashboard_summary_daily_volume_counts_opened_and_closed(client, db_sess
 
 def test_dashboard_summary_anomaly_reflects_only_latest_prediction(client, db_session, auth_headers):
     """Если старый прогноз был аномальным, а последний — нет, кейс не должен считаться
-    аномальным сейчас (важно текущее состояние, не вся история — см. docs/Статус.md,
+    аномальным сейчас (важно текущее состояние, не вся история — см. docs/documentation/Технические_заметки.md,
     инцидент 21 сентября 2026 про этот же запрос)."""
     obj = Object(name="Объект с устаревшей аномалией")
     db_session.add(obj)

@@ -1,4 +1,4 @@
-"""Переходы статусов заявки (docs/План_реализации.md, раздел 10):
+"""Переходы статусов заявки (docs/documentation/Устройство_системы.md, раздел «Сценарий диспетчера»):
 draft -> approved -> in_progress -> completed; + rejected, cancelled. Терминальные статусы
 не допускают дальнейших переходов. Права: approve/transitions только dispatcher/admin."""
 import datetime as dt

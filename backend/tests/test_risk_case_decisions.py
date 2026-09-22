@@ -1,5 +1,5 @@
 """Решения диспетчера по риск-кейсу (POST /risk-cases/{id}/decisions) — переходы статуса
-и права доступа (только dispatcher/analyst/admin, docs/План_реализации.md, раздел 9.1)."""
+и права доступа (только dispatcher/analyst/admin, docs/documentation/Устройство_системы.md, раздел «Сценарий диспетчера»)."""
 import datetime as dt
 
 from app.models.entities import Channel, RiskCase

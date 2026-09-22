@@ -1,6 +1,6 @@
 """Строит манифест всех файлов датасета: путь, размер, контрольная сумма, число строк CSV.
 
-Запуск: source .venv/bin/activate && python3 scripts/manifest.py > docs/data-manifest.json
+Запуск: source .venv/bin/activate && python3 scripts/manifest.py > docs/documentation/data-manifest.json
 """
 import hashlib
 import json

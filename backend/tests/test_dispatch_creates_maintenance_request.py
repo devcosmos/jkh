@@ -1,7 +1,7 @@
 """Решение диспетчера «направить на проверку» должно быть видно в разделе «Заявки» — до
 этой правки Decision(action=dispatch) и MaintenanceRequest были не связаны: диспетчер мог
 направить риск на проверку, а раздел «Заявки» оставался пустым, если раньше не сработало
-авто-правило worker'а по порогу вероятности (см. docs/Статус.md, app.services.maintenance_requests)."""
+авто-правило worker'а по порогу вероятности (см. docs/documentation/Технические_заметки.md, app.services.maintenance_requests)."""
 import datetime as dt
 
 from app.models.entities import Channel, MaintenanceRequest, Object, RiskCase

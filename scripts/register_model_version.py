@@ -8,12 +8,12 @@
 import_analysis_to_db.py — повторно обучить и подключить модель без правки кода было нельзя.
 
 Полный цикл дообучения:
-  1. Обучить новую модель локально (см. docs/data-audit.md, раздел с описанием пайплайна):
+  1. Обучить новую модель локально (см. docs/documentation/data-audit.md, раздел с описанием пайплайна):
        python3 scripts/train_model.py            # насос/вентилятор
        python3 scripts/train_model_дым_газ.py     # дым/газ
-     Каждый скрипт сохраняет .cbm и model_report_<track>.json в docs/analysis/.
+     Каждый скрипт сохраняет .cbm и model_report_<track>.json в docs/documentation/analysis/.
   2. Скопировать новый .cbm в data/ (тот каталог, который читает worker, REPLAY_DATA_DIR):
-       cp docs/analysis/catboost_насос_вентилятор.cbm data/catboost_насос_вентилятор.cbm
+       cp docs/documentation/analysis/catboost_насос_вентилятор.cbm data/catboost_насос_вентилятор.cbm
   3. Зарегистрировать новую версию в БД этим скриптом (деактивирует старую того же трека):
        JKH_DATABASE_URL=... python3 scripts/register_model_version.py \\
          --track насос_вентилятор \\

@@ -1,4 +1,4 @@
-"""Локальная JWT-аутентификация (docs/План_реализации.md — LDAP/AD отложены для MVP)."""
+"""Локальная JWT-аутентификация (docs/documentation/Устройство_системы.md — LDAP/AD отложены для MVP)."""
 from app.core.security import hash_password
 from app.models.entities import User
 from app.models.enums import UserRole

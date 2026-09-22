@@ -2,7 +2,7 @@
 на последний прогноз каждого риск-кейса (любого статуса, включая закрытые/отклонённые —
 изначально (20 сентября) покрывались только открытые: RiskCard.tsx на тот момент запрашивал
 "последний прогноз по каналу", где для закрытых кейсов заглушка была не так заметна. После
-исправления RiskCard.tsx на честный `risk_case_id`-фильтр (21 сентября, docs/Статус.md)
+исправления RiskCard.tsx на честный `risk_case_id`-фильтр (21 сентября, docs/documentation/Технические_заметки.md)
 неполный backfill стал видимым пробелом: закрытые кейсы показывали "Объяснение недоступно"
 вместо реального SHAP, хотя признаки для их прогнозов физически есть в тех же parquet-файлах,
 что и для открытых. Ограничение на статус снято — расхождение источника было только в охвате
@@ -25,7 +25,7 @@ import joblib
 from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "analysis"
+ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import SessionLocal  # noqa: E402

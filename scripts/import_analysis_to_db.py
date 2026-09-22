@@ -1,4 +1,4 @@
-"""Наполняет реальную БД (backend/app/models) готовыми артефактами из docs/analysis/ и
+"""Наполняет реальную БД (backend/app/models) готовыми артефактами из docs/documentation/analysis/ и
 dataset/, чтобы UI показывал реальные данные вместо пустых списков.
 
 Импортирует: объекты, каналы (насос/вентилятор/дым/газ) с привязкой к объекту через поле
@@ -12,7 +12,7 @@ dataset/, чтобы UI показывал реальные данные вме�
 Рабочий порог каждого трека — не «жёсткий» 0.7/0.5 (тема 3 CSV: «указанные значения являются
 плановыми, а не жёсткими требованиями… если данные не позволяют достичь этих уровней, их
 можно снизить, обязательно обосновав»), а лучшая точка по эпизодной оценке
-(scripts/evaluate_episodes*.py, docs/analysis/episode_evaluation_*.json) — см. TRACKS ниже.
+(scripts/evaluate_episodes*.py, docs/documentation/analysis/episode_evaluation_*.json) — см. TRACKS ниже.
 
 Запуск (после открытия SSH-туннеля к Postgres на сервере):
   JKH_DATABASE_URL=postgresql+psycopg://jkh:<пароль>@localhost:5555/jkh \
@@ -43,7 +43,7 @@ from app.models.entities import (  # noqa: E402
 from app.models.enums import EpisodeSource, RiskCaseStatus  # noqa: E402
 
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "docs" / "analysis"
+ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
 CORE_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"]
 LABEL_POLICY_VERSION = "2026-09-15"
 
@@ -52,13 +52,13 @@ LABEL_POLICY_VERSION = "2026-09-15"
 # риск-кейсов/8,8М прогнозов (плохая калибровка модели -> много отдельных "прогонов"
 # предупреждений на каждый из ~5400 каналов), что заметно нагружало админку и делало её
 # неудобной для разбора конкретных кейсов. incident_episodes НЕ сужены (остаются
-# 2024-2026) — от них зависит тренд деградации канала (docs/ТЗ_тренд_деградации_канала.md,
+# 2024-2026) — от них зависит тренд деградации канала (docs/documentation/Тренд_частоты_эпизодов.md,
 # окно 90+90 дней), а объём там и так небольшой (182k строк), не источник проблемы.
 BACKFILL_WINDOW_START = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
 
 # Минимальное автозакрытие (без него на годе данных по тысячам каналов набегает
 # нереалистичный объём вечно открытых риск-кейсов — 113 тыс. при лучших по recall порогах,
-# см. docs/Статус.md, запись от 20 сентября). Если по каналу не было нового прогноза выше
+# см. docs/documentation/Технические_заметки.md, запись от 20 сентября). Если по каналу не было нового прогноза выше
 # порога дольше этого окна — считаем ситуацию нормализовавшейся и закрываем кейс сами
 # (упрощение MVP: без подтверждения фактического ремонта). При окне 48ч на конец бэкфилла
 # остаётся ~14 открытых кейсов насос/вентилятор и ~158 дым/газ — управляемо для одного
@@ -68,7 +68,7 @@ AUTO_CLOSE_AFTER_HOURS = 48
 
 @dataclass(frozen=True)
 class Track:
-    name: str  # суффикс файлов в docs/analysis/
+    name: str  # суффикс файлов в docs/documentation/analysis/
     category: str  # RiskCase.category / Prediction.category — различает независимые треки в UI
     sensor_types: str  # ModelVersion.sensor_types, через запятую
     threshold: float  # лучшая точка по episode_evaluation_*.json, см. model_report_*.md, раздел 3
@@ -232,7 +232,7 @@ def import_model_version(track: Track, db) -> int:
             ),
             **load_extra_metrics(track, report),
         },
-        artifact_path=f"docs/analysis/catboost_{track.name}.cbm",
+        artifact_path=f"docs/documentation/analysis/catboost_{track.name}.cbm",
         is_active=True,
     )
     db.add(mv)

@@ -42,7 +42,7 @@ export type DegradationTrendStatus = "worsening" | "stable" | "improving" | "ins
 
 // Динамика частоты "чистых" эпизодов неисправности канала — НЕ прогноз износа оборудования
 // (данных о возрасте/дате установки нет и не будет). См.
-// docs/ТЗ_тренд_деградации_канала.md, раздел 7 — обязательная оговорка везде, где показано.
+// docs/documentation/Тренд_частоты_эпизодов.md, раздел 7 — обязательная оговорка везде, где показано.
 export interface DegradationTrendOut {
   channel_id: number;
   as_of: string;

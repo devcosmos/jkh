@@ -13,7 +13,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-OUT_DIR = ROOT / "docs" / "analysis"
+OUT_DIR = ROOT / "docs" / "documentation" / "analysis"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]
@@ -27,7 +27,7 @@ EVENT_COLUMN_TYPES = {
 }
 
 # Канал, дающий больше этого числа переходов в "Неисправен" за один календарный день,
-# считается флаппингом/техническим инцидентом (см. docs/data-audit.md, разделы 6.4-6.5),
+# считается флаппингом/техническим инцидентом (см. docs/documentation/data-audit.md, разделы 6.4-6.5),
 # а не независимыми отказами.
 FLAP_THRESHOLD_PER_DAY = 10
 

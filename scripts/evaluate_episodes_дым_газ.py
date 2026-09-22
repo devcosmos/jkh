@@ -10,7 +10,7 @@ import duckdb
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "analysis"
+ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
 SCORED_PARQUET = ANALYSIS_DIR / "scored_дым_газ.parquet"
 EPISODES_PARQUET = ANALYSIS_DIR / "episodes_дым_газ_2024_2026.parquet"
 OUT_REPORT = ANALYSIS_DIR / "episode_evaluation_дым_газ.json"
