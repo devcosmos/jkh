@@ -24,6 +24,9 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-haiku-4-5-20251001"
+# Вызывается синхронно из GET-запроса карточки риска — без явного тайм-аута повисший
+# сторонний API держал бы поток обработки запроса неограниченно долго.
+REQUEST_TIMEOUT_SECONDS = 20.0
 
 SYSTEM_PROMPT = (
     "Ты помогаешь диспетчеру объединённой диспетчерской службы быстро понять, почему "
@@ -65,7 +68,7 @@ def generate_dispatcher_summary(explanation: dict | None, probability: float) ->
     user_prompt = _build_user_prompt(top_features, probability, anomaly.get("is_outlier"))
 
     try:
-        client_kwargs = {"api_key": settings.anthropic_api_key}
+        client_kwargs = {"api_key": settings.anthropic_api_key, "timeout": REQUEST_TIMEOUT_SECONDS}
         if settings.anthropic_base_url:
             client_kwargs["base_url"] = settings.anthropic_base_url
         client = anthropic.Anthropic(**client_kwargs)

@@ -206,8 +206,17 @@ def get_prediction_summary(
     check_object_access(prediction.channel.object_id, user, db)
 
     if prediction.llm_summary is None:
-        summary = generate_dispatcher_summary(prediction.explanation, prediction.probability)
-        if summary is not None:
-            prediction.llm_summary = summary
-            db.commit()
+        # SELECT ... FOR UPDATE — если два запроса карточки одного прогноза придут
+        # одновременно, второй ждёт здесь коммита первого и затем видит уже посчитанный
+        # llm_summary вместо повторного (платного) обращения к LLM. Без блокировки оба
+        # прочли бы llm_summary=None и оба вызвали бы API.
+        locked = db.execute(
+            select(Prediction).where(Prediction.id == prediction_id).with_for_update()
+        ).scalar_one()
+        if locked.llm_summary is None:
+            summary = generate_dispatcher_summary(locked.explanation, locked.probability)
+            if summary is not None:
+                locked.llm_summary = summary
+        db.commit()
+        return {"summary": locked.llm_summary}
     return {"summary": prediction.llm_summary}
