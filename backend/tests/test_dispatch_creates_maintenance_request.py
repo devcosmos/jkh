@@ -4,8 +4,9 @@
 авто-правило worker'а по порогу вероятности (см. docs/documentation/Технические_заметки.md, app.services.maintenance_requests)."""
 import datetime as dt
 
-from app.models.entities import Channel, MaintenanceRequest, Object, RiskCase
+from app.models.entities import Channel, MaintenanceRequest, Object, RiskCase, User
 from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus, UserRole
+from app.services import maintenance_requests as maintenance_requests_module
 
 NOW = dt.datetime.now(dt.timezone.utc)
 
@@ -58,6 +59,43 @@ def test_dispatch_is_idempotent_with_existing_active_request(client, db_session,
 
     requests = db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).all()
     assert len(requests) == 1
+
+
+def test_concurrent_dispatch_race_does_not_duplicate_request(db_session, monkeypatch):
+    """ensure_request_for_dispatch делает find-then-insert без блокировки — если две
+    транзакции одновременно проходят find_active_request до того, как любая закоммитит,
+    обе решат, что заявки ещё нет. Ловит ix_maintenance_requests_active_dedup (партиционный
+    уникальный индекс), а не find_active_request. Симулируем окно гонки: подменяем
+    find_active_request так, чтобы ПЕРВЫЙ вызов не увидел уже закоммиченную конкурентную
+    заявку (как будто наш SELECT физически выполнился до чужого COMMIT), и проверяем, что
+    функция не падает 500-й, а возвращает существующую заявку."""
+    rc = _make_case(db_session)
+    user = User(username="race-dispatcher", password_hash="x", role=UserRole.dispatcher)
+    db_session.add(user)
+    db_session.commit()
+
+    winner = MaintenanceRequest(
+        risk_case_id=rc.id, work_type="Диагностика и ТО насоса", status=MaintenanceRequestStatus.draft,
+    )
+    db_session.add(winner)
+    db_session.commit()
+
+    real_find = maintenance_requests_module.find_active_request
+    calls = {"n": 0}
+
+    def fake_find(db, risk_case_id, work_type):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None  # окно гонки: "не увидели" уже существующую заявку
+        return real_find(db, risk_case_id, work_type)
+
+    monkeypatch.setattr(maintenance_requests_module, "find_active_request", fake_find)
+
+    result = maintenance_requests_module.ensure_request_for_dispatch(db_session, rc, rc.channel, user, None)
+
+    assert result is not None
+    assert result.id == winner.id
+    assert db_session.query(MaintenanceRequest).filter_by(risk_case_id=rc.id).count() == 1
 
 
 def test_dispatch_without_work_type_template_does_not_crash(client, db_session, auth_headers):

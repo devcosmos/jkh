@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.entities import AuditLog, Channel, MaintenanceRequest, RiskCase, User
@@ -67,8 +68,19 @@ def ensure_request_for_dispatch(
         priority=risk_case.priority,
         status=MaintenanceRequestStatus.draft,
     )
-    db.add(request)
-    db.flush()
+    try:
+        # SAVEPOINT, а не просто flush — конфликт должен откатить только этот insert, а не
+        # всю транзакцию запроса (в risks.py к этому моменту уже изменён rc.status и это не
+        # должно потеряться, если два диспетчера одновременно нажали «направить на проверку»
+        # по одному риск-кейсу — ловит ix_maintenance_requests_active_dedup).
+        with db.begin_nested():
+            db.add(request)
+            db.flush()
+    except IntegrityError:
+        existing = find_active_request(db, risk_case.id, work_type)
+        if existing is not None:
+            return existing
+        raise
     db.add(
         AuditLog(
             user_id=user.id,

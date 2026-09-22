@@ -29,6 +29,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -236,6 +237,21 @@ class MaintenanceRequest(Base, TimestampMixin):
 
     risk_case: Mapped[RiskCase] = relationship(back_populates="maintenance_requests")
     approved_by: Mapped["User | None"] = relationship()
+
+    __table_args__ = (
+        # Ловит гонку двух одновременных «направить на проверку» на одном риск-кейсе — см.
+        # app/services/maintenance_requests.py:ensure_request_for_dispatch, которая делает
+        # find-then-insert без блокировки. Совпадает с миграцией
+        # 9cb5c6b99664_maintenance_request_dedup_index.py (там — источник истины для прод/дев
+        # БД; здесь — чтобы тот же индекс появлялся и в тестовой схеме через create_all).
+        Index(
+            "ix_maintenance_requests_active_dedup",
+            "risk_case_id",
+            "work_type",
+            unique=True,
+            postgresql_where=text("status NOT IN ('rejected', 'cancelled')"),
+        ),
+    )
 
 
 class User(Base, TimestampMixin):
