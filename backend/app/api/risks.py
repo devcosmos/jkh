@@ -21,7 +21,8 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
     summary="Получить список риск-кейсов",
     description=(
         "Фильтры по status, category, priority, channel_id (внешний ID канала — тот же, что показан в реестре "
-        "каналов, не внутренний PK), object_id и search (точный ID риск-кейса или внешний ID канала). "
+        "каналов, не внутренний PK), object_id, opened_after (строго позже указанного момента) "
+        "и search (точный ID риск-кейса или внешний ID канала). "
         "Сортировка sort_by: opened_at или probability; sort_dir: asc "
         "или desc. По умолчанию — новые первыми. Учитывает доступ к объектам."
     ),
@@ -49,6 +50,9 @@ def list_risk_cases(
     priority: str | None = None,
     channel_id: int | None = None,
     object_id: int | None = None,
+    opened_after: dt.datetime | None = Query(
+        None, description="Только риск-кейсы, открытые строго позже этого момента (для поллинга новых)"
+    ),
     search: int | None = Query(None, description="Точное совпадение по ID риск-кейса или внешнему ID канала"),
     sort_by: Literal["opened_at", "probability"] = "opened_at",
     sort_dir: Literal["asc", "desc"] = "desc",
@@ -87,6 +91,8 @@ def list_risk_cases(
             s = s.where(RiskCase.priority == priority)
         if channel_id is not None:
             s = s.where(Channel.external_channel_id == channel_id)
+        if opened_after is not None:
+            s = s.where(RiskCase.opened_at > opened_after)
         if object_channel_ids is not None:
             s = s.where(RiskCase.channel_id.in_(object_channel_ids))
         if search is not None:

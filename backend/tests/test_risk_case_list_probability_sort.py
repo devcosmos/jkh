@@ -64,3 +64,23 @@ def test_sort_by_probability_asc(client, db_session, auth_headers):
     r = client.get("/api/risk-cases?sort_by=probability&sort_dir=asc", headers=auth_headers(UserRole.dispatcher))
     ids = [x["id"] for x in r.json()]
     assert ids.index(low.id) < ids.index(high.id)
+
+
+def test_opened_after_filters_out_older_cases(client, db_session, auth_headers):
+    """Поллинг критических уведомлений (RiskAlerts.tsx) раньше брал top-10 по opened_at и
+    сравнивал ID с предыдущим опросом — при всплеске больше 10 новых критических кейсов за
+    один интервал опроса лишние никогда бы не попали ни в один последующий ответ. opened_after
+    даёт водораздел: «всё новее X», а не «последние N», независимо от размера всплеска."""
+    older = _make_case_with_predictions(db_session, 9106, [0.6])
+    newer = _make_case_with_predictions(db_session, 9107, [0.6])
+    newer.opened_at = NOW + dt.timedelta(hours=1)
+    db_session.commit()
+
+    watermark = (NOW + dt.timedelta(minutes=30)).isoformat()
+    r = client.get(
+        "/api/risk-cases", params={"opened_after": watermark}, headers=auth_headers(UserRole.dispatcher)
+    )
+    assert r.status_code == 200
+    ids = {x["id"] for x in r.json()}
+    assert ids == {newer.id}
+    assert older.id not in ids

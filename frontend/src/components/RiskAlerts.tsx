@@ -42,7 +42,11 @@ interface Toast {
 
 export function RiskAlerts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const seenIds = useRef<Set<number> | null>(null);
+  // Водораздел "всё открытое позже X", а не top-N по opened_at — при всплеске больше N
+  // новых критических кейсов за один интервал опроса лишние никогда не попали бы ни в один
+  // последующий ответ top-N. null до первого опроса — тогда просто запоминаем текущий
+  // момент как базовую линию, не показывая тосты по уже открытым рискам при заходе.
+  const watermark = useRef<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,23 +54,18 @@ export function RiskAlerts() {
 
     async function poll() {
       try {
-        const { items } = await api.getPage<RiskCaseOut>(
-          "/risk-cases?status=new&priority=high&limit=10&sort_by=opened_at&sort_dir=desc"
-        );
-        if (cancelled) return;
-        if (seenIds.current === null) {
-          // Первый опрос — просто запоминаем уже открытые критические риски как базовую
-          // линию, чтобы не засыпать диспетчера уведомлениями обо всём сразу при заходе.
-          seenIds.current = new Set(items.map((r) => r.id));
+        if (watermark.current === null) {
+          watermark.current = new Date().toISOString();
           return;
         }
-        const fresh = items.filter((r) => !seenIds.current!.has(r.id));
-        fresh.forEach((r) => seenIds.current!.add(r.id));
-        if (fresh.length > 0) {
-          setToasts((prev) => [...prev, ...fresh.map((risk) => ({ id: risk.id, risk }))]);
-        }
+        const { items } = await api.getPage<RiskCaseOut>(
+          `/risk-cases?status=new&priority=high&limit=100&sort_by=opened_at&sort_dir=asc&opened_after=${encodeURIComponent(watermark.current)}`
+        );
+        if (cancelled || items.length === 0) return;
+        watermark.current = items[items.length - 1].opened_at;
+        setToasts((prev) => [...prev, ...items.map((risk) => ({ id: risk.id, risk }))]);
       } catch {
-        // Пропускаем неудачный опрос — попробуем на следующем тике.
+        // Пропускаем неудачный опрос — попробуем на следующем тике, водораздел не двигаем.
       }
     }
 
