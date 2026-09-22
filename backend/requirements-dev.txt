@@ -10,5 +10,9 @@ pandas
 pyarrow
 scikit-learn
 joblib
+# duckdb — scripts/tests/test_build_episodes.py (без Postgres, backend/README.md: «Тесты»).
+# Отсутствовал здесь: на честно чистом окружении (не текущий локальный venv с историей
+# ручных pip install) `python3 -m pytest scripts/tests/ -v` падал ModuleNotFoundError.
+duckdb
 pytest==8.3.4
 httpx==0.28.1
