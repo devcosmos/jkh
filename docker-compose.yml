@@ -48,11 +48,11 @@ services:
       dockerfile: Dockerfile.worker
     environment:
       JKH_DATABASE_URL: postgresql+psycopg://jkh:${POSTGRES_PASSWORD:-jkh}@db:5432/jkh
-      # REPLAY_DATA_DIR по умолчанию /data (см. volumes ниже) — оба трека (насос/вентилятор,
+      # REPLAY_DATA_DIR по умолчанию /artifacts (см. volumes ниже) — оба трека (насос/вентилятор,
       # дым/газ) читают из него replay_feed_<track>.parquet и catboost_<track>.cbm.
       REPLAY_SLEEP_SECONDS: ${REPLAY_SLEEP_SECONDS:-2}
     volumes:
-      - ./data:/data:ro
+      - ./artifacts:/artifacts:ro
     depends_on:
       backend:
         condition: service_healthy

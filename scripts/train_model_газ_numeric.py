@@ -17,8 +17,8 @@ from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
 ROOT = Path(__file__).resolve().parent.parent
-FEATURES_PARQUET = ROOT / "docs" / "documentation" / "analysis" / "features_газ_numeric_2024_2026.parquet"
-OUT_REPORT = ROOT / "docs" / "documentation" / "analysis" / "model_report_газ_numeric.json"
+FEATURES_PARQUET = ROOT / "artifacts" / "features_газ_numeric_2024_2026.parquet"
+OUT_REPORT = ROOT / "artifacts" / "model_report_газ_numeric.json"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 VAL_END = pd.Timestamp("2025-07-01")
@@ -121,7 +121,7 @@ def train_and_eval(name, features, train, val, test, y_train, y_val, y_test):
     )
     result["best_iteration"] = model.get_best_iteration()
 
-    model.save_model(str(ROOT / "docs" / "documentation" / "analysis" / f"catboost_{name}.cbm"))
+    model.save_model(str(ROOT / "artifacts" / f"catboost_{name}.cbm"))
     scored = pd.concat(
         [
             val[["channel_id", "ts", "y_true"]].assign(score=scores_val, split="val"),
@@ -129,7 +129,7 @@ def train_and_eval(name, features, train, val, test, y_train, y_val, y_test):
         ],
         ignore_index=True,
     )
-    scored.to_parquet(ROOT / "docs" / "documentation" / "analysis" / f"scored_{name}.parquet")
+    scored.to_parquet(ROOT / "artifacts" / f"scored_{name}.parquet")
     return result
 
 

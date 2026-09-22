@@ -13,7 +13,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-OUT_DIR = ROOT / "docs" / "documentation" / "analysis"
+OUT_DIR = ROOT / "artifacts"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]

@@ -1,4 +1,4 @@
-"""Наполняет реальную БД (backend/app/models) готовыми артефактами из docs/documentation/analysis/ и
+"""Наполняет реальную БД (backend/app/models) готовыми артефактами из artifacts/ и
 dataset/, чтобы UI показывал реальные данные вместо пустых списков.
 
 Импортирует: объекты, каналы (насос/вентилятор/дым/газ) с привязкой к объекту через поле
@@ -12,7 +12,7 @@ dataset/, чтобы UI показывал реальные данные вме�
 Рабочий порог каждого трека — не «жёсткий» 0.7/0.5 (тема 3 CSV: «указанные значения являются
 плановыми, а не жёсткими требованиями… если данные не позволяют достичь этих уровней, их
 можно снизить, обязательно обосновав»), а лучшая точка по эпизодной оценке
-(scripts/evaluate_episodes*.py, docs/documentation/analysis/episode_evaluation_*.json) — см. TRACKS ниже.
+(scripts/evaluate_episodes*.py, artifacts/episode_evaluation_*.json) — см. TRACKS ниже.
 
 Запуск (после открытия SSH-туннеля к Postgres на сервере):
   JKH_DATABASE_URL=postgresql+psycopg://jkh:<пароль>@localhost:5555/jkh \
@@ -43,7 +43,7 @@ from app.models.entities import (  # noqa: E402
 from app.models.enums import EpisodeSource, RiskCaseStatus  # noqa: E402
 
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 CORE_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"]
 LABEL_POLICY_VERSION = "2026-09-15"
 
@@ -68,7 +68,7 @@ AUTO_CLOSE_AFTER_HOURS = 48
 
 @dataclass(frozen=True)
 class Track:
-    name: str  # суффикс файлов в docs/documentation/analysis/
+    name: str  # суффикс файлов в artifacts/
     category: str  # RiskCase.category / Prediction.category — различает независимые треки в UI
     sensor_types: str  # ModelVersion.sensor_types, через запятую
     threshold: float  # лучшая точка по episode_evaluation_*.json, см. model_report_*.md, раздел 3
@@ -232,7 +232,7 @@ def import_model_version(track: Track, db) -> int:
             ),
             **load_extra_metrics(track, report),
         },
-        artifact_path=f"docs/documentation/analysis/catboost_{track.name}.cbm",
+        artifact_path=f"artifacts/catboost_{track.name}.cbm",
         is_active=True,
     )
     db.add(mv)

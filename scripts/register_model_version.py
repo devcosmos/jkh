@@ -11,17 +11,21 @@ import_analysis_to_db.py — повторно обучить и подключи
   1. Обучить новую модель локально (см. docs/documentation/data-audit.md, раздел с описанием пайплайна):
        python3 scripts/train_model.py            # насос/вентилятор
        python3 scripts/train_model_дым_газ.py     # дым/газ
-     Каждый скрипт сохраняет .cbm и model_report_<track>.json в docs/documentation/analysis/.
-  2. Скопировать новый .cbm в data/ (тот каталог, который читает worker, REPLAY_DATA_DIR):
-       cp docs/documentation/analysis/catboost_насос_вентилятор.cbm data/catboost_насос_вентилятор.cbm
-  3. Зарегистрировать новую версию в БД этим скриптом (деактивирует старую того же трека):
+     Каждый скрипт сохраняет .cbm и model_report_<track>.json в artifacts/ — это тот же
+     каталог, который читает worker (REPLAY_DATA_DIR, по умолчанию /artifacts), так что
+     отдельно копировать файл никуда не нужно.
+  2. Зарегистрировать новую версию в БД этим скриптом (деактивирует старую того же трека):
        JKH_DATABASE_URL=... python3 scripts/register_model_version.py \\
          --track насос_вентилятор \\
          --threshold 0.55 \\
          --train-start 2024-01-01 --train-end 2025-01-01
-  4. Перезапустить worker, чтобы он загрузил новый файл модели (сам он .cbm не перечитывает
+  3. Перезапустить worker, чтобы он загрузил новый файл модели (сам он .cbm не перечитывает
      на лету — грузит один раз при старте, см. replay_worker.py:load_track):
        docker compose restart worker
+
+  (Раньше на этом месте был отдельный шаг — скопировать .cbm из artifacts/ в каталог data/,
+  который монтировал worker. После объединения data/ и docs/documentation/analysis/ в единый
+  artifacts/ шаг убран: worker и обучение используют один и тот же каталог.)
 
 Метрики (--report) необязательны, но рекомендуются — report.json, что печатает train_model*.py,
 разворачивается в тот же плоский вид, что ждёт интерфейс (см. import_analysis_to_db.py:
@@ -57,7 +61,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--name", help="Имя версии — по умолчанию catboost_<track>_v<N+1>")
     p.add_argument(
         "--artifact-path",
-        help="Путь артефакта для записи в БД (справочно) — по умолчанию data/catboost_<track>.cbm",
+        help="Путь артефакта для записи в БД (справочно) — по умолчанию artifacts/catboost_<track>.cbm",
     )
     return p.parse_args(argv)
 
@@ -118,7 +122,7 @@ def main() -> None:
             train_period_end=dt.datetime.fromisoformat(args.train_end).replace(tzinfo=dt.timezone.utc),
             threshold=args.threshold,
             metrics=metrics,
-            artifact_path=args.artifact_path or f"data/catboost_{args.track}.cbm",
+            artifact_path=args.artifact_path or f"artifacts/catboost_{args.track}.cbm",
             is_active=True,
         )
         db.add(new_version)

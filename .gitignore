@@ -9,20 +9,28 @@ __pycache__/
 # Сырые/распакованные данные и обучающие артефакты — не публиковать (раздел ТЗ: закрытые данные)
 dataset/*.csv
 dataset/*.7z
-docs/documentation/analysis/*.parquet
-docs/documentation/analysis/*.cbm
-docs/documentation/analysis/*.joblib
+artifacts/*.parquet
+artifacts/*.cbm
+artifacts/*.joblib
 
 # CatBoost создаёт эту папку сама при каждом запуске scripts/train_model*.py (логи обучения,
 # чекпойнты) — не входной и не выходной артефакт, ничего не теряется при исключении.
 catboost_info/
 
-# ВНИМАНИЕ: data/*.cbm, data/*.joblib, data/*.parquet НЕ игнорируются — это намеренный
-# демокомплект (см. scripts/register_model_version.py, шаг 2): worker монтирует ./data как
-# volume и без этих файлов не запускается, а полный пайплайн обучения на 16 ГБ сырых
-# журналов недоступен без dataset/*.csv. Не путать с такими же по типу файлами выше в
-# docs/documentation/analysis/ — те исключены, потому что это промежуточные артефакты
-# обучения (регенерируются заново на каждой версии модели), а не рабочий комплект worker'а.
+# ВНИМАНИЕ: шесть файлов ниже НЕ игнорируются, хотя и подходят под маски выше — это
+# намеренный демокомплект (см. scripts/register_model_version.py, шаг 2): worker монтирует
+# ./artifacts как volume и без них не запускается, а полный пайплайн обучения на 16 ГБ сырых
+# журналов недоступен без dataset/*.csv. Уже отслеживаемый git-файл не перестаёт
+# отслеживаться из-за маски в .gitignore — маски выше действуют только на новые файлы
+# (промежуточные артефакты обучения: episode_evaluation_*, model_report_*, calibration_*,
+# features_*.parquet, scored_*.parquet и т.п. — они регенерируются заново на каждой версии
+# модели и не входят в демокомплект).
+!artifacts/catboost_дым_газ.cbm
+!artifacts/catboost_насос_вентилятор.cbm
+!artifacts/isolation_forest_дым_газ.joblib
+!artifacts/isolation_forest_насос_вентилятор.joblib
+!artifacts/replay_feed_дым_газ.parquet
+!artifacts/replay_feed_насос_вентилятор.parquet
 
 frontend/node_modules/
 frontend/dist/

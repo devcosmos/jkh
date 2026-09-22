@@ -14,7 +14,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 
 YEARS = ["2024", "2025", "2026"]
 TARGET_TYPES = ["Датчик дыма", "Газовый датчик"]

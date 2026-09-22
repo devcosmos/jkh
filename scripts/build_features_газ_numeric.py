@@ -9,7 +9,7 @@ scripts/build_features_дым_газ.py) признаки на основе СЫ
 переходов/тревог по состоянию.
 
 Запуск: source .venv/bin/activate && python3 scripts/build_features_газ_numeric.py
-Зависит от: docs/documentation/analysis/features_дым_газ_2024_2026.parquet (scripts/build_features_дым_газ.py)
+Зависит от: artifacts/features_дым_газ_2024_2026.parquet (scripts/build_features_дым_газ.py)
 """
 import sys
 from pathlib import Path
@@ -18,7 +18,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 
 YEARS = ["2024", "2025", "2026"]
 BASE_FEATURES_PARQUET = ANALYSIS_DIR / "features_дым_газ_2024_2026.parquet"

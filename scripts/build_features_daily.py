@@ -1,5 +1,5 @@
 """Строит витрину признаков на ДНЕВНОЙ сетке для «Отказ датчика» (насос, вентилятор) —
-эксперимент по гипотезе из docs/documentation/analysis/model_report_насос_вентилятор.md, раздел 5
+эксперимент по гипотезе из artifacts/model_report_насос_вентилятор.md, раздел 5
 («попробовать более простую/агрегированную единицу»). Аналог scripts/build_features.py,
 но шаг сетки — 1 день вместо 1 часа, окна признаков — 1д/7д/30д вместо 1ч/24ч/7сут.
 Цель та же: y(t)=1, если новый очищенный эпизод «Неисправен» начинается в (t, t+24ч].
@@ -13,7 +13,7 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 
 YEARS = ["2024", "2025", "2026"]
 TARGET_TYPES = ["Состояние насоса", "Состояние вентилятора"]

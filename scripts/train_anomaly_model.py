@@ -23,7 +23,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 GAP = pd.Timedelta(hours=24)
@@ -83,7 +83,7 @@ def main() -> None:
         print(f"[{track}] saved -> {out_path}")
 
     (ANALYSIS_DIR / "anomaly_model_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    print("report -> docs/documentation/analysis/anomaly_model_report.json")
+    print("report -> artifacts/anomaly_model_report.json")
 
 
 if __name__ == "__main__":

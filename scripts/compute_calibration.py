@@ -17,7 +17,7 @@ import duckdb
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 
 TRACKS = ["насос_вентилятор", "дым_газ"]
 N_BINS = 10

@@ -15,7 +15,7 @@
 3. Для каждого трека считает признаки (те же, что при обучении — `scripts/build_features*.py`)
    напрямую SQL-запросами к `channel_events`, прогоняет через свой `catboost_<track>.cbm`.
 4. При вероятности ≥ рабочего порога трека (лучшая точка эпизодной оценки, не целевой
-   0.7/0.5 — см. `TRACKS` и `docs/documentation/analysis/model_report_<track>.md`, раздел 3) — находит
+   0.7/0.5 — см. `TRACKS` и `artifacts/model_report_<track>.md`, раздел 3) — находит
    открытый риск-кейс по каналу или создаёт новый с категорией трека, пишет `Prediction` с
    объяснением (см. ниже).
 5. Раз в тик — `close_stale_risk_cases`: автозакрытие риск-кейсов без нового предупреждения
@@ -42,7 +42,7 @@
 ## Честные ограничения
 
 - Рабочие пороги (0.55 / 0.53) не удовлетворяют целевым Precision>0.7/Recall>0.5 — см.
-  `docs/documentation/analysis/model_report_*.md`. Тема 3 CSV с ответами организаторов подтверждает: это
+  `artifacts/model_report_*.md`. Тема 3 CSV с ответами организаторов подтверждает: это
   плановые, не жёсткие требования, снижение порога допустимо при обосновании.
 - Источник — заранее подготовленные файлы, а не реальный адаптер СМВУ (тот остаётся внешней
   зависимостью, см. `docs/documentation/Устройство_системы.md`, раздел «Назначение и границы»).
@@ -58,7 +58,7 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-worker.txt
 export JKH_DATABASE_URL=postgresql+psycopg://jkh:jkh@localhost:5433/jkh
-export REPLAY_DATA_DIR=../data  # содержит replay_feed_<track>.parquet и catboost_<track>.cbm для обоих треков
+export REPLAY_DATA_DIR=../artifacts  # содержит replay_feed_<track>.parquet и catboost_<track>.cbm для обоих треков
 python3 -m app.workers.replay_worker
 ```
 

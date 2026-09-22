@@ -1,6 +1,6 @@
 """Обучает базовую линию и CatBoost на ДНЕВНОЙ витрине признаков
 (scripts/build_features_daily.py) — эксперимент по гипотезе «дневная гранулярность» из
-docs/documentation/analysis/model_report_насос_вентилятор.md, раздел 5. Тот же протокол train/val/test
+artifacts/model_report_насос_вентилятор.md, раздел 5. Тот же протокол train/val/test
 и разрыв 24ч, что и в scripts/train_model.py, но окна признаков 1д/7д/30д вместо 1ч/24ч/7сут.
 
 Запуск: source .venv/bin/activate && python3 scripts/train_model_daily.py
@@ -15,8 +15,8 @@ from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
 ROOT = Path(__file__).resolve().parent.parent
-FEATURES_PARQUET = ROOT / "docs" / "documentation" / "analysis" / "features_насос_вентилятор_daily_2024_2026.parquet"
-OUT_REPORT = ROOT / "docs" / "documentation" / "analysis" / "model_report_насос_вентилятор_daily.json"
+FEATURES_PARQUET = ROOT / "artifacts" / "features_насос_вентилятор_daily_2024_2026.parquet"
+OUT_REPORT = ROOT / "artifacts" / "model_report_насос_вентилятор_daily.json"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 VAL_END = pd.Timestamp("2025-07-01")
@@ -148,7 +148,7 @@ def main() -> None:
     baseline_result["roc_auc_val"] = float(roc_auc_score(y_val, baseline_val))
     baseline_result["pr_auc_val"] = float(average_precision_score(y_val, baseline_val))
 
-    model.save_model(str(ROOT / "docs" / "documentation" / "analysis" / "catboost_насос_вентилятор_daily.cbm"))
+    model.save_model(str(ROOT / "artifacts" / "catboost_насос_вентилятор_daily.cbm"))
     scored = pd.concat(
         [
             val[["channel_id", "ts", "y_true"]].assign(score=scores_val, split="val"),
@@ -156,7 +156,7 @@ def main() -> None:
         ],
         ignore_index=True,
     )
-    scored.to_parquet(ROOT / "docs" / "documentation" / "analysis" / "scored_насос_вентилятор_daily.parquet")
+    scored.to_parquet(ROOT / "artifacts" / "scored_насос_вентилятор_daily.parquet")
 
     report = {
         "train_end": str(TRAIN_END), "val_end": str(VAL_END), "gap_hours": 24,

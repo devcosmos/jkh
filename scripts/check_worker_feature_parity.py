@@ -6,8 +6,8 @@
 location_group без фильтра по типу датчика) и не нуждается в числовой проверке.
 
 Использует не переигрывание CSV-журналов, а ровно то, чем реально кормится worker —
-docs/documentation/analysis/replay_feed_насос_вентилятор.parquet — и обучающую витрину
-docs/documentation/analysis/features_насос_вентилятор_2024_2026.parquet как эталон. Точки для
+artifacts/replay_feed_насос_вентилятор.parquet — и обучающую витрину
+artifacts/features_насос_вентилятор_2024_2026.parquet как эталон. Точки для
 сравнения берутся из уже посчитанной витрины, поэтому число расхождений — не артефакт выбора
 случайных моментов, а сопоставление с теми же точками, что видела модель при обучении.
 
@@ -37,7 +37,7 @@ from app.core.db import Base  # noqa: E402
 from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark  # noqa: E402
 from app.workers.replay_worker import compute_features_for_channel  # noqa: E402
 
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 FEED_PARQUET = ANALYSIS_DIR / "replay_feed_насос_вентилятор.parquet"
 FEATURES_PARQUET = ANALYSIS_DIR / "features_насос_вентилятор_2024_2026.parquet"
 RETENTION = dt.timedelta(days=7)

@@ -18,7 +18,7 @@ import duckdb
 import joblib
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.workers.replay_worker import (  # noqa: E402

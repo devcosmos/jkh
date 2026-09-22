@@ -25,7 +25,7 @@ import joblib
 from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "docs" / "documentation" / "analysis"
+ANALYSIS_DIR = ROOT / "artifacts"
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import SessionLocal  # noqa: E402

@@ -43,7 +43,7 @@ Backend — `localhost:8000` (`/api/docs` — Swagger), frontend — `localhost:
 `localhost:5433`. После первого подъёма нужны миграции, первый пользователь и данные — см.
 «Первый пользователь» в `backend/README.md` и `scripts/import_analysis_to_db.py` для
 наполнения демо-данными (риск-кейсы, прогнозы, версии моделей) из уже посчитанных
-артефактов в `docs/documentation/analysis/`.
+артефактов в `artifacts/`.
 
 ## Тесты
 

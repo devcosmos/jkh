@@ -15,7 +15,7 @@
 сохранённого виртуального времени, а не с начала.
 
 Рабочий порог каждого трека — не «жёсткий» 0.7/0.5, а лучшая точка эпизодной оценки, та же,
-что и при бэкфилле (scripts/import_analysis_to_db.py); см. docs/documentation/analysis/model_report_*.md,
+что и при бэкфилле (scripts/import_analysis_to_db.py); см. artifacts/model_report_*.md,
 раздел 3. Источник порога — активная ModelVersion.threshold в БД (пишется
 scripts/register_model_version.py / import_analysis_to_db.py), а не переменная окружения:
 раньше регистрация новой версии могла молча разойтись с порогом, который worker реально
@@ -54,7 +54,7 @@ from app.models.entities import (  # noqa: E402
 )
 from app.models.enums import RiskCaseStatus  # noqa: E402
 
-DATA_DIR = Path(os.environ.get("REPLAY_DATA_DIR", "/data"))
+DATA_DIR = Path(os.environ.get("REPLAY_DATA_DIR", "/artifacts"))
 TICK = dt.timedelta(hours=int(os.environ.get("REPLAY_TICK_HOURS", "1")))
 RETENTION = dt.timedelta(days=7)
 SLEEP_SECONDS = float(os.environ.get("REPLAY_SLEEP_SECONDS", "2"))
@@ -62,7 +62,7 @@ SLEEP_SECONDS = float(os.environ.get("REPLAY_SLEEP_SECONDS", "2"))
 
 @dataclass(frozen=True)
 class Track:
-    name: str  # суффикс файлов в /data — совпадает с scripts/build_replay_feed.py и train_model*.py
+    name: str  # суффикс файлов в /artifacts — совпадает с scripts/build_replay_feed.py и train_model*.py
     category: str  # RiskCase.category / Prediction.category — тот же, что в scripts/import_analysis_to_db.py
     sensor_types: list[str]
 
