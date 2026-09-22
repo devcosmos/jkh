@@ -48,12 +48,22 @@ scripts/
   demo/                 seed_maintenance_request*.py — явно демонстрационные
   tests/
 
-artifacts/             модели (.cbm/.joblib), витрины (features_*.parquet),
-                        replay_feed_*.parquet, отчёты (model_report_*.json/.md),
-                        episode_evaluation_*.json, calibration_*.json — заменяет
-                        прежние data/ и docs/documentation/analysis/; шесть файлов
-                        демокомплекта worker'а отслеживаются в Git, остальное — нет
-                        (см. .gitignore)
+artifacts/             заменяет прежние data/ и docs/documentation/analysis/. Два класса
+                        файлов, оба видны в `git ls-files artifacts/` (ART-01 в
+                        analys_and_todo.md):
+                        - демокомплект worker'а (6 файлов, явные исключения в .gitignore):
+                          catboost_<track>.cbm, isolation_forest_<track>.joblib,
+                          replay_feed_<track>.parquet — обновляются только вместе с
+                          осознанной регистрацией новой версии модели
+                          (scripts/maintenance/register_model_version.py, см. ML-07);
+                        - отчёты и метрики для сдачи (14 файлов): model_report_*.json/.md,
+                          episode_evaluation_*.json, episodes_*_summary.json,
+                          calibration_*.json, anomaly_model_report.json — маленькие,
+                          обновляются коммитом при каждом пересчёте (ml/training/,
+                          ml/evaluation/).
+                        Все остальные файлы в artifacts/ (features_*.parquet,
+                        scored_*.parquet, полные episodes_*.parquet, экспериментальные
+                        .cbm) — большие регенерируемые обучающие артефакты, не в Git.
 
 dataset/               Исходные журналы событий и справочники (локально, не в Git)
 deploy/                Docker Compose для прод-сервера, Caddy, backup/restore
