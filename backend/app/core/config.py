@@ -2,7 +2,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="JKH_", env_file=".env")
+    # extra="ignore": .env общий для backend, worker и docker-compose (REPLAY_* — только
+    # worker, читает их напрямую из os.environ, не через Settings). Без этого Settings() падает
+    # на любом ключе .env, которого нет в этом классе, даже без префикса JKH_ (раздел
+    # аудита «инструкция запуска» — backend/README.md).
+    model_config = SettingsConfigDict(env_prefix="JKH_", env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://jkh:jkh@localhost:5432/jkh"
     jwt_secret_key: str = "dev-only-change-me"
