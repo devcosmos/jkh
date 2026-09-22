@@ -84,3 +84,44 @@ def test_opened_after_filters_out_older_cases(client, db_session, auth_headers):
     ids = {x["id"] for x in r.json()}
     assert ids == {newer.id}
     assert older.id not in ids
+
+
+def test_opened_after_with_same_timestamp_tie_break_by_id(client, db_session, auth_headers):
+    """APP-02: несколько риск-кейсов одного тика replay делят opened_at. Без тай-брейка по ID
+    строгий фильтр opened_at > watermark либо теряет строки за пределами первой страницы
+    (watermark = opened_at последней показанной строки исключает соседей с тем же opened_at,
+    показанных или ещё нет — одинаково), либо повторяет уже показанные. opened_after + after_id
+    должны показать оставшиеся кейсы той же группы ровно один раз, без повторов и пропусков."""
+    same_ts = NOW + dt.timedelta(hours=2)
+    cases = []
+    for i, ext_id in enumerate([9201, 9202, 9203, 9204]):
+        rc = _make_case_with_predictions(db_session, ext_id, [0.6])
+        rc.opened_at = same_ts
+        cases.append(rc)
+    db_session.commit()
+    cases.sort(key=lambda c: c.id)
+
+    # Первая "страница" опроса — только первые два кейса той же группы уже показаны клиенту,
+    # курсор — последний из них (opened_at, id).
+    seen_first = cases[:2]
+    watermark_id = seen_first[-1].id
+
+    r = client.get(
+        "/api/risk-cases",
+        params={"opened_after": same_ts.isoformat(), "after_id": watermark_id, "sort_dir": "asc"},
+        headers=auth_headers(UserRole.dispatcher),
+    )
+    assert r.status_code == 200
+    ids = [x["id"] for x in r.json() if x["id"] in {c.id for c in cases}]
+    remaining_ids = [c.id for c in cases[2:]]
+    assert ids == remaining_ids  # ровно оставшиеся два, без повторов и без потери
+
+    # Без after_id (старое поведение) строгое сравнение по opened_at одинаково исключает и уже
+    # показанные, и ещё не показанные кейсы группы — regression guard на старую логику.
+    r_no_tiebreak = client.get(
+        "/api/risk-cases",
+        params={"opened_after": same_ts.isoformat(), "sort_dir": "asc"},
+        headers=auth_headers(UserRole.dispatcher),
+    )
+    ids_no_tiebreak = {x["id"] for x in r_no_tiebreak.json()}
+    assert not ids_no_tiebreak & {c.id for c in cases}

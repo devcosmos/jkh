@@ -40,13 +40,24 @@ interface Toast {
   risk: RiskCaseOut;
 }
 
+interface Cursor {
+  openedAt: string;
+  id: number;
+}
+
 export function RiskAlerts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  // Водораздел "всё открытое позже X", а не top-N по opened_at — при всплеске больше N
-  // новых критических кейсов за один интервал опроса лишние никогда не попали бы ни в один
-  // последующий ответ top-N. null до первого опроса — тогда просто запоминаем текущий
-  // момент как базовую линию, не показывая тосты по уже открытым рискам при заходе.
-  const watermark = useRef<string | null>(null);
+  // Водораздел "всё открытое позже X" по (opened_at, id) — не top-N по opened_at: при
+  // всплеске больше N новых критических кейсов за один интервал опроса лишние не попали бы
+  // ни в один последующий ответ top-N, а несколько кейсов одного тика replay делят opened_at
+  // (id — тай-брейк, см. APP-02 в analys_and_todo.md). Раньше базовая линия бралась из
+  // часов браузера (new Date()) — ломалось, когда данные воспроизводятся в виртуальном
+  // времени, не совпадающем с реальным: opened_at новых кейсов оказывался раньше браузерного
+  // "сейчас", и строгий фильтр "позже водораздела" никогда не находил их. Вместо этого перед
+  // первым опросом запрашиваем реально существующий последний подходящий риск-кейс — курсор
+  // строится из данных, а не из времени клиента.
+  const cursor = useRef<Cursor | null>(null);
+  const seeded = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,18 +65,28 @@ export function RiskAlerts() {
 
     async function poll() {
       try {
-        if (watermark.current === null) {
-          watermark.current = new Date().toISOString();
+        if (!seeded.current) {
+          const { items } = await api.getPage<RiskCaseOut>(
+            "/risk-cases?status=new&priority=high&limit=1&sort_by=opened_at&sort_dir=desc"
+          );
+          if (items.length > 0) {
+            cursor.current = { openedAt: items[0].opened_at, id: items[0].id };
+          }
+          seeded.current = true;
           return;
         }
+        const cursorParams = cursor.current
+          ? `&opened_after=${encodeURIComponent(cursor.current.openedAt)}&after_id=${cursor.current.id}`
+          : "";
         const { items } = await api.getPage<RiskCaseOut>(
-          `/risk-cases?status=new&priority=high&limit=100&sort_by=opened_at&sort_dir=asc&opened_after=${encodeURIComponent(watermark.current)}`
+          `/risk-cases?status=new&priority=high&limit=100&sort_by=opened_at&sort_dir=asc${cursorParams}`
         );
         if (cancelled || items.length === 0) return;
-        watermark.current = items[items.length - 1].opened_at;
+        const last = items[items.length - 1];
+        cursor.current = { openedAt: last.opened_at, id: last.id };
         setToasts((prev) => [...prev, ...items.map((risk) => ({ id: risk.id, risk }))]);
       } catch {
-        // Пропускаем неудачный опрос — попробуем на следующем тике, водораздел не двигаем.
+        // Пропускаем неудачный опрос — попробуем на следующем тике, курсор не двигаем.
       }
     }
 

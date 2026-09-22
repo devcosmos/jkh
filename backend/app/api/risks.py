@@ -2,7 +2,7 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, tuple_
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
@@ -21,7 +21,9 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
     summary="Получить список риск-кейсов",
     description=(
         "Фильтры по status, category, priority, channel_id (внешний ID канала — тот же, что показан в реестре "
-        "каналов, не внутренний PK), object_id, opened_after (строго позже указанного момента) "
+        "каналов, не внутренний PK), object_id, opened_after (строго позже указанного момента; при "
+        "нескольких риск-кейсах с одинаковым opened_at используйте вместе с after_id — иначе кейсы с "
+        "opened_at, равным водоразделу, не будут исключены только по времени) "
         "и search (точный ID риск-кейса или внешний ID канала). "
         "Сортировка sort_by: opened_at или probability; sort_dir: asc "
         "или desc. По умолчанию — новые первыми. Учитывает доступ к объектам."
@@ -52,6 +54,15 @@ def list_risk_cases(
     object_id: int | None = None,
     opened_after: dt.datetime | None = Query(
         None, description="Только риск-кейсы, открытые строго позже этого момента (для поллинга новых)"
+    ),
+    after_id: int | None = Query(
+        None,
+        description=(
+            "Тай-брейк для opened_after: ID последнего просмотренного риск-кейса. Без него несколько "
+            "риск-кейсов с одинаковым opened_at (один и тот же тик replay) за пределами limit одного "
+            "опроса никогда не попадают ни в один следующий ответ — строгое сравнение по одному opened_at "
+            "исключает и уже показанные, и ещё не показанные кейсы с тем же временем одинаково."
+        ),
     ),
     search: int | None = Query(None, description="Точное совпадение по ID риск-кейса или внешнему ID канала"),
     sort_by: Literal["opened_at", "probability"] = "opened_at",
@@ -92,7 +103,10 @@ def list_risk_cases(
         if channel_id is not None:
             s = s.where(Channel.external_channel_id == channel_id)
         if opened_after is not None:
-            s = s.where(RiskCase.opened_at > opened_after)
+            if after_id is not None:
+                s = s.where(tuple_(RiskCase.opened_at, RiskCase.id) > tuple_(opened_after, after_id))
+            else:
+                s = s.where(RiskCase.opened_at > opened_after)
         if object_channel_ids is not None:
             s = s.where(RiskCase.channel_id.in_(object_channel_ids))
         if search is not None:
@@ -121,7 +135,11 @@ def list_risk_cases(
     response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
 
     order_col = latest_probability if sort_by == "probability" else RiskCase.opened_at
-    stmt = stmt.order_by(order_col.desc() if sort_dir == "desc" else order_col.asc())
+    # RiskCase.id как вторичный ключ сортировки — обязателен для opened_after+after_id курсора:
+    # несколько риск-кейсов одного тика replay делят opened_at, без стабильного порядка внутри
+    # такой группы курсор мог бы пропустить или повторить строку между двумя опросами.
+    id_col = RiskCase.id.desc() if sort_dir == "desc" else RiskCase.id.asc()
+    stmt = stmt.order_by(order_col.desc() if sort_dir == "desc" else order_col.asc(), id_col)
 
     rows = db.execute(stmt.offset(offset).limit(limit)).all()
     return [
