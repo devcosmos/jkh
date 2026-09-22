@@ -29,6 +29,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # curl/wget нет в python:3.12-slim — используем сам python. worker ждёт именно этого
+      # healthcheck (не только db), чтобы не стартовать раньше миграций backend
+      # (docker-entrypoint.sh: alembic upgrade head перед uvicorn) — раньше worker мог
+      # обратиться к ещё не созданным таблицам на чистом разворачивании.
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   frontend:
     build: ./frontend
@@ -45,7 +54,7 @@ services:
     volumes:
       - ./data:/data:ro
     depends_on:
-      db:
+      backend:
         condition: service_healthy
     restart: unless-stopped
 
