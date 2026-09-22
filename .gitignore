@@ -13,6 +13,17 @@ docs/documentation/analysis/*.parquet
 docs/documentation/analysis/*.cbm
 docs/documentation/analysis/*.joblib
 
+# CatBoost создаёт эту папку сама при каждом запуске scripts/train_model*.py (логи обучения,
+# чекпойнты) — не входной и не выходной артефакт, ничего не теряется при исключении.
+catboost_info/
+
+# ВНИМАНИЕ: data/*.cbm, data/*.joblib, data/*.parquet НЕ игнорируются — это намеренный
+# демокомплект (см. scripts/register_model_version.py, шаг 2): worker монтирует ./data как
+# volume и без этих файлов не запускается, а полный пайплайн обучения на 16 ГБ сырых
+# журналов недоступен без dataset/*.csv. Не путать с такими же по типу файлами выше в
+# docs/documentation/analysis/ — те исключены, потому что это промежуточные артефакты
+# обучения (регенерируются заново на каждой версии модели), а не рабочий комплект worker'а.
+
 frontend/node_modules/
 frontend/dist/
 
