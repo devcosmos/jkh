@@ -102,8 +102,10 @@ volumes) 22 сентября 2026: с доступом к `dataset/` полна�
 - Обработка эпизодов/флаппинга: `python3 -m pytest ml/tests/ -v` (только DuckDB, без
   Postgres).
 - Служебные скрипты (регистрация версии модели): `python3 -m pytest scripts/tests/ -v`.
-- Frontend: `cd frontend && npx tsc -b && npm run build` (типы и прод-сборка; e2e-тестов
-  пользовательских сценариев пока нет).
+- Frontend: `cd frontend && npx tsc -b && npm run build` (типы и прод-сборка).
+- E2E (Playwright): вход, риск → решение диспетчера → заявка, запрет доступа к чужому
+  объекту — на синтетических фикстурах, не на закрытом датасете. Не поднимает стек сам —
+  см. `frontend/e2e/README.md`.
 
 ## Документация
 
