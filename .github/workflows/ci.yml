@@ -27,6 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+        # OPS-02 (analys_and_todo.md): выше, чем backend/Dockerfile и Dockerfile.worker
+        # (python:3.12-slim), намеренно, не рассинхрон. GitHub Actions runner уже несёт полный
+        # C/Rust-тулчейн, поэтому catboost/pandas и другие тяжёлые ML-зависимости собираются
+        # на 3.14 без проблем. В -slim Docker-образах без этого тулчейна та же сборка падает
+        # (y-py, зависимость catboost, требует maturin/cargo/cc) — проверено 22 сентября 2026,
+        # см. полное обоснование в backend/Dockerfile.
         with:
           python-version: "3.14"
       - name: Install backend dependencies

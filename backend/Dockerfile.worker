@@ -1,3 +1,8 @@
+# OPS-02 (analys_and_todo.md): пин ниже CI (python-version: "3.14" в
+# .github/workflows/ci.yml) намеренный — см. полное обоснование в backend/Dockerfile.
+# Здесь особенно важно: worker тянет catboost (requirements-worker.txt), на python:3.14-slim
+# без C/Rust-тулчейна сборка ловит "linker cc not found" на зависимости catboost (y-py, через
+# maturin) — проверено 22 сентября 2026.
 FROM python:3.12-slim
 
 WORKDIR /app
