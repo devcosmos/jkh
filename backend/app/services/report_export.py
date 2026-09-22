@@ -54,11 +54,14 @@ def build_xlsx_report(report: dict) -> io.BytesIO:
     _autosize(ws)
 
     ws2 = wb.create_sheet("Сезонность")
-    ws2.append(["Месяц", "Эпизодов (без флаппинга)"])
+    ws2.append(["Месяц", "Эпизодов (без флаппинга)", "Лет в данных", "В среднем эпизодов за год"])
     for cell in ws2[1]:
         cell.font = HEADER_FONT
     for row in report["seasonal"]:
-        ws2.append([row["month_name"], row["episode_count"]])
+        ws2.append([
+            row["month_name"], row["episode_count"], row["years_observed"],
+            row["avg_episodes_per_year"] if row["avg_episodes_per_year"] is not None else "—",
+        ])
     _autosize(ws2)
 
     ws3 = wb.create_sheet("Заявки — виды работ")
@@ -144,10 +147,20 @@ def build_pdf_report(report: dict) -> io.BytesIO:
             ],
         ),
         Spacer(1, 0.6 * cm),
-        Paragraph("Сезонность (эпизоды по месяцам, без флаппинга)", styles["Heading2"]),
+        Paragraph(
+            "Сезонность (эпизоды по месяцам, без флаппинга; данные охватывают неполное число "
+            "лет — сравнивать нужно «в среднем за год», а не сырую сумму)",
+            styles["Heading2"],
+        ),
         _table(
-            ["Месяц", "Эпизодов"],
-            [[r["month_name"], str(r["episode_count"])] for r in report["seasonal"]],
+            ["Месяц", "Эпизодов", "Лет в данных", "В среднем за год"],
+            [
+                [
+                    r["month_name"], str(r["episode_count"]), str(r["years_observed"]),
+                    f"{r['avg_episodes_per_year']:.2f}" if r["avg_episodes_per_year"] is not None else "—",
+                ]
+                for r in report["seasonal"]
+            ],
         ),
         Spacer(1, 0.6 * cm),
         Paragraph("Заявки на обслуживание — по виду работ", styles["Heading2"]),

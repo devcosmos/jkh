@@ -210,6 +210,8 @@ export interface SeasonalStat {
   month: number;
   month_name: string;
   episode_count: number;
+  years_observed: number;
+  avg_episodes_per_year: number | null;
 }
 
 export interface MaintenanceHistoryStat {

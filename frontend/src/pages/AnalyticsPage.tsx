@@ -122,24 +122,31 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
 }
 
 function SeasonalSection({ data }: { data: AnalyticsReport["seasonal"] }) {
-  const max = Math.max(...data.map((r) => r.episode_count), 1);
+  // Высота столбца — по avg_episodes_per_year (нормализовано на число лет, попавших в этот
+  // месяц в данных), не по сырой сумме: при данных на неполное число лет часть месяцев
+  // попадает в диапазон чаще других, и сумма без нормализации искажает сезонный паттерн.
+  const rates = data.map((r) => r.avg_episodes_per_year ?? 0);
+  const max = Math.max(...rates, 1);
   const entered = useEnterAnimation();
   return (
-    <DetailSection title="Сезонность — эпизоды неисправности по месяцам (все годы данных)">
+    <DetailSection title="Сезонность — эпизодов неисправности в среднем за год, по месяцам">
       <div className="flex items-end gap-2" style={{ height: "160px" }}>
-        {data.map((row) => (
-          <div key={row.month} className="group relative flex flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="text-[11px] font-medium text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
-              {row.episode_count.toLocaleString("ru-RU")}
-            </span>
-            <div
-              className="w-full rounded-t-md bg-sky-500 transition-[height,background-color] duration-700 ease-out group-hover:bg-sky-600"
-              style={{ height: entered ? `${Math.max((row.episode_count / max) * 130, 2)}px` : "0px" }}
-              title={`${row.month_name}: ${row.episode_count} эпизодов`}
-            />
-            <span className="text-[11px] text-slate-500">{row.month_name.slice(0, 3)}</span>
-          </div>
-        ))}
+        {data.map((row) => {
+          const rate = row.avg_episodes_per_year ?? 0;
+          return (
+            <div key={row.month} className="group relative flex flex-1 flex-col items-center justify-end gap-1.5">
+              <span className="text-[11px] font-medium text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
+                {rate.toLocaleString("ru-RU")}
+              </span>
+              <div
+                className="w-full rounded-t-md bg-sky-500 transition-[height,background-color] duration-700 ease-out group-hover:bg-sky-600"
+                style={{ height: entered ? `${Math.max((rate / max) * 130, 2)}px` : "0px" }}
+                title={`${row.month_name}: ${rate} эпизодов в среднем за год (${row.episode_count} всего за ${row.years_observed} лет в данных)`}
+              />
+              <span className="text-[11px] text-slate-500">{row.month_name.slice(0, 3)}</span>
+            </div>
+          );
+        })}
       </div>
     </DetailSection>
   );

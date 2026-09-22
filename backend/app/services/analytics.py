@@ -87,10 +87,32 @@ def incident_type_breakdown(db: Session, accessible: set[int] | None) -> list[di
     ]
 
 
+def _month_occurrences(min_date: dt.date, max_date: dt.date) -> dict[int, int]:
+    """Сколько раз каждый календарный месяц попадает в [min_date, max_date] — при данных не
+    ровно на целое число лет (например, до июня 2026) первое полугодие иначе набрало бы
+    больше периодов наблюдения, чем второе, и сравнение сумм по месяцам вводило бы в
+    заблуждение (см. seasonal_breakdown)."""
+    occurrences = {m: 0 for m in range(1, 13)}
+    year, month = min_date.year, min_date.month
+    while (year, month) <= (max_date.year, max_date.month):
+        occurrences[month] += 1
+        month += 1
+        if month == 13:
+            month = 1
+            year += 1
+    return occurrences
+
+
 def seasonal_breakdown(db: Session, accessible: set[int] | None) -> list[dict]:
     """Прогнозная аналитика с учётом сезонных изменений (раздел 8): частота реальных
     эпизодов неисправности по календарному месяцу, агрегированная по всем годам данных —
-    показывает, есть ли устойчивый сезонный паттерн (например, отопительный сезон)."""
+    показывает, есть ли устойчивый сезонный паттерн (например, отопительный сезон).
+
+    episode_count — сырая сумма, для прозрачности. avg_episodes_per_year — episode_count,
+    делённый на years_observed (сколько раз этот месяц попал в диапазон данных) — то, что
+    нужно сравнивать между месяцами: без нормализации месяцы из первого полугодия при данных
+    до середины года получают больше периодов наблюдения, чем из второго, и кажутся более
+    «сезонными», чем есть на самом деле."""
     channel_ids = _channel_ids_subquery(accessible)
     month_col = func.extract("month", IncidentEpisode.start_time).label("month")
     stmt = (
@@ -98,14 +120,34 @@ def seasonal_breakdown(db: Session, accessible: set[int] | None) -> list[dict]:
         .join(Channel, Channel.id == IncidentEpisode.channel_id)
         .where(IncidentEpisode.is_flapping_incident.is_(False))
     )
+    range_stmt = select(func.min(IncidentEpisode.start_time), func.max(IncidentEpisode.start_time)).join(
+        Channel, Channel.id == IncidentEpisode.channel_id
+    ).where(IncidentEpisode.is_flapping_incident.is_(False))
     if channel_ids is not None:
         stmt = stmt.where(Channel.id.in_(channel_ids))
+        range_stmt = range_stmt.where(Channel.id.in_(channel_ids))
     stmt = stmt.group_by(month_col)
     counts = {int(m): n for m, n in db.execute(stmt).all()}
-    return [
-        {"month": m, "month_name": MONTH_NAMES_RU[m - 1], "episode_count": counts.get(m, 0)}
-        for m in range(1, 13)
-    ]
+
+    min_time, max_time = db.execute(range_stmt).one()
+    occurrences = (
+        _month_occurrences(min_time.date(), max_time.date()) if min_time is not None else {m: 0 for m in range(1, 13)}
+    )
+
+    result = []
+    for m in range(1, 13):
+        count = counts.get(m, 0)
+        years_observed = occurrences.get(m, 0)
+        result.append(
+            {
+                "month": m,
+                "month_name": MONTH_NAMES_RU[m - 1],
+                "episode_count": count,
+                "years_observed": years_observed,
+                "avg_episodes_per_year": round(count / years_observed, 2) if years_observed else None,
+            }
+        )
+    return result
 
 
 def maintenance_history(db: Session, accessible: set[int] | None) -> dict:
