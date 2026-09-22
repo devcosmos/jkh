@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_accessible_object_ids, get_current_user
+from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user
 from app.core.db import get_db
 from app.models.entities import Channel, Object, RiskCase, User
 from app.models.enums import RiskCaseStatus
@@ -18,7 +18,10 @@ _PRIORITY_RANK_LABEL = {0: "none", 1: "medium", 2: "high"}
     "",
     response_model=list[ObjectOut],
     summary="Получить список объектов",
-    description="Фильтр district задаёт район. Параметры limit и offset управляют размером страницы и смещением.",
+    description=(
+        "Фильтр district задаёт район. Параметры limit и offset управляют размером страницы и "
+        "смещением. Учитывает доступ пользователя к объектам."
+    ),
     responses={
         401: {
             "description": "Требуется вход или токен недействителен",
@@ -30,10 +33,14 @@ def list_objects(
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> list[Object]:
     stmt = select(Object)
     if district:
         stmt = stmt.where(Object.district == district)
+    accessible = get_accessible_object_ids(user, db)
+    if accessible is not None:
+        stmt = stmt.where(Object.id.in_(accessible))
     return list(db.scalars(stmt.offset(offset).limit(limit)))
 
 
@@ -42,7 +49,8 @@ def list_objects(
     summary="Получить объекты с геометрией",
     description=(
         "Возвращает только объекты с заполненной геометрией. Геометрия находится в geometry_wkt как "
-        "WKT-текст; это не стандартное поле geometry GeoJSON. Если координат нет, features пуст."
+        "WKT-текст; это не стандартное поле geometry GeoJSON. Если координат нет, features пуст. "
+        "Учитывает доступ пользователя к объектам."
     ),
     responses={
         401: {
@@ -50,9 +58,17 @@ def list_objects(
         },
     },
 )
-def objects_geojson(db: Session = Depends(get_db)) -> dict:
+def objects_geojson(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> dict:
     """Только объекты с проверенной геометрией — раздел 3.2 плана: без выдуманных координат."""
-    objects = db.scalars(select(Object).where(Object.geometry_wkt.is_not(None)))
+    accessible = get_accessible_object_ids(user, db)
+    stmt = select(Object).where(Object.geometry_wkt.is_not(None))
+    total_stmt = select(Object.id)
+    if accessible is not None:
+        stmt = stmt.where(Object.id.in_(accessible))
+        total_stmt = total_stmt.where(Object.id.in_(accessible))
+    objects = db.scalars(stmt)
     features = [
         {
             "type": "Feature",
@@ -61,7 +77,7 @@ def objects_geojson(db: Session = Depends(get_db)) -> dict:
         }
         for o in objects
     ]
-    n_total = len(list(db.scalars(select(Object.id))))
+    n_total = len(list(db.scalars(total_stmt)))
     return {
         "type": "FeatureCollection",
         "features": features,
@@ -164,17 +180,24 @@ def objects_tree(
     "/{object_id}",
     response_model=ObjectOut,
     summary="Получить объект по ID",
+    description="Учитывает доступ пользователя к объекту.",
     responses={
         404: {
             "description": "Объект не найден",
+        },
+        403: {
+            "description": "Нет доступа к объекту",
         },
         401: {
             "description": "Требуется вход или токен недействителен",
         },
     },
 )
-def get_object(object_id: int, db: Session = Depends(get_db)) -> Object:
+def get_object(
+    object_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> Object:
     obj = db.get(Object, object_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Объект не найден")
+    check_object_access(obj.id, user, db)
     return obj

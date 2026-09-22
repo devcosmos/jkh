@@ -126,3 +126,82 @@ def test_grant_endpoint_requires_admin_role(client, db_session, auth_headers):
     headers = auth_headers(UserRole.dispatcher)
     r = client.post("/api/access/users/1/objects", json={"object_id": 1}, headers=headers)
     assert r.status_code == 403
+
+
+def _restrict_to_object(db_session, headers, username: str, obj_id: int):
+    from app.models.entities import User
+
+    user = db_session.query(User).filter_by(username=username).one()
+    db_session.add(UserObjectAccess(user_id=user.id, object_id=obj_id))
+    db_session.commit()
+
+
+def test_restricted_user_gets_403_on_forbidden_channel_by_id(client, db_session, auth_headers):
+    obj_a, channel_a, _ = _make_object_with_case(db_session, 6001)
+    _, channel_b, _ = _make_object_with_case(db_session, 6002)
+
+    headers = auth_headers(UserRole.dispatcher, username="restricted-channel")
+    _restrict_to_object(db_session, headers, "restricted-channel", obj_a.id)
+
+    r = client.get(f"/api/channels/{channel_a.id}", headers=headers)
+    assert r.status_code == 200
+    r = client.get(f"/api/channels/{channel_b.id}", headers=headers)
+    assert r.status_code == 403
+
+
+def test_restricted_user_gets_403_on_forbidden_channel_episodes(client, db_session, auth_headers):
+    obj_a, channel_a, _ = _make_object_with_case(db_session, 6101)
+    _, channel_b, _ = _make_object_with_case(db_session, 6102)
+
+    headers = auth_headers(UserRole.dispatcher, username="restricted-episodes")
+    _restrict_to_object(db_session, headers, "restricted-episodes", obj_a.id)
+
+    r = client.get(f"/api/channels/{channel_a.id}/episodes", headers=headers)
+    assert r.status_code == 200
+    r = client.get(f"/api/channels/{channel_b.id}/episodes", headers=headers)
+    assert r.status_code == 403
+
+
+def test_restricted_user_does_not_see_forbidden_object_in_list(client, db_session, auth_headers):
+    obj_a, _, _ = _make_object_with_case(db_session, 6201)
+    obj_b, _, _ = _make_object_with_case(db_session, 6202)
+
+    headers = auth_headers(UserRole.dispatcher, username="restricted-object-list")
+    _restrict_to_object(db_session, headers, "restricted-object-list", obj_a.id)
+
+    r = client.get("/api/objects", headers=headers)
+    assert r.status_code == 200
+    ids = {o["id"] for o in r.json()}
+    assert ids == {obj_a.id}
+    assert obj_b.id not in ids
+
+
+def test_restricted_user_gets_403_on_forbidden_object_by_id(client, db_session, auth_headers):
+    obj_a, _, _ = _make_object_with_case(db_session, 6301)
+    obj_b, _, _ = _make_object_with_case(db_session, 6302)
+
+    headers = auth_headers(UserRole.dispatcher, username="restricted-object-get")
+    _restrict_to_object(db_session, headers, "restricted-object-get", obj_a.id)
+
+    r = client.get(f"/api/objects/{obj_a.id}", headers=headers)
+    assert r.status_code == 200
+    r = client.get(f"/api/objects/{obj_b.id}", headers=headers)
+    assert r.status_code == 403
+
+
+def test_restricted_user_does_not_see_forbidden_object_in_geojson(client, db_session, auth_headers):
+    obj_a, _, _ = _make_object_with_case(db_session, 6401)
+    obj_b, _, _ = _make_object_with_case(db_session, 6402)
+    obj_a.geometry_wkt = "POINT(37.6 55.7)"
+    obj_b.geometry_wkt = "POINT(37.7 55.8)"
+    db_session.commit()
+
+    headers = auth_headers(UserRole.dispatcher, username="restricted-geojson")
+    _restrict_to_object(db_session, headers, "restricted-geojson", obj_a.id)
+
+    r = client.get("/api/objects/geojson", headers=headers)
+    assert r.status_code == 200
+    body = r.json()
+    ids = {f["properties"]["id"] for f in body["features"]}
+    assert ids == {obj_a.id}
+    assert body["n_total_objects"] == 1

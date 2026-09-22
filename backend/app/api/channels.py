@@ -113,19 +113,26 @@ def list_channels(
     "/{channel_id}",
     response_model=ChannelOut,
     summary="Получить канал по ID",
+    description="Учитывает доступ к объекту.",
     responses={
         404: {
             "description": "Канал не найден",
+        },
+        403: {
+            "description": "Нет доступа к объекту",
         },
         401: {
             "description": "Требуется вход или токен недействителен",
         },
     },
 )
-def get_channel(channel_id: int, db: Session = Depends(get_db)) -> Channel:
+def get_channel(
+    channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> Channel:
     ch = db.get(Channel, channel_id)
     if ch is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Канал не найден")
+    check_object_access(ch.object_id, user, db)
     return ch
 
 
@@ -172,16 +179,29 @@ def get_channel_degradation_trend(
     summary="Получить эпизоды неисправностей канала",
     description=(
         "История фактических неисправностей, от новых к старым. Содержит границы эпизодов и "
-        "признаки флаппинга и неполных границ наблюдения."
+        "признаки флаппинга и неполных границ наблюдения. Учитывает доступ к объекту."
     ),
     responses={
+        404: {
+            "description": "Канал не найден",
+        },
+        403: {
+            "description": "Нет доступа к объекту",
+        },
         401: {
             "description": "Требуется вход или токен недействителен",
         },
     },
 )
-def get_channel_episodes(channel_id: int, db: Session = Depends(get_db)) -> list[dict]:
+def get_channel_episodes(
+    channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> list[dict]:
     """Текущая/прошлая неисправность — отдельно от прогноза (раздел 9.1 плана)."""
+    ch = db.get(Channel, channel_id)
+    if ch is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Канал не найден")
+    check_object_access(ch.object_id, user, db)
+
     episodes = db.scalars(
         select(IncidentEpisode)
         .where(IncidentEpisode.channel_id == channel_id)
