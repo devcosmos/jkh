@@ -61,6 +61,62 @@ def test_transition_at_retention_boundary_is_not_lost(db_session):
     assert features["current_state"] == "Норма"
 
 
+def test_event_exactly_at_retention_boundary_is_excluded(db_session):
+    """ML-04 (analys_and_todo.md): offline (ml/features/build_features.py) считает
+    n_events_7d/n_alarms_7d как cum(t) - cum(t-7d), где cum(x) через ASOF включает события
+    с event_time <= x — окно offline строго исключает событие РОВНО на t-7d. prune_old_events
+    должен вытеснять такое событие вместе с более старыми, иначе worker's n_events_7d
+    (count(*) без явной нижней границы, полагается на то, что retention уже обрезал лишнее)
+    оказывается на единицу больше offline для канала с событием ровно на границе."""
+    channel = _setup(db_session)
+    cutoff = NOW - RETENTION
+
+    db_session.add(
+        ChannelEvent(channel_id=channel.id, event_time=cutoff, state="Неисправен", is_alarm=True)
+    )
+    db_session.add(
+        ChannelEvent(channel_id=channel.id, event_time=cutoff + dt.timedelta(hours=1), state="Норма")
+    )
+    db_session.commit()
+
+    prune_old_events(db_session, NOW)
+    db_session.commit()
+
+    remaining = db_session.query(ChannelEvent).filter_by(channel_id=channel.id).all()
+    assert len(remaining) == 1
+    assert remaining[0].event_time == cutoff + dt.timedelta(hours=1)
+
+    features = compute_features_for_channel(db_session, channel, NOW, ["Состояние насоса"])
+    assert features["n_events_7d"] == 1
+    assert features["n_alarms_7d"] == 0
+
+
+def test_watermark_tie_break_by_id_on_duplicate_timestamp_at_boundary(db_session):
+    """Несколько событий канала с одинаковым event_time ровно на границе retention — watermark
+    должен запомнить состояние ПОСЛЕДНЕГО по факту вставки (большему id), а не произвольное
+    среди равных по времени: DISTINCT ON без тай-брейка по id мог выбрать любое из них."""
+    channel = _setup(db_session)
+    cutoff = NOW - RETENTION
+
+    db_session.add(ChannelEvent(channel_id=channel.id, event_time=cutoff, state="Неисправен"))
+    db_session.flush()
+    db_session.add(ChannelEvent(channel_id=channel.id, event_time=cutoff, state="Обесточен"))
+    db_session.flush()
+    db_session.add(
+        ChannelEvent(channel_id=channel.id, event_time=cutoff + dt.timedelta(hours=1), state="Норма")
+    )
+    db_session.commit()
+
+    prune_old_events(db_session, NOW)
+    db_session.commit()
+
+    watermark = db_session.get(ChannelRetentionWatermark, channel.id)
+    assert watermark.last_pruned_state == "Обесточен"  # больший id среди равных event_time
+
+    features = compute_features_for_channel(db_session, channel, NOW, ["Состояние насоса"])
+    assert features["n_transitions_7d"] == 1  # Обесточен -> Норма, не Неисправен -> Норма
+
+
 def test_no_watermark_no_change_in_behavior(db_session):
     """Канал без предшествующей истории (никогда ничего не вытеснялось) — прежнее поведение:
     первая запись не считается переходом."""

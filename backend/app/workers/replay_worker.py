@@ -98,17 +98,28 @@ def ingest_tick(db, feed: pd.DataFrame, cursor: int, tick_end: dt.datetime, chan
 
 def prune_old_events(db, tick_end: dt.datetime) -> None:
     cutoff = tick_end - RETENTION
-    # Сохранить состояние на момент вытеснения — иначе LAG(state) в compute_features_for_channel
-    # теряет prev_state у самой старой оставшейся записи и граничный переход состояния молча
-    # выпадает из n_transitions_* (см. ChannelRetentionWatermark).
+    # ML-04 (analys_and_todo.md): граница окна должна быть строго исключающей снизу —
+    # offline (ml/features/build_features.py) считает n_events_7d/n_alarms_7d/n_transitions_7d
+    # как cum(t) - cum(t-7d), где cum(x) через ASOF join берёт события с event_time <= x —
+    # то есть событие РОВНО НА t-7d уже входит в cum(t-7d) и вычитается, окно offline строго
+    # (t-7d, t]. Раньше здесь удалялись события только event_time < cutoff (строго меньше) —
+    # событие ровно на границе cutoff оставалось в channel_events и молча попадало в
+    # n_events_7d worker'а (count(*) без нижней границы, полагается на то, что retention уже
+    # обрезал всё лишнее), расходясь с offline на единицу. Удаляем <= cutoff, чтобы у worker'а
+    # осталось ровно то же строго исключающее снизу окно.
+    #
+    # ORDER BY ... id DESC — тай-брейк на случай нескольких событий канала с одинаковым
+    # event_time вокруг границы (см. фикс тай-брейка current_state): без него DISTINCT ON
+    # мог бы сохранить в watermark состояние не самого последнего по факту вставки события,
+    # а любого с тем же (максимальным) event_time.
     db.execute(
         text(
             """
             INSERT INTO channel_retention_watermark (channel_id, last_pruned_state, last_pruned_event_time)
             SELECT DISTINCT ON (channel_id) channel_id, state, event_time
             FROM channel_events
-            WHERE event_time < :cutoff
-            ORDER BY channel_id, event_time DESC
+            WHERE event_time <= :cutoff
+            ORDER BY channel_id, event_time DESC, id DESC
             ON CONFLICT (channel_id) DO UPDATE
             SET last_pruned_state = EXCLUDED.last_pruned_state,
                 last_pruned_event_time = EXCLUDED.last_pruned_event_time
@@ -117,7 +128,7 @@ def prune_old_events(db, tick_end: dt.datetime) -> None:
         ),
         {"cutoff": cutoff},
     )
-    db.execute(delete(ChannelEvent).where(ChannelEvent.event_time < cutoff))
+    db.execute(delete(ChannelEvent).where(ChannelEvent.event_time <= cutoff))
 
 
 # Минимальное автозакрытие: без него за виртуальный год по тысячам каналов накапливается
