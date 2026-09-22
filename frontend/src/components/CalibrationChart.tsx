@@ -10,7 +10,7 @@ interface CalibrationBin {
 }
 
 /** Калибровочная кривая (reliability diagram): по оси X — что предсказала модель, по оси Y —
- * что случилось на самом деле, на test-сплите (scripts/compute_calibration.py). Диагональ —
+ * что случилось на самом деле, на test-сплите (ml/evaluation/compute_calibration.py). Диагональ —
  * идеальная калибровка (X% предсказания = X% реальных отказов). Полые точки — бины с малым
  * числом наблюдений, им доверять меньше. */
 export function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {

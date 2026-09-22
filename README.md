@@ -13,13 +13,51 @@ worker (replay истории + живой инференс CatBoost), Docker Co
 ## Структура репозитория
 
 ```
-backend/     FastAPI-приложение, ORM-модели, миграции, worker, тесты
-frontend/    React-интерфейс диспетчера и администратора
-scripts/     Подготовка данных, обучение моделей, импорт, служебные и демо-скрипты
-dataset/     Исходные журналы событий и справочники (локально, не в Git)
-data/        Модели и replay-файлы, которые читает worker
-deploy/      Docker Compose для прод-сервера, Caddy, backup/restore
-docs/        Документация проекта — см. docs/documentation/README.md
+backend/             FastAPI-приложение
+  app/
+    api/              HTTP, валидация, проверка доступа
+    services/         риски, решения, заявки, аналитика
+    ml/               контракт признаков, загрузка моделей, объяснения (SHAP) —
+                       рантайм-код, вызывается worker'ом
+    workers/           доставка событий (replay) и запуск расчётов — тонкий,
+                       вызывает app/ml/
+    models/, schemas/  ORM-модели и контракты API
+  migrations/          Alembic
+  tests/
+
+frontend/
+  src/
+    features/          risks/, requests/ — первые два раздела, вынесенные из pages/
+                        (остальные 8 пока там же — разбираются постепенно)
+    pages/              остальные разделы интерфейса
+    components/         действительно общие компоненты
+    api/
+
+ml/                    офлайн-код обучения/оценки — НЕ импортируется рантаймом backend
+  features/             build_features*.py, build_replay_feed.py, build_episodes.py
+  training/             train_model*.py, train_anomaly_model.py
+  evaluation/           evaluate_episodes*.py, compute_calibration.py
+  experiments/          альтернативные/непроизводственные варианты (daily, газ_numeric)
+  tests/
+
+scripts/
+  data/                 import_analysis_to_db.py, link_channels_to_devices.py,
+                        profile_data.py, manifest.py
+  maintenance/          backfill_*.py, register_model_version.py,
+                        check_worker_feature_parity.py
+  demo/                 seed_maintenance_request*.py — явно демонстрационные
+  tests/
+
+artifacts/             модели (.cbm/.joblib), витрины (features_*.parquet),
+                        replay_feed_*.parquet, отчёты (model_report_*.json/.md),
+                        episode_evaluation_*.json, calibration_*.json — заменяет
+                        прежние data/ и docs/documentation/analysis/; шесть файлов
+                        демокомплекта worker'а отслеживаются в Git, остальное — нет
+                        (см. .gitignore)
+
+dataset/               Исходные журналы событий и справочники (локально, не в Git)
+deploy/                Docker Compose для прод-сервера, Caddy, backup/restore
+docs/                  Документация проекта — см. docs/documentation/README.md
 ```
 
 ## Быстрый старт (локальная разработка)

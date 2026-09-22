@@ -134,7 +134,7 @@ export function ModelsPage() {
           </h2>
           <p className="mb-3 text-sm text-slate-400">
             Раздел 8 ЖКХ.md — регистрация новой версии описана в{" "}
-            <code className="rounded bg-slate-100 px-1 py-0.5">scripts/register_model_version.py</code>
+            <code className="rounded bg-slate-100 px-1 py-0.5">scripts/maintenance/register_model_version.py</code>
           </p>
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <table className="w-full text-sm">

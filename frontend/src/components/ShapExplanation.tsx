@@ -97,7 +97,7 @@ function featureValue(f: Feature): string {
  * Положительный вклад толкает вероятность к отказу, отрицательный — от него.
  *
  * `anomaly` — независимый от CatBoost сигнал (IsolationForest без учителя на тех же
- * поведенческих признаках, scripts/train_anomaly_model.py): может отметить необычное
+ * поведенческих признаках, ml/training/train_anomaly_model.py): может отметить необычное
  * поведение, не похожее ни на один известный сценарий отказа в разметке. */
 export function ShapExplanation({
   explanation,
