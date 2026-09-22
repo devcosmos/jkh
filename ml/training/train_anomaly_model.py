@@ -12,7 +12,7 @@
 работает с категориальными напрямую, а "тип_датчика"/"current_state" и так учтены в
 CatBoost — здесь важен именно паттерн поведения, а не тип устройства.
 
-Запуск: source .venv/bin/activate && python3 scripts/train_anomaly_model.py
+Запуск: source .venv/bin/activate && python3 ml/training/train_anomaly_model.py
 """
 import json
 from pathlib import Path
@@ -22,8 +22,8 @@ import joblib
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 
-ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "artifacts"
+ROOT = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = ROOT / "artifacts"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 GAP = pd.Timedelta(hours=24)
@@ -43,7 +43,7 @@ CONTAMINATION = 0.02  # ожидаемая доля аномалий — сог�
 def load_train_split(track: str) -> pd.DataFrame:
     con = duckdb.connect()
     df = con.execute(
-        f"SELECT * FROM read_parquet('{ANALYSIS_DIR / f'features_{track}_2024_2026.parquet'}')"
+        f"SELECT * FROM read_parquet('{ARTIFACTS_DIR / f'features_{track}_2024_2026.parquet'}')"
     ).fetchdf()
     df = df.dropna(subset=["current_state"]).copy()
     df["frac_neighbors_in_fault"] = df["n_neighbors_in_fault"] / df["n_neighbors_total"].clip(lower=1)
@@ -67,7 +67,7 @@ def main() -> None:
         model.fit(X)
 
         scores = model.decision_function(X)
-        out_path = ANALYSIS_DIR / f"isolation_forest_{track}.joblib"
+        out_path = ARTIFACTS_DIR / f"isolation_forest_{track}.joblib"
         joblib.dump({"model": model, "features": NUM_FEATURES}, out_path)
 
         report[track] = {
@@ -82,7 +82,7 @@ def main() -> None:
         }
         print(f"[{track}] saved -> {out_path}")
 
-    (ANALYSIS_DIR / "anomaly_model_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    (ARTIFACTS_DIR / "anomaly_model_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
     print("report -> artifacts/anomaly_model_report.json")
 
 

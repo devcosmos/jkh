@@ -9,10 +9,10 @@
    `replay_state`, переживает перезапуск контейнера; оба фида покрывают один и тот же
    период, поэтому клок общий).
 2. "Доставляет" события из `replay_feed_<track>.parquet` (заранее подготовлены
-   `scripts/build_replay_feed.py` — только с 2025-07-01, честно "невиданный" моделью
+   `ml/features/build_replay_feed.py` — только с 2025-07-01, честно "невиданный" моделью
    test-период) в оперативную таблицу `channel_events`, скользящее окно 7 суток (раздел 7.2
    плана).
-3. Для каждого трека считает признаки (те же, что при обучении — `scripts/build_features*.py`)
+3. Для каждого трека считает признаки (те же, что при обучении — `ml/features/build_features*.py`)
    напрямую SQL-запросами к `channel_events`, прогоняет через свой `catboost_<track>.cbm`.
 4. При вероятности ≥ рабочего порога трека (лучшая точка эпизодной оценки, не целевой
    0.7/0.5 — см. `TRACKS` и `artifacts/model_report_<track>.md`, раздел 3) — находит
@@ -29,14 +29,14 @@
   моделью CatBoost (`get_feature_importance(..., type="ShapValues")`), со знаком (толкает к
   отказу / от отказа).
 - **Аномальность** (`compute_anomaly_signal`) — независимый от CatBoost сигнал:
-  `IsolationForest` без учителя (`scripts/train_anomaly_model.py`), обучен только на
+  `IsolationForest` без учителя (`ml/training/train_anomaly_model.py`), обучен только на
   train-сплите, только на числовых поведенческих признаках (без учителя = не ограничен
   размеченными сценариями отказа, поэтому может отметить необычное поведение, которого не
   было в разметке). Артефакты — `isolation_forest_<track>.joblib` рядом с `catboost_<track>.cbm`
   в `REPLAY_DATA_DIR`.
 
 Для уже открытых на момент внедрения риск-кейсов (импортированных без построчных признаков)
-объяснение восстановлено задним числом — `scripts/backfill_shap_explanations.py`, из
+объяснение восстановлено задним числом — `scripts/maintenance/backfill_shap_explanations.py`, из
 `features_<track>_2024_2026.parquet` по (канал, ts).
 
 ## Честные ограничения

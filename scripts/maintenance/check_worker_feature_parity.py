@@ -1,5 +1,5 @@
 """Диагностика: совпадают ли признаки, которые видит worker в реальном времени, с признаками
-из обучающей витрины (scripts/build_features.py) на одном и том же срезе (канал, момент t).
+из обучающей витрины (ml/features/build_features.py) на одном и том же срезе (канал, момент t).
 
 Не сравнивает соседские признаки (n_neighbors_*) — там расхождение уже подтверждено чтением
 кода (train строит витрину только по каналам своего трека, worker берёт всех соседей по
@@ -16,7 +16,7 @@ artifacts/features_насос_вентилятор_2024_2026.parquet как эт
 чтобы не завести отдельный источник расхождений.
 
 Запуск: source .venv/bin/activate && JKH_DATABASE_URL=postgresql+psycopg://jkh:jkh@localhost:55432/jkh_test \
-    python3 scripts/check_worker_feature_parity.py
+    python3 scripts/maintenance/check_worker_feature_parity.py
 """
 import datetime as dt
 import os
@@ -30,16 +30,16 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import Base  # noqa: E402
 from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark  # noqa: E402
 from app.workers.replay_worker import compute_features_for_channel  # noqa: E402
 
-ANALYSIS_DIR = ROOT / "artifacts"
-FEED_PARQUET = ANALYSIS_DIR / "replay_feed_насос_вентилятор.parquet"
-FEATURES_PARQUET = ANALYSIS_DIR / "features_насос_вентилятор_2024_2026.parquet"
+ARTIFACTS_DIR = ROOT / "artifacts"
+FEED_PARQUET = ARTIFACTS_DIR / "replay_feed_насос_вентилятор.parquet"
+FEATURES_PARQUET = ARTIFACTS_DIR / "features_насос_вентилятор_2024_2026.parquet"
 RETENTION = dt.timedelta(days=7)
 
 OWN_CHANNEL_FEATURES = [

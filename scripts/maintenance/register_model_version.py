@@ -1,7 +1,7 @@
 """Модуль дообучения прогнозных моделей на новых данных (раздел 8 ЖКХ.md, «дополнительные
 требования» — по согласованию с заказчиком, не блокирует MVP).
 
-Обучение самой модели на новых данных уже делают scripts/train_model*.py (по одному на
+Обучение самой модели на новых данных уже делают ml/training/train_model*.py (по одному на
 трек) — этот скрипт закрывает вторую половину «модуля дообучения», которой раньше не было:
 регистрацию нового обученного артефакта как новой активной ModelVersion в БД, с деактивацией
 предыдущей той же категории. Раньше ModelVersion создавалась только один раз вручную внутри
@@ -9,13 +9,13 @@ import_analysis_to_db.py — повторно обучить и подключи
 
 Полный цикл дообучения:
   1. Обучить новую модель локально (см. docs/documentation/data-audit.md, раздел с описанием пайплайна):
-       python3 scripts/train_model.py            # насос/вентилятор
-       python3 scripts/train_model_дым_газ.py     # дым/газ
+       python3 ml/training/train_model.py            # насос/вентилятор
+       python3 ml/training/train_model_дым_газ.py     # дым/газ
      Каждый скрипт сохраняет .cbm и model_report_<track>.json в artifacts/ — это тот же
      каталог, который читает worker (REPLAY_DATA_DIR, по умолчанию /artifacts), так что
      отдельно копировать файл никуда не нужно.
   2. Зарегистрировать новую версию в БД этим скриптом (деактивирует старую того же трека):
-       JKH_DATABASE_URL=... python3 scripts/register_model_version.py \\
+       JKH_DATABASE_URL=... python3 scripts/maintenance/register_model_version.py \\
          --track насос_вентилятор \\
          --threshold 0.55 \\
          --train-start 2024-01-01 --train-end 2025-01-01
@@ -37,7 +37,7 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 from sqlalchemy import select  # noqa: E402
@@ -67,7 +67,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def build_metrics(args: argparse.Namespace, report: dict) -> dict:
-    """Тот же вид, что и при первичном импорте (scripts/import_analysis_to_db.py:import_model_version)
+    """Тот же вид, что и при первичном импорте (scripts/data/import_analysis_to_db.py:import_model_version)
     — интерфейс (ModelsPage.tsx) читает верхнеуровневые ключи (roc_auc_test, target_precision, ...),
     а --report — сырой model_report_<track>.json с вложенным catboost. Раньше register_model_version.py
     сохранял report как есть, без разворачивания — после регистрации новой версии через этот скрипт

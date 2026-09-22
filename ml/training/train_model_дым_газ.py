@@ -1,8 +1,8 @@
-"""Обучает базовую линию и CatBoost на витрине признаков (scripts/build_features.py),
-с временным train/validation/test и разрывом 24ч на границах (правило 6.1 рабочего ТЗ).
-Порог подбирается на validation под Precision > 0.7 и Recall > 0.5, финальная оценка — на test.
+"""Обучает базовую линию и CatBoost на витрине признаков дыма/газа
+(ml/features/build_features_дым_газ.py) — второй проверенный тип (docs/documentation/data-audit.md, 6.6).
+Тот же протокол train/validation/test и разрыв 24ч, что и в ml/training/train_model.py.
 
-Запуск: source .venv/bin/activate && python3 scripts/train_model.py
+Запуск: source .venv/bin/activate && python3 ml/training/train_model_дым_газ.py
 """
 import json
 from pathlib import Path
@@ -13,9 +13,9 @@ import pandas as pd
 from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
-ROOT = Path(__file__).resolve().parent.parent
-FEATURES_PARQUET = ROOT / "artifacts" / "features_насос_вентилятор_2024_2026.parquet"
-OUT_REPORT = ROOT / "artifacts" / "model_report_насос_вентилятор.json"
+ROOT = Path(__file__).resolve().parent.parent.parent
+FEATURES_PARQUET = ROOT / "artifacts" / "features_дым_газ_2024_2026.parquet"
+OUT_REPORT = ROOT / "artifacts" / "model_report_дым_газ.json"
 
 TRAIN_END = pd.Timestamp("2025-01-01")
 VAL_END = pd.Timestamp("2025-07-01")
@@ -76,7 +76,6 @@ def evaluate_model(name, y_train, y_val, y_test, scores_train, scores_val, score
     result = {"model": name}
     if thr is None:
         result["threshold_found"] = False
-        # для отчёта всё равно фиксируем метрики на нескольких точках PR-кривой
         precisions, recalls, thresholds = precision_recall_curve(y_val, scores_val)
         idx = np.argsort(-recalls[:-1])
         sample = [
@@ -148,7 +147,7 @@ def main() -> None:
     baseline_result["roc_auc_val"] = float(roc_auc_score(y_val, baseline_val))
     baseline_result["pr_auc_val"] = float(average_precision_score(y_val, baseline_val))
 
-    model.save_model(str(ROOT / "artifacts" / "catboost_насос_вентилятор.cbm"))
+    model.save_model(str(ROOT / "artifacts" / "catboost_дым_газ.cbm"))
     scored = pd.concat(
         [
             val[["channel_id", "ts", "y_true"]].assign(score=scores_val, split="val"),
@@ -156,7 +155,7 @@ def main() -> None:
         ],
         ignore_index=True,
     )
-    scored.to_parquet(ROOT / "artifacts" / "scored_насос_вентилятор.parquet")
+    scored.to_parquet(ROOT / "artifacts" / "scored_дым_газ.parquet")
 
     report = {
         "train_end": str(TRAIN_END), "val_end": str(VAL_END), "gap_hours": 24,

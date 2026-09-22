@@ -1,9 +1,9 @@
 """Обучает базовую линию и CatBoost на ДНЕВНОЙ витрине признаков
-(scripts/build_features_daily.py) — эксперимент по гипотезе «дневная гранулярность» из
+(ml/experiments/build_features_daily.py) — эксперимент по гипотезе «дневная гранулярность» из
 artifacts/model_report_насос_вентилятор.md, раздел 5. Тот же протокол train/val/test
-и разрыв 24ч, что и в scripts/train_model.py, но окна признаков 1д/7д/30д вместо 1ч/24ч/7сут.
+и разрыв 24ч, что и в ml/training/train_model.py, но окна признаков 1д/7д/30д вместо 1ч/24ч/7сут.
 
-Запуск: source .venv/bin/activate && python3 scripts/train_model_daily.py
+Запуск: source .venv/bin/activate && python3 ml/experiments/train_model_daily.py
 """
 import json
 from pathlib import Path
@@ -14,7 +14,7 @@ import pandas as pd
 from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 FEATURES_PARQUET = ROOT / "artifacts" / "features_насос_вентилятор_daily_2024_2026.parquet"
 OUT_REPORT = ROOT / "artifacts" / "model_report_насос_вентилятор_daily.json"
 

@@ -1,6 +1,6 @@
 """Строит манифест всех файлов датасета: путь, размер, контрольная сумма, число строк CSV.
 
-Запуск: source .venv/bin/activate && python3 scripts/manifest.py > docs/documentation/data-manifest.json
+Запуск: source .venv/bin/activate && python3 scripts/data/manifest.py > docs/documentation/data-manifest.json
 """
 import hashlib
 import json
@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DATASET_DIR = Path(__file__).resolve().parent.parent / "dataset"
+DATASET_DIR = Path(__file__).resolve().parent.parent.parent / "dataset"
 
 
 def sha256_full(path: Path) -> str:

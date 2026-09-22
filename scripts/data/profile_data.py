@@ -1,7 +1,7 @@
 """Профиль полного объёма событий по годам через DuckDB: число строк, доля тревог,
 распределение значений датчика, связность каналов со справочником, типы с "Неисправен".
 
-Запуск: source .venv/bin/activate && python3 scripts/profile_data.py
+Запуск: source .venv/bin/activate && python3 scripts/data/profile_data.py
 """
 import json
 import sys
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import duckdb
 
-DATASET_DIR = Path(__file__).resolve().parent.parent / "dataset"
+DATASET_DIR = Path(__file__).resolve().parent.parent.parent / "dataset"
 
 YEAR_FILES = {
     str(y): f"ext-journal-{y}.csv" for y in range(2019, 2027)

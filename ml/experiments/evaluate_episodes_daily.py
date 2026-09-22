@@ -1,9 +1,7 @@
-"""Эпизодная оценка (раздел 6.2 плана реализации): вместо точности по каждому часовому
-окну считаем, поймала ли модель хотя бы одно предупреждение перед каждым реальным эпизодом,
-и сколько ложных серий предупреждений приходится на 100 устройств в сутки. Повторные подряд
-идущие срабатывания объединяются в одну серию — правило «повтор прогноза не создаёт лишний FP».
+"""Эпизодная оценка для дневной сетки (аналог ml/evaluation/evaluate_episodes.py), на выходе
+ml/experiments/train_model_daily.py.
 
-Запуск: source .venv/bin/activate && python3 scripts/evaluate_episodes.py
+Запуск: source .venv/bin/activate && python3 ml/experiments/evaluate_episodes_daily.py
 """
 import json
 from pathlib import Path
@@ -11,13 +9,12 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "artifacts"
-SCORED_PARQUET = ANALYSIS_DIR / "scored_насос_вентилятор.parquet"
-EPISODES_PARQUET = ANALYSIS_DIR / "episodes_насос_вентилятор_2024_2026.parquet"
-OUT_REPORT = ANALYSIS_DIR / "episode_evaluation_насос_вентилятор.json"
+ROOT = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = ROOT / "artifacts"
+SCORED_PARQUET = ARTIFACTS_DIR / "scored_насос_вентилятор_daily.parquet"
+EPISODES_PARQUET = ARTIFACTS_DIR / "episodes_насос_вентилятор_2024_2026.parquet"
+OUT_REPORT = ARTIFACTS_DIR / "episode_evaluation_насос_вентилятор_daily.json"
 
-VAL_END = pd.Timestamp("2025-07-01")
 THRESHOLDS = [round(x, 2) for x in [0.30 + 0.02 * i for i in range(16)]]
 
 
@@ -35,7 +32,7 @@ def build_alert_runs(scored: pd.DataFrame, threshold: float) -> pd.DataFrame:
     return runs
 
 
-def evaluate(split: str, scored_split: pd.DataFrame, episodes: pd.DataFrame, threshold: float) -> dict:
+def evaluate(scored_split: pd.DataFrame, episodes: pd.DataFrame, threshold: float) -> dict:
     runs = build_alert_runs(scored_split, threshold)
     n_channels = scored_split["channel_id"].nunique()
     n_days = (scored_split["ts"].max() - scored_split["ts"].min()).total_seconds() / 86400
@@ -94,7 +91,7 @@ def main() -> None:
             (episodes_all["start_time"] >= lo) & (episodes_all["start_time"] <= hi)
         ]
         for thr in THRESHOLDS:
-            res = evaluate(split, scored_split, episodes_split, thr)
+            res = evaluate(scored_split, episodes_split, thr)
             results[split].append(res)
             print(split, res)
 

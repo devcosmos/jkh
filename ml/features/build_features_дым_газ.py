@@ -1,26 +1,26 @@
 """Строит витрину признаков на часовой сетке для «Отказ датчика» (дым, газ) — второй
 проверенный тип по итогам docs/documentation/data-audit.md, раздел 6.6 (после двухслойной очистки дым/газ
 дают не меньше пригодных эпизодов и покрытия по каналам, чем насос/вентилятор). Структура
-идентична scripts/build_features.py (насос/вентилятор), но добавлены признаки тревожного флага
+идентична ml/features/build_features.py (насос/вентилятор), но добавлены признаки тревожного флага
 `n_alarms_*`, который для дыма/газа реально варьируется (в отличие от насоса/вентилятора, где
 он всегда false).
 
-Запуск: source .venv/bin/activate && python3 scripts/build_features_дым_газ.py
+Запуск: source .venv/bin/activate && python3 ml/features/build_features_дым_газ.py
 """
 import sys
 from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR = ROOT / "artifacts"
 
 YEARS = ["2024", "2025", "2026"]
 TARGET_TYPES = ["Датчик дыма", "Газовый датчик"]
 STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]
-EPISODES_PARQUET = ANALYSIS_DIR / "episodes_дым_газ_2024_2026.parquet"
-OUT_PARQUET = ANALYSIS_DIR / "features_дым_газ_2024_2026.parquet"
+EPISODES_PARQUET = ARTIFACTS_DIR / "episodes_дым_газ_2024_2026.parquet"
+OUT_PARQUET = ARTIFACTS_DIR / "features_дым_газ_2024_2026.parquet"
 
 EVENT_COLUMN_TYPES = {
     "ид_события": "VARCHAR",
@@ -77,10 +77,10 @@ def main() -> None:
         )
     con.execute(f"CREATE OR REPLACE VIEW events_raw AS {' UNION ALL '.join(union_parts)}")
 
-    # См. scripts/build_features.py — тот же тай-брейк по ид_события на дублирующихся
+    # См. ml/features/build_features.py — тот же тай-брейк по ид_события на дублирующихся
     # timestamp, посчитанный по полной последовательности ДО схлопывания до одной строки на
     # (channel_id, event_time), чтобы не терять внутрисекундные переходы (найдено
-    # scripts/check_worker_feature_parity.py, там же полное объяснение).
+    # scripts/maintenance/check_worker_feature_parity.py, там же полное объяснение).
     print("computing per-event cumulative counters (tie-break by ид_события)...", file=sys.stderr)
     con.execute(
         """

@@ -1,11 +1,11 @@
 """Обучает CatBoost на газовых каналах с добавленными признаками сырой числовой телеметрии
-(scripts/build_features_газ_numeric.py) — проверка гипотезы, что динамика концентрации газа
+(ml/experiments/build_features_газ_numeric.py) — проверка гипотезы, что динамика концентрации газа
 несёт сигнал, которого нет в счётчиках переходов/тревог по состоянию (см. docstring
 build_features_газ_numeric.py). Для честного сравнения обучены обе версии: только
-state-признаки (как в scripts/train_model_дым_газ.py, но подмножество "Газовый датчик") и
+state-признаки (как в ml/training/train_model_дым_газ.py, но подмножество "Газовый датчик") и
 state + numeric-признаки — на одном и том же наборе строк.
 
-Запуск: source .venv/bin/activate && python3 scripts/train_model_газ_numeric.py
+Запуск: source .venv/bin/activate && python3 ml/experiments/train_model_газ_numeric.py
 """
 import json
 from pathlib import Path
@@ -16,7 +16,7 @@ import pandas as pd
 from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 FEATURES_PARQUET = ROOT / "artifacts" / "features_газ_numeric_2024_2026.parquet"
 OUT_REPORT = ROOT / "artifacts" / "model_report_газ_numeric.json"
 

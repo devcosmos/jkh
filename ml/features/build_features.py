@@ -1,25 +1,23 @@
-"""Строит витрину признаков на ДНЕВНОЙ сетке для «Отказ датчика» (насос, вентилятор) —
-эксперимент по гипотезе из artifacts/model_report_насос_вентилятор.md, раздел 5
-(«попробовать более простую/агрегированную единицу»). Аналог scripts/build_features.py,
-но шаг сетки — 1 день вместо 1 часа, окна признаков — 1д/7д/30д вместо 1ч/24ч/7сут.
-Цель та же: y(t)=1, если новый очищенный эпизод «Неисправен» начинается в (t, t+24ч].
+"""Строит витрину признаков на часовой сетке для «Отказ датчика» (насос, вентилятор)
+согласно docs/documentation/label-policy.md: окна 1ч/24ч/7сут, цель y(t) = новый очищенный эпизод
+в (t, t+24ч]. Текущая неисправность на момент t исключается из обучающей популяции.
 
-Запуск: source .venv/bin/activate && python3 scripts/build_features_daily.py
+Запуск: source .venv/bin/activate && python3 ml/features/build_features.py
 """
 import sys
 from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR = ROOT / "artifacts"
 
 YEARS = ["2024", "2025", "2026"]
 TARGET_TYPES = ["Состояние насоса", "Состояние вентилятора"]
 STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]
-EPISODES_PARQUET = ANALYSIS_DIR / "episodes_насос_вентилятор_2024_2026.parquet"
-OUT_PARQUET = ANALYSIS_DIR / "features_насос_вентилятор_daily_2024_2026.parquet"
+EPISODES_PARQUET = ARTIFACTS_DIR / "episodes_насос_вентилятор_2024_2026.parquet"
+OUT_PARQUET = ARTIFACTS_DIR / "features_насос_вентилятор_2024_2026.parquet"
 
 EVENT_COLUMN_TYPES = {
     "ид_события": "VARCHAR",
@@ -64,7 +62,8 @@ def main() -> None:
                 TRY_CAST(ид_канала_данных AS BIGINT) AS channel_id,
                 CAST(дата || ' ' || время AS TIMESTAMP) AS event_time,
                 значение_датчика AS state,
-                (lower(тревожное) = 'true') AS is_alarm
+                (lower(тревожное) = 'true') AS is_alarm,
+                TRY_CAST(ид_события AS BIGINT) AS event_id
             FROM raw_{year}
             WHERE ид_события != 'ид_события'
               AND значение_датчика IN ({state_list_sql})
@@ -75,27 +74,47 @@ def main() -> None:
         )
     con.execute(f"CREATE OR REPLACE VIEW events_raw AS {' UNION ALL '.join(union_parts)}")
 
-    print("computing per-event cumulative counters...", file=sys.stderr)
+    # Изредка несколько событий одного канала делят один и тот же timestamp (секундная
+    # точность исходного журнала) с разными state — в подавляющем большинстве случаев это
+    # настоящий быстрый переход состояния, логированный в пределах одной секунды, а не дубль
+    # одной и той же записи (проверено: ~95% таких групп содержат 2-3 РАЗНЫХ state). Без
+    # тай-брейка LAG/ASOF ниже дают неопределённый порядок, и current_state у обучения и у
+    # worker может разойтись на такой границе (найдено scripts/maintenance/check_worker_feature_parity.py).
+    # ид_события — монотонно растущий счётчик по всему журналу — даёт настоящий хронологический
+    # порядок внутри секунды. Считаем кумулятивные счётчики (включая переходы) по ПОЛНОЙ
+    # последовательности в этом порядке — ничего не теряем — и только потом схлопываем до
+    # одной строки на (channel_id, event_time) для ASOF join ниже, беря итоговое значение на
+    # конец группы (не как раньше — схлопывание до подсчёта тихо съедало внутрисекундные
+    # переходы).
+    print("computing per-event cumulative counters (tie-break by ид_события)...", file=sys.stderr)
     con.execute(
         """
         CREATE OR REPLACE TABLE events_with_prev AS
-        SELECT channel_id, event_time, state, is_alarm,
-               LAG(state) OVER (PARTITION BY channel_id ORDER BY event_time) AS prev_state
+        SELECT channel_id, event_time, state, is_alarm, event_id,
+               LAG(state) OVER (PARTITION BY channel_id ORDER BY event_time, event_id) AS prev_state
         FROM events_raw
         """
     )
     con.execute(
         """
-        CREATE OR REPLACE TABLE events_cum AS
+        CREATE OR REPLACE TABLE events_cum_full AS
         SELECT
-            channel_id, event_time, state, is_alarm,
+            channel_id, event_time, state, is_alarm, event_id,
             row_number() OVER w AS cum_events,
             sum(CASE WHEN is_alarm THEN 1 ELSE 0 END) OVER w AS cum_alarms,
             sum(CASE WHEN state IS DISTINCT FROM prev_state THEN 1 ELSE 0 END) OVER w
                 AS cum_transitions
         FROM events_with_prev
-        WINDOW w AS (PARTITION BY channel_id ORDER BY event_time
+        WINDOW w AS (PARTITION BY channel_id ORDER BY event_time, event_id
                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE events_cum AS
+        SELECT channel_id, event_time, state, is_alarm, cum_events, cum_alarms, cum_transitions
+        FROM events_cum_full
+        QUALIFY row_number() OVER (PARTITION BY channel_id, event_time ORDER BY event_id DESC) = 1
         """
     )
 
@@ -114,13 +133,13 @@ def main() -> None:
         """
     )
 
-    print("building daily grid...", file=sys.stderr)
+    print("building hourly grid...", file=sys.stderr)
     con.execute(
         """
         CREATE OR REPLACE TABLE channel_bounds AS
         SELECT channel_id,
-               date_trunc('day', min(event_time)) + INTERVAL 7 DAY AS grid_start,
-               date_trunc('day', max(event_time)) AS grid_end,
+               date_trunc('hour', min(event_time)) + INTERVAL 7 DAY AS grid_start,
+               date_trunc('hour', max(event_time)) AS grid_end,
                max(event_time) AS channel_max_time
         FROM events_raw
         GROUP BY channel_id
@@ -130,13 +149,13 @@ def main() -> None:
         """
         CREATE OR REPLACE TABLE grid AS
         SELECT channel_id, channel_max_time,
-               unnest(generate_series(grid_start, grid_end, INTERVAL 1 DAY)) AS t
+               unnest(generate_series(grid_start, grid_end, INTERVAL 1 HOUR)) AS t
         FROM channel_bounds
         """
     )
 
     print("asof joins for windowed counters and current state...", file=sys.stderr)
-    for w_name, w_sql in [("1d", "INTERVAL 1 DAY"), ("7d", "INTERVAL 7 DAY"), ("30d", "INTERVAL 30 DAY")]:
+    for w_name, w_sql in [("1h", "INTERVAL 1 HOUR"), ("24h", "INTERVAL 24 HOUR"), ("7d", "INTERVAL 7 DAY")]:
         con.execute(
             f"""
             CREATE OR REPLACE TABLE cum_at_t_minus_{w_name} AS
@@ -207,15 +226,15 @@ def main() -> None:
             g.channel_id,
             c.тип_датчика,
             g.t AS ts,
-            (t0.cum_alarms - m1d.cum_alarms) AS n_alarms_1d,
+            (t0.cum_alarms - m1h.cum_alarms) AS n_alarms_1h,
+            (t0.cum_alarms - m24h.cum_alarms) AS n_alarms_24h,
             (t0.cum_alarms - m7d.cum_alarms) AS n_alarms_7d,
-            (t0.cum_alarms - m30d.cum_alarms) AS n_alarms_30d,
-            (t0.cum_transitions - m1d.cum_transitions) AS n_transitions_1d,
+            (t0.cum_transitions - m1h.cum_transitions) AS n_transitions_1h,
+            (t0.cum_transitions - m24h.cum_transitions) AS n_transitions_24h,
             (t0.cum_transitions - m7d.cum_transitions) AS n_transitions_7d,
-            (t0.cum_transitions - m30d.cum_transitions) AS n_transitions_30d,
-            (t0.cum_events - m1d.cum_events) AS n_events_1d,
+            (t0.cum_events - m1h.cum_events) AS n_events_1h,
+            (t0.cum_events - m24h.cum_events) AS n_events_24h,
             (t0.cum_events - m7d.cum_events) AS n_events_7d,
-            (t0.cum_events - m30d.cum_events) AS n_events_30d,
             t0.current_state,
             date_diff('second', t0.last_event_time, g.t) AS seconds_since_last_event,
             na.n_neighbors_in_fault,
@@ -226,9 +245,9 @@ def main() -> None:
         FROM grid g
         JOIN channels c ON c.ид_канала_данных = g.channel_id
         JOIN cum_at_t t0 ON t0.channel_id = g.channel_id AND t0.t = g.t
-        JOIN cum_at_t_minus_1d m1d ON m1d.channel_id = g.channel_id AND m1d.t = g.t
+        JOIN cum_at_t_minus_1h m1h ON m1h.channel_id = g.channel_id AND m1h.t = g.t
+        JOIN cum_at_t_minus_24h m24h ON m24h.channel_id = g.channel_id AND m24h.t = g.t
         JOIN cum_at_t_minus_7d m7d ON m7d.channel_id = g.channel_id AND m7d.t = g.t
-        JOIN cum_at_t_minus_30d m30d ON m30d.channel_id = g.channel_id AND m30d.t = g.t
         JOIN next_episode ne ON ne.channel_id = g.channel_id AND ne.t = g.t
         JOIN prev_episode pe ON pe.channel_id = g.channel_id AND pe.t = g.t
         JOIN neighbor_agg na ON na.channel_id = g.channel_id AND na.t = g.t

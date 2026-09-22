@@ -1,7 +1,7 @@
-"""Эпизодная оценка для дыма/газа (аналог scripts/evaluate_episodes.py), на выходе
-scripts/train_model_дым_газ.py.
+"""Эпизодная оценка для дыма/газа (аналог ml/evaluation/evaluate_episodes.py), на выходе
+ml/training/train_model_дым_газ.py.
 
-Запуск: source .venv/bin/activate && python3 scripts/evaluate_episodes_дым_газ.py
+Запуск: source .venv/bin/activate && python3 ml/evaluation/evaluate_episodes_дым_газ.py
 """
 import json
 from pathlib import Path
@@ -9,11 +9,11 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "artifacts"
-SCORED_PARQUET = ANALYSIS_DIR / "scored_дым_газ.parquet"
-EPISODES_PARQUET = ANALYSIS_DIR / "episodes_дым_газ_2024_2026.parquet"
-OUT_REPORT = ANALYSIS_DIR / "episode_evaluation_дым_газ.json"
+ROOT = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = ROOT / "artifacts"
+SCORED_PARQUET = ARTIFACTS_DIR / "scored_дым_газ.parquet"
+EPISODES_PARQUET = ARTIFACTS_DIR / "episodes_дым_газ_2024_2026.parquet"
+OUT_REPORT = ARTIFACTS_DIR / "episode_evaluation_дым_газ.json"
 
 THRESHOLDS = [round(x, 2) for x in [0.05 + 0.02 * i for i in range(28)]]
 

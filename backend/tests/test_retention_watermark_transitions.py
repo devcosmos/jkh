@@ -1,5 +1,5 @@
 """Два расхождения между compute_features_for_channel (worker) и обучающей витриной
-(scripts/build_features.py), найденные scripts/check_worker_feature_parity.py:
+(ml/features/build_features.py), найденные scripts/maintenance/check_worker_feature_parity.py:
 
 1. Граница retention теряла переход состояния — LAG(state) для самой старой сохранённой
    записи в channel_events не видит уже удалённого предшественника. prune_old_events теперь
@@ -9,7 +9,7 @@
    дым/газ).
 
 Третье, отдельное расхождение (current_state на дублирующихся timestamp) и его фикс —
-tie-break по id (см. compute_features_for_channel и scripts/build_replay_feed.py) — покрыты
+tie-break по id (см. compute_features_for_channel и ml/features/build_replay_feed.py) — покрыты
 ниже, test_tie_break_by_id_for_duplicate_timestamps."""
 import datetime as dt
 
@@ -76,7 +76,7 @@ def test_no_watermark_no_change_in_behavior(db_session):
 def test_tie_break_by_id_for_duplicate_timestamps(db_session):
     """Исходный журнал изредка логирует два события одного канала с одинаковым event_time
     (секундная точность) — обычно настоящий быстрый переход состояния, не дубль записи
-    (~95% таких групп содержат разные state — см. scripts/build_features.py). ID
+    (~95% таких групп содержат разные state — см. ml/features/build_features.py). ID
     (автоинкремент, отражает порядок вставки — см. load_feed/main: сортировка фида по
     event_time, event_id перед ingest_tick) — тай-брейк: current_state должен быть от записи
     с большим id, и переход между двумя такими записями должен засчитаться, а не потеряться."""
@@ -98,7 +98,7 @@ def test_tie_break_by_id_for_duplicate_timestamps(db_session):
 
 def test_neighbors_scoped_to_own_track(db_session):
     """Обучающая витрина строит соседей только среди каналов своего трека (events_raw уже
-    отфильтрован по TARGET_TYPES в scripts/build_features.py). Сосед из другого трека
+    отфильтрован по TARGET_TYPES в ml/features/build_features.py). Сосед из другого трека
     (дым/газ) не должен попадать в n_neighbors_* для канала насос/вентилятор."""
     channel = _setup(db_session)
     channel.location_group = "group-1"

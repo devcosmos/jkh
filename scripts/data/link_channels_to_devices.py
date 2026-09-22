@@ -1,5 +1,5 @@
 """Эвристическое сопоставление канал→устройство для насоса/вентилятора (открытый пробел
-из докстринга backend/app/models/entities.py и комментария scripts/import_analysis_to_db.py).
+из докстринга backend/app/models/entities.py и комментария scripts/data/import_analysis_to_db.py).
 
 Справочник каналов не содержит явного ID устройства, но физический идентификатор закодирован
 в свободнотекстовом поле `название_датчика`: «В8 ПК96» = вентилятор №8, пикет 96; «Н1 ПК440» =
@@ -15,9 +15,9 @@
 
 Идемпотентно: повторный запуск не создаёт дублирующих Device (проверка по external_id).
 
-Запуск (после открытия SSH-туннеля к Postgres на сервере, см. scripts/import_analysis_to_db.py):
+Запуск (после открытия SSH-туннеля к Postgres на сервере, см. scripts/data/import_analysis_to_db.py):
   JKH_DATABASE_URL=postgresql+psycopg://jkh:<пароль>@localhost:5555/jkh \
-    source .venv/bin/activate && python3 scripts/link_channels_to_devices.py
+    source .venv/bin/activate && python3 scripts/data/link_channels_to_devices.py
 """
 import re
 import sys
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = ROOT / "dataset"
 sys.path.insert(0, str(ROOT / "backend"))
 

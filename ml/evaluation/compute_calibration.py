@@ -8,7 +8,7 @@
 малым числом наблюдений (n < MIN_BIN_SIZE) помечены, а не скрыты — честнее, чем удалить
 шумную точку молча.
 
-Запуск: source .venv/bin/activate && python3 scripts/compute_calibration.py
+Запуск: source .venv/bin/activate && python3 ml/evaluation/compute_calibration.py
 """
 import json
 from pathlib import Path
@@ -16,8 +16,8 @@ from pathlib import Path
 import duckdb
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "artifacts"
+ROOT = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = ROOT / "artifacts"
 
 TRACKS = ["насос_вентилятор", "дым_газ"]
 N_BINS = 10
@@ -27,7 +27,7 @@ MIN_BIN_SIZE = 30
 def compute_for_track(track: str) -> list[dict]:
     con = duckdb.connect()
     df = con.execute(
-        f"SELECT score, y_true FROM read_parquet('{ANALYSIS_DIR / f'scored_{track}.parquet'}') WHERE split = 'test'"
+        f"SELECT score, y_true FROM read_parquet('{ARTIFACTS_DIR / f'scored_{track}.parquet'}') WHERE split = 'test'"
     ).df()
 
     edges = np.linspace(0.0, 1.0, N_BINS + 1)
@@ -54,7 +54,7 @@ def main() -> None:
     for track in TRACKS:
         print(f"[{track}] computing calibration on test split...")
         bins = compute_for_track(track)
-        out_path = ANALYSIS_DIR / f"calibration_{track}.json"
+        out_path = ARTIFACTS_DIR / f"calibration_{track}.json"
         out_path.write_text(json.dumps(bins, ensure_ascii=False, indent=2))
         print(f"[{track}] -> {out_path}")
         for b in bins:

@@ -12,11 +12,11 @@ dataset/, чтобы UI показывал реальные данные вме�
 Рабочий порог каждого трека — не «жёсткий» 0.7/0.5 (тема 3 CSV: «указанные значения являются
 плановыми, а не жёсткими требованиями… если данные не позволяют достичь этих уровней, их
 можно снизить, обязательно обосновав»), а лучшая точка по эпизодной оценке
-(scripts/evaluate_episodes*.py, artifacts/episode_evaluation_*.json) — см. TRACKS ниже.
+(ml/evaluation/evaluate_episodes*.py, artifacts/episode_evaluation_*.json) — см. TRACKS ниже.
 
 Запуск (после открытия SSH-туннеля к Postgres на сервере):
   JKH_DATABASE_URL=postgresql+psycopg://jkh:<пароль>@localhost:5555/jkh \
-    source .venv/bin/activate && python3 scripts/import_analysis_to_db.py
+    source .venv/bin/activate && python3 scripts/data/import_analysis_to_db.py
 """
 import datetime as dt
 import json
@@ -28,7 +28,7 @@ import duckdb
 from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parent
-ROOT = ROOT.parent
+ROOT = ROOT.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import SessionLocal  # noqa: E402
@@ -43,7 +43,7 @@ from app.models.entities import (  # noqa: E402
 from app.models.enums import EpisodeSource, RiskCaseStatus  # noqa: E402
 
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR = ROOT / "artifacts"
 CORE_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"]
 LABEL_POLICY_VERSION = "2026-09-15"
 
@@ -160,7 +160,7 @@ def import_episodes(channel_map: dict[int, int], db) -> None:
     con = duckdb.connect()
     total = 0
     for name in ["насос_вентилятор_2024_2026", "дым_газ_2024_2026"]:
-        path = ANALYSIS_DIR / f"episodes_{name}.parquet"
+        path = ARTIFACTS_DIR / f"episodes_{name}.parquet"
         if not path.exists():
             continue
         rows = con.execute(
@@ -198,11 +198,11 @@ def import_episodes(channel_map: dict[int, int], db) -> None:
 
 def load_extra_metrics(track: Track, report: dict) -> dict:
     """feature_importance — уже посчитан при обучении (report), просто раньше не долетал
-    до БД/UI. calibration — reliability diagram на test-сплите (scripts/compute_calibration.py),
+    до БД/UI. calibration — reliability diagram на test-сплите (ml/evaluation/compute_calibration.py),
     отдельная проверка: совпадает ли предсказанная вероятность с реально наблюдаемой частотой
     отказов, а не только ранжирование (ROC-AUC)."""
     extra: dict = {"feature_importance": report["catboost"].get("feature_importance")}
-    calibration_path = ANALYSIS_DIR / f"calibration_{track.name}.json"
+    calibration_path = ARTIFACTS_DIR / f"calibration_{track.name}.json"
     if calibration_path.exists():
         extra["calibration"] = json.loads(calibration_path.read_text())
     return extra
@@ -210,7 +210,7 @@ def load_extra_metrics(track: Track, report: dict) -> dict:
 
 def import_model_version(track: Track, db) -> int:
     print(f"[{track.name}] importing model version...", file=sys.stderr)
-    report = json.loads((ANALYSIS_DIR / f"model_report_{track.name}.json").read_text())
+    report = json.loads((ARTIFACTS_DIR / f"model_report_{track.name}.json").read_text())
     mv = ModelVersion(
         name=f"catboost_{track.name}_v1",
         sensor_types=track.sensor_types,
@@ -252,7 +252,7 @@ def import_risk_cases_and_predictions(track: Track, channel_map: dict[int, int],
     con.execute(
         f"""
         CREATE VIEW s AS
-        SELECT * FROM read_parquet('{ANALYSIS_DIR / f"scored_{track.name}.parquet"}')
+        SELECT * FROM read_parquet('{ARTIFACTS_DIR / f"scored_{track.name}.parquet"}')
         WHERE split = 'test' AND ts >= TIMESTAMP '{BACKFILL_WINDOW_START.strftime('%Y-%m-%d')}'
         """
     )

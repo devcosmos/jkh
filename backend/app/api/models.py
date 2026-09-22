@@ -36,7 +36,7 @@ def current_models(db: Session = Depends(get_db)) -> list[ModelVersion]:
     description=(
         "Все версии, включая замещённые дообучением (раздел 8 ЖКХ.md: «модуль дообучения "
         "прогнозных моделей на новых данных» — регистрация новой версии описана в "
-        "scripts/register_model_version.py). Только администратор."
+        "scripts/maintenance/register_model_version.py). Только администратор."
     ),
     responses={
         401: {"description": "Требуется вход или токен недействителен"},

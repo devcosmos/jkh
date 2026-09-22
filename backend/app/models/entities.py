@@ -6,9 +6,9 @@
   подключать PostGIS до появления реальных геоданных нет смысла. Переход на
   geoalchemy2.Geometry — прямая замена типа колонки, без изменения остальной схемы.
 - `feature_snapshots` не хранится в Postgres: витрина признаков живёт в Parquet/DuckDB
-  (см. scripts/build_features.py) — это соответствует разделу 7.2 плана («ML-витрины» —
+  (см. ml/features/build_features.py) — это соответствует разделу 7.2 плана («ML-витрины» —
   отдельный слой, не оперативная БД).
-- `devices` заполняется эвристически по имени канала (`scripts/link_channels_to_devices.py`,
+- `devices` заполняется эвристически по имени канала (`scripts/data/link_channels_to_devices.py`,
   15 сентября 2026) — 87.8% покрытия насос/вентилятор, остальное осталось без устройства
   (нет надёжного паттерна в названии), поэтому `device_id` остаётся nullable.
 """
@@ -100,7 +100,7 @@ class Channel(Base, TimestampMixin):
 
     @property
     def device_label(self) -> str | None:
-        """Внешний ID физического устройства — см. scripts/link_channels_to_devices.py."""
+        """Внешний ID физического устройства — см. scripts/data/link_channels_to_devices.py."""
         return self.device.external_id if self.device is not None else None
 
     @property
@@ -112,7 +112,7 @@ class Channel(Base, TimestampMixin):
 
 
 class IncidentEpisode(Base, TimestampMixin):
-    """Очищенный эпизод отказа — см. docs/documentation/label-policy.md и scripts/build_episodes.py."""
+    """Очищенный эпизод отказа — см. docs/documentation/label-policy.md и ml/features/build_episodes.py."""
 
     __tablename__ = "incident_episodes"
 
@@ -329,7 +329,7 @@ class ChannelRetentionWatermark(Base):
     """Состояние последнего события канала, вытесненного 7-суточным retention из
     channel_events (см. ChannelEvent). Без него LAG(state) по оставшимся строкам теряет
     prev_state у самой старой сохранённой записи, и переход состояния на границе retention
-    молча выпадает из n_transitions_* (обнаружено scripts/check_worker_feature_parity.py —
+    молча выпадает из n_transitions_* (обнаружено scripts/maintenance/check_worker_feature_parity.py —
     воркер систематически недосчитывал ровно один переход, когда он случался на границе)."""
 
     __tablename__ = "channel_retention_watermark"

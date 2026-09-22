@@ -3,7 +3,7 @@
 на один канал за сутки — технический инцидент, а не отказ) как известный инцидент,
 исключая их из «чистого» набора.
 
-Запуск: source .venv/bin/activate && python3 scripts/build_episodes.py
+Запуск: source .venv/bin/activate && python3 ml/features/build_episodes.py
 """
 import json
 import sys
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = ROOT / "dataset"
 OUT_DIR = ROOT / "artifacts"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

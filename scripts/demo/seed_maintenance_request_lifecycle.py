@@ -18,13 +18,13 @@ completed), как это делает обработчик заявок в ре
 в итоге выполняется). Остальные 55% (самые свежие) остаются черновиками — это тоже честно:
 всегда есть текущий необработанный хвост.
 
-Запуск: JKH_DATABASE_URL=... python3 scripts/seed_maintenance_request_lifecycle.py [--fraction 0.45]
+Запуск: JKH_DATABASE_URL=... python3 scripts/demo/seed_maintenance_request_lifecycle.py [--fraction 0.45]
 """
 import argparse
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 from sqlalchemy import text  # noqa: E402

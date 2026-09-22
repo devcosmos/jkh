@@ -1,5 +1,5 @@
 """Добавляет к существующей витрине газовых каналов (подмножество
-scripts/build_features_дым_газ.py) признаки на основе СЫРЫХ ЧИСЛОВЫХ показаний концентрации
+ml/features/build_features_дым_газ.py) признаки на основе СЫРЫХ ЧИСЛОВЫХ показаний концентрации
 газа, которые сейчас в состоянийном пайплайне полностью игнорируются: 99,7% событий газовых
 каналов — это числовые значения (TRY_CAST(значение_датчика AS DOUBLE) IS NOT NULL), а не
 категориальные состояния из STATE_VALUES, и используется только 0,3% сигнала.
@@ -8,21 +8,21 @@ scripts/build_features_дым_газ.py) признаки на основе СЫ
 линии) несёт информацию о надвигающемся отказе датчика, которой нет в счётчиках
 переходов/тревог по состоянию.
 
-Запуск: source .venv/bin/activate && python3 scripts/build_features_газ_numeric.py
-Зависит от: artifacts/features_дым_газ_2024_2026.parquet (scripts/build_features_дым_газ.py)
+Запуск: source .venv/bin/activate && python3 ml/experiments/build_features_газ_numeric.py
+Зависит от: artifacts/features_дым_газ_2024_2026.parquet (ml/features/build_features_дым_газ.py)
 """
 import sys
 from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = ROOT / "dataset"
-ANALYSIS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR = ROOT / "artifacts"
 
 YEARS = ["2024", "2025", "2026"]
-BASE_FEATURES_PARQUET = ANALYSIS_DIR / "features_дым_газ_2024_2026.parquet"
-OUT_PARQUET = ANALYSIS_DIR / "features_газ_numeric_2024_2026.parquet"
+BASE_FEATURES_PARQUET = ARTIFACTS_DIR / "features_дым_газ_2024_2026.parquet"
+OUT_PARQUET = ARTIFACTS_DIR / "features_газ_numeric_2024_2026.parquet"
 
 EVENT_COLUMN_TYPES = {
     "ид_события": "VARCHAR",

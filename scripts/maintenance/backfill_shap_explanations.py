@@ -15,7 +15,7 @@ features_<track>_2024_2026.parquet по тому же (channel_id=внешний
 scored_<track>.parquet. Дальше — тот же `explain_prediction`, что и в живом воркере, чтобы
 объяснение считалось одной и той же моделью и логикой в обоих путях.
 
-Запуск: JKH_DATABASE_URL=... python3 scripts/backfill_shap_explanations.py
+Запуск: JKH_DATABASE_URL=... python3 scripts/maintenance/backfill_shap_explanations.py
 """
 import sys
 from pathlib import Path
@@ -24,8 +24,8 @@ import duckdb
 import joblib
 from sqlalchemy import text
 
-ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "artifacts"
+ROOT = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = ROOT / "artifacts"
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.db import SessionLocal  # noqa: E402
@@ -72,8 +72,8 @@ def main() -> None:
                 continue
 
             model = CatBoostClassifier()
-            model.load_model(str(ANALYSIS_DIR / f"catboost_{track.name}.cbm"))
-            anomaly_bundle = joblib.load(ANALYSIS_DIR / f"isolation_forest_{track.name}.joblib")
+            model.load_model(str(ARTIFACTS_DIR / f"catboost_{track.name}.cbm"))
+            anomaly_bundle = joblib.load(ARTIFACTS_DIR / f"isolation_forest_{track.name}.joblib")
 
             lookup_df = con.execute(
                 "SELECT * FROM (VALUES " + ",".join(f"({pid}, {ext_id}, TIMESTAMP '{ts}')" for pid, ext_id, ts in targets) + ") AS t(prediction_id, channel_id, ts)"
@@ -83,7 +83,7 @@ def main() -> None:
                 f"""
                 SELECT t.prediction_id, f.* EXCLUDE (channel_id, ts, y_true, future_fully_observed, in_fault_now)
                 FROM targets t
-                JOIN read_parquet('{ANALYSIS_DIR / f"features_{track.name}_2024_2026.parquet"}') f
+                JOIN read_parquet('{ARTIFACTS_DIR / f"features_{track.name}_2024_2026.parquet"}') f
                   ON f.channel_id = t.channel_id AND f.ts = t.ts
                 """
             ).df()

@@ -51,6 +51,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements-dev.txt
       - name: Episode/flapping tests (DuckDB, no Postgres)
+        run: python -m pytest ml/tests/ -v
+      - name: Maintenance script tests
         run: python -m pytest scripts/tests/ -v
 
   frontend:

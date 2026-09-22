@@ -32,7 +32,7 @@
 ```sh
 python3 scripts/data/manifest.py > docs/documentation/data-manifest.json
 python3 scripts/data/profile_data.py > docs/documentation/data-profile.json
-python3 scripts/build_episodes.py
+python3 ml/features/build_episodes.py
 ```
 
 Построение витрин и обучение описаны в отчётах моделей. Эти операции работают с большим объёмом данных и перезаписывают результаты; для чтения документации повторный запуск не требуется.

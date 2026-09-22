@@ -41,7 +41,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 Backend — `localhost:8000` (`/api/docs` — Swagger), frontend — `localhost:5174`, Postgres —
 `localhost:5433`. После первого подъёма нужны миграции, первый пользователь и данные — см.
-«Первый пользователь» в `backend/README.md` и `scripts/import_analysis_to_db.py` для
+«Первый пользователь» в `backend/README.md` и `scripts/data/import_analysis_to_db.py` для
 наполнения демо-данными (риск-кейсы, прогнозы, версии моделей) из уже посчитанных
 артефактов в `artifacts/`.
 
@@ -49,8 +49,9 @@ Backend — `localhost:8000` (`/api/docs` — Swagger), frontend — `localhost:
 
 - Backend: `cd backend && python3 -m pytest tests/ -v` (нужен отдельный тестовый Postgres —
   см. `backend/README.md`, раздел «Тесты»).
-- Обработка эпизодов/флаппинга: `python3 -m pytest scripts/tests/ -v` (только DuckDB, без
+- Обработка эпизодов/флаппинга: `python3 -m pytest ml/tests/ -v` (только DuckDB, без
   Postgres).
+- Служебные скрипты (регистрация версии модели): `python3 -m pytest scripts/tests/ -v`.
 - Frontend: `cd frontend && npx tsc -b && npm run build` (типы и прод-сборка; e2e-тестов
   пользовательских сценариев пока нет).
 

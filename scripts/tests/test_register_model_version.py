@@ -1,6 +1,6 @@
-"""build_metrics в scripts/register_model_version.py должен разворачивать сырой
+"""build_metrics в scripts/maintenance/register_model_version.py должен разворачивать сырой
 model_report_<track>.json в тот же плоский вид, что пишет import_model_version в
-scripts/import_analysis_to_db.py и что читает frontend/src/pages/ModelsPage.tsx
+scripts/data/import_analysis_to_db.py и что читает frontend/src/pages/ModelsPage.tsx
 (roc_auc_test, target_precision, ... верхнего уровня, не вложенный catboost). Раньше
 register_model_version.py сохранял --report как есть, и после регистрации новой версии
 через этот скрипт показатели на странице «Модели» пропадали.
@@ -11,11 +11,11 @@ import importlib.util
 import json
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent
+MAINTENANCE_DIR = Path(__file__).resolve().parent.parent / "maintenance"
 
 
 def _load_module():
-    spec = importlib.util.spec_from_file_location("register_model_version", SCRIPTS_DIR / "register_model_version.py")
+    spec = importlib.util.spec_from_file_location("register_model_version", MAINTENANCE_DIR / "register_model_version.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

@@ -1,8 +1,8 @@
-"""Тесты границ эпизода и правила флаппинга scripts/build_episodes.py (docs/documentation/label-policy.md,
+"""Тесты границ эпизода и правила флаппинга ml/features/build_episodes.py (docs/documentation/label-policy.md,
 раздел 2; docs/documentation/data-audit.md, разделы 6.1-6.6): run-length по состоянию, left/right
 censoring, порог >10 переходов в «Неисправен» за календарные сутки = технический инцидент.
 
-Запуск: source .venv/bin/activate && python3 -m pytest scripts/tests/ -v
+Запуск: source .venv/bin/activate && python3 -m pytest ml/tests/ -v
 """
 import csv
 import importlib.util
@@ -13,11 +13,11 @@ import duckdb
 import pandas as pd
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent
+FEATURES_DIR = Path(__file__).resolve().parent.parent / "features"
 
 
 def _load_build_episodes_module():
-    spec = importlib.util.spec_from_file_location("build_episodes", SCRIPTS_DIR / "build_episodes.py")
+    spec = importlib.util.spec_from_file_location("build_episodes", FEATURES_DIR / "build_episodes.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

@@ -1,10 +1,10 @@
 """Фоновый worker: replay истории + живой инференс (раздел 3 ТЗ MVP, раздел 8 плана).
 
 Продвигает виртуальное время по часовым тикам, "доставляет" события из заранее
-подготовленных компактных файлов-потоков (scripts/build_replay_feed.py,
+подготовленных компактных файлов-потоков (ml/features/build_replay_feed.py,
 2025-07-01..2026-06-30, честно "невиданный" моделью test-период) в оперативную таблицу
 `channel_events` (скользящее окно 7 суток — раздел 7.2 плана), затем на каждом тике считает
-признаки напрямую в Postgres (те же признаки, что при обучении — scripts/build_features*.py)
+признаки напрямую в Postgres (те же признаки, что при обучении — ml/features/build_features*.py)
 и прогоняет через уже обученный CatBoost — отдельно для каждого из двух независимо
 оцениваемых треков (тема 18 CSV с ответами организаторов: «два независимых результата,
 оцениваются отдельно») — насос/вентилятор и дым/газ.
@@ -15,9 +15,9 @@
 сохранённого виртуального времени, а не с начала.
 
 Рабочий порог каждого трека — не «жёсткий» 0.7/0.5, а лучшая точка эпизодной оценки, та же,
-что и при бэкфилле (scripts/import_analysis_to_db.py); см. artifacts/model_report_*.md,
+что и при бэкфилле (scripts/data/import_analysis_to_db.py); см. artifacts/model_report_*.md,
 раздел 3. Источник порога — активная ModelVersion.threshold в БД (пишется
-scripts/register_model_version.py / import_analysis_to_db.py), а не переменная окружения:
+scripts/maintenance/register_model_version.py / import_analysis_to_db.py), а не переменная окружения:
 раньше регистрация новой версии могла молча разойтись с порогом, который worker реально
 применяет, потому что тот читался из TRACKS/env независимо от БД. DEFAULT_THRESHOLDS ниже —
 запасной вариант только для случая, когда у активной версии threshold не задан.
@@ -62,8 +62,8 @@ SLEEP_SECONDS = float(os.environ.get("REPLAY_SLEEP_SECONDS", "2"))
 
 @dataclass(frozen=True)
 class Track:
-    name: str  # суффикс файлов в /artifacts — совпадает с scripts/build_replay_feed.py и train_model*.py
-    category: str  # RiskCase.category / Prediction.category — тот же, что в scripts/import_analysis_to_db.py
+    name: str  # суффикс файлов в /artifacts — совпадает с ml/features/build_replay_feed.py и train_model*.py
+    category: str  # RiskCase.category / Prediction.category — тот же, что в scripts/data/import_analysis_to_db.py
     sensor_types: list[str]
 
 
@@ -142,7 +142,7 @@ def explain_prediction(model: CatBoostClassifier, row: list[list]) -> dict:
 
 def compute_anomaly_signal(anomaly_bundle: dict, features: dict) -> dict:
     """Независимый от CatBoost сигнал: IsolationForest без учителя на тех же поведенческих
-    признаках (scripts/train_anomaly_model.py). Не заменяет прогноз модели, а дополняет его —
+    признаках (ml/training/train_anomaly_model.py). Не заменяет прогноз модели, а дополняет его —
     может отметить необычное поведение канала, не похожее ни на один известный сценарий
     отказа в разметке (в отличие от CatBoost, который находит только виденные паттерны)."""
     model = anomaly_bundle["model"]
@@ -159,7 +159,7 @@ def load_feed(track: Track) -> pd.DataFrame:
     # event_id — тай-брейк порядка вставки для событий одного канала с одинаковым event_time
     # (секундная точность источника): ChannelEvent.id (автоинкремент) получает правильный
     # хронологический порядок только если вставка идёт в этом порядке — см.
-    # scripts/build_replay_feed.py и compute_features_for_channel ниже (ORDER BY ..., id).
+    # ml/features/build_replay_feed.py и compute_features_for_channel ниже (ORDER BY ..., id).
     return df.sort_values(["event_time", "event_id"]).reset_index(drop=True)
 
 
@@ -312,8 +312,8 @@ def compute_features_for_channel(
 
     # Соседи считаются только среди каналов своего трека (насос/вентилятор отдельно от
     # дым/газ) — так же, как в обучающей витрине, где events_raw уже отфильтрован по
-    # TARGET_TYPES (scripts/build_features.py). Без этого фильтра worker подмешивал бы
-    # чужой трек в n_neighbors_in_fault (найдено при сверке с scripts/check_worker_feature_parity.py).
+    # TARGET_TYPES (ml/features/build_features.py). Без этого фильтра worker подмешивал бы
+    # чужой трек в n_neighbors_in_fault (найдено при сверке с scripts/maintenance/check_worker_feature_parity.py).
     neighbors = db.execute(
         text(
             """
@@ -434,7 +434,7 @@ def load_track_runtime(db: Session, track: Track) -> TrackRuntime:
     )
     if model_version is None:
         print(
-            f"[{track.name}] no active model_version in DB — run scripts/import_analysis_to_db.py first",
+            f"[{track.name}] no active model_version in DB — run scripts/data/import_analysis_to_db.py first",
             file=sys.stderr,
         )
         sys.exit(1)

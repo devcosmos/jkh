@@ -7,7 +7,7 @@
 получен на проде через `docker exec jkh-db-1 psql ... -c "SELECT ..."` (см. команду в сессии).
 
 Запуск:
-    python3 scripts/backfill_shap_offline.py /tmp/backfill_targets_recent.csv > /tmp/backfill.sql
+    python3 scripts/maintenance/backfill_shap_offline.py /tmp/backfill_targets_recent.csv > /tmp/backfill.sql
 """
 import csv
 import json
@@ -17,8 +17,8 @@ from pathlib import Path
 import duckdb
 import joblib
 
-ROOT = Path(__file__).resolve().parent.parent
-ANALYSIS_DIR = ROOT / "artifacts"
+ROOT = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = ROOT / "artifacts"
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.workers.replay_worker import (  # noqa: E402
@@ -53,8 +53,8 @@ def main() -> None:
             continue
 
         model = CatBoostClassifier()
-        model.load_model(str(ANALYSIS_DIR / f"catboost_{track.name}.cbm"))
-        anomaly_bundle = joblib.load(ANALYSIS_DIR / f"isolation_forest_{track.name}.joblib")
+        model.load_model(str(ARTIFACTS_DIR / f"catboost_{track.name}.cbm"))
+        anomaly_bundle = joblib.load(ARTIFACTS_DIR / f"isolation_forest_{track.name}.joblib")
 
         values = ",".join(f"({pid}, {ext_id}, TIMESTAMP '{ts}')" for pid, ext_id, ts in targets)
         lookup_df = con.execute(f"SELECT * FROM (VALUES {values}) AS t(prediction_id, channel_id, ts)").df()
@@ -63,7 +63,7 @@ def main() -> None:
             f"""
             SELECT t.prediction_id, f.* EXCLUDE (channel_id, ts, y_true, future_fully_observed, in_fault_now)
             FROM targets t
-            JOIN read_parquet('{ANALYSIS_DIR / f"features_{track.name}_2024_2026.parquet"}') f
+            JOIN read_parquet('{ARTIFACTS_DIR / f"features_{track.name}_2024_2026.parquet"}') f
               ON f.channel_id = t.channel_id AND f.ts = t.ts
             """
         ).df()

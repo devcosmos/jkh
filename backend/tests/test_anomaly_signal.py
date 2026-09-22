@@ -1,4 +1,4 @@
-"""IsolationForest как независимый от CatBoost сигнал аномальности (scripts/train_anomaly_model.py):
+"""IsolationForest как независимый от CatBoost сигнал аномальности (ml/training/train_anomaly_model.py):
 без учителя, на тех же поведенческих признаках, обнаруживает необычное поведение канала, а не
 только уже виденные в разметке сценарии отказа."""
 from pathlib import Path

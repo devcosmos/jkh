@@ -6,7 +6,7 @@
 
 Пороги (RECENT/BASELINE_WINDOW_DAYS, MIN_TOTAL_EPISODES, WORSENING/IMPROVING_RATIO,
 MIN_ABSOLUTE_DELTA) — рабочая эвристика, ревизуемая, того же рода, что debounce/флаппинг-пороги
-в docs/documentation/label-policy.md и MIN_BIN_SIZE в scripts/compute_calibration.py.
+в docs/documentation/label-policy.md и MIN_BIN_SIZE в ml/evaluation/compute_calibration.py.
 """
 from __future__ import annotations
 

@@ -3,18 +3,18 @@
 test-периода (2025-07-01) — не весь датасет (16 ГБ), а ровно то, что нужно для демонстрации
 сценария replay + live inference.
 
-Запуск: source .venv/bin/activate && python3 scripts/build_replay_feed.py
+Запуск: source .venv/bin/activate && python3 ml/features/build_replay_feed.py
 """
 from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATASET_DIR = ROOT / "dataset"
 OUT_DIR = ROOT / "artifacts"
 
 REPLAY_START = "2025-07-01"  # начало test-периода в train_model*.py — честно "невиданные" данные
-STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]  # см. scripts/build_episodes.py
+STATE_VALUES = ["Норма", "Неопределен", "Неисправен", "Обесточен"]  # см. ml/features/build_episodes.py
 RUN_SPECS = [
     ("насос_вентилятор", ["Состояние насоса", "Состояние вентилятора"]),
     ("дым_газ", ["Датчик дыма", "Газовый датчик"]),
@@ -63,7 +63,7 @@ def build_feed(con: duckdb.DuckDBPyConnection, name: str, types: list[str]) -> N
     # event_time (секундная точность источника). Без этого при нескольких событиях канала
     # с одинаковым timestamp worker и обучение (build_features.py — тот же тай-брейк) могли
     # по-разному определить current_state и внутрисекундные переходы (найдено
-    # scripts/check_worker_feature_parity.py). Дедупликации здесь нет и не должно быть —
+    # scripts/maintenance/check_worker_feature_parity.py). Дедупликации здесь нет и не должно быть —
     # каждое такое событие обычно настоящий быстрый переход состояния, не дубль записи.
     con.execute(f"COPY (SELECT * FROM feed ORDER BY event_time, event_id) TO '{out_path}' (FORMAT PARQUET)")
 
