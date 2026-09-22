@@ -1,22 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
-import { usePagedApi } from "../api/usePagedApi";
-import { useApi } from "../api/useApi";
-import { categoryLabel, categoryTone } from "../api/categories";
-import { DECISION_ACTION_LABELS } from "../api/decisionAction";
-import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../api/requestStatus";
-import { AnomalyBadge } from "../components/AnomalyBadge";
-import { Badge, riskPriorityTone } from "../components/Badge";
-import { SECONDARY_CONTROL } from "../components/controlStyles";
-import { DataState } from "../components/DataState";
-import { DetailSection } from "../components/DetailSection";
-import { CheckCircleIcon, CheckIcon, ChevronIcon, CloseIcon, DraftIcon, WrenchIcon } from "../components/icons";
-import { Pagination } from "../components/Pagination";
-import { Select } from "../components/Select";
-import { SortableTh } from "../components/SortableTh";
-import { exportCsv } from "../lib/exportCsv";
-import type { AuditLogEntry, MaintenanceRequestOut, MaintenanceRequestStatus } from "../api/types";
+import { api } from "../../api/client";
+import { usePagedApi } from "../../api/usePagedApi";
+import { useApi } from "../../api/useApi";
+import { categoryLabel, categoryTone } from "../../api/categories";
+import { DECISION_ACTION_LABELS } from "../../api/decisionAction";
+import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../../api/requestStatus";
+import { AnomalyBadge } from "../../components/AnomalyBadge";
+import { Badge, riskPriorityTone } from "../../components/Badge";
+import { SECONDARY_CONTROL } from "../../components/controlStyles";
+import { DataState } from "../../components/DataState";
+import { DetailSection } from "../../components/DetailSection";
+import { CheckCircleIcon, CheckIcon, ChevronIcon, CloseIcon, DraftIcon, WrenchIcon } from "../../components/icons";
+import { Pagination } from "../../components/Pagination";
+import { Select } from "../../components/Select";
+import { SortableTh } from "../../components/SortableTh";
+import { exportCsv } from "../../lib/exportCsv";
+import type { AuditLogEntry, MaintenanceRequestOut, MaintenanceRequestStatus } from "../../api/types";
 
 // Разрешённые переходы — зеркало ALLOWED_TRANSITIONS на backend (раздел 10 плана).
 const NEXT_STATUSES: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
