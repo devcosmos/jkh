@@ -142,7 +142,7 @@ def worker_features_at(con: duckdb.DuckDBPyConnection, db, channel_id: int, ts: 
         )
     db.commit()
 
-    return compute_features_for_channel(db, channel, ts)
+    return compute_features_for_channel(db, channel, ts, ["Состояние насоса", "Состояние вентилятора"])
 
 
 def main() -> None:

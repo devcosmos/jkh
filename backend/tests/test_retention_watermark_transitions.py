@@ -1,9 +1,12 @@
-"""Граница retention не должна терять переход состояния (см.
-scripts/check_worker_feature_parity.py — worker систематически недосчитывал ровно один
-переход в n_transitions_*, когда он случался на самой старой сохранённой записи, потому что
-LAG(state) для неё не видит уже удалённого предшественника). prune_old_events теперь пишет
-ChannelRetentionWatermark перед удалением, а compute_features_for_channel сеет им prev_state
-для самой старой оставшейся записи."""
+"""Два расхождения между compute_features_for_channel (worker) и обучающей витриной
+(scripts/build_features.py), найденные scripts/check_worker_feature_parity.py:
+
+1. Граница retention теряла переход состояния — LAG(state) для самой старой сохранённой
+   записи в channel_events не видит уже удалённого предшественника. prune_old_events теперь
+   пишет ChannelRetentionWatermark перед удалением, а расчёт переходов сеет им prev_state.
+2. Соседи считались по всем каналам location_group без учёта трека, тогда как обучающая
+   витрина строится отдельно по каналам своего трека (насос/вентилятор отдельно от
+   дым/газ)."""
 import datetime as dt
 
 from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark
@@ -48,7 +51,7 @@ def test_transition_at_retention_boundary_is_not_lost(db_session):
     remaining = db_session.query(ChannelEvent).filter_by(channel_id=channel.id).count()
     assert remaining == 1
 
-    features = compute_features_for_channel(db_session, channel, NOW)
+    features = compute_features_for_channel(db_session, channel, NOW, ["Состояние насоса"])
     assert features["n_transitions_7d"] == 1
     assert features["current_state"] == "Норма"
 
@@ -62,5 +65,37 @@ def test_no_watermark_no_change_in_behavior(db_session):
     )
     db_session.commit()
 
-    features = compute_features_for_channel(db_session, channel, NOW)
+    features = compute_features_for_channel(db_session, channel, NOW, ["Состояние насоса"])
     assert features["n_transitions_7d"] == 0
+
+
+def test_neighbors_scoped_to_own_track(db_session):
+    """Обучающая витрина строит соседей только среди каналов своего трека (events_raw уже
+    отфильтрован по TARGET_TYPES в scripts/build_features.py). Сосед из другого трека
+    (дым/газ) не должен попадать в n_neighbors_* для канала насос/вентилятор."""
+    channel = _setup(db_session)
+    channel.location_group = "group-1"
+
+    same_track_neighbor = Channel(
+        external_channel_id=42003, sensor_type="Состояние вентилятора", location_group="group-1"
+    )
+    other_track_neighbor = Channel(
+        external_channel_id=42004, sensor_type="Датчик дыма", location_group="group-1"
+    )
+    db_session.add_all([same_track_neighbor, other_track_neighbor])
+    db_session.flush()
+
+    for c in (same_track_neighbor, other_track_neighbor):
+        db_session.add(
+            ChannelEvent(channel_id=c.id, event_time=NOW - dt.timedelta(hours=1), state="Неисправен")
+        )
+    db_session.add(
+        ChannelEvent(channel_id=channel.id, event_time=NOW - dt.timedelta(hours=1), state="Норма")
+    )
+    db_session.commit()
+
+    features = compute_features_for_channel(
+        db_session, channel, NOW, ["Состояние насоса", "Состояние вентилятора"]
+    )
+    assert features["n_neighbors_total"] == 1
+    assert features["n_neighbors_in_fault"] == 1

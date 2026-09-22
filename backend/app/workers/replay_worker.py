@@ -232,7 +232,9 @@ def close_stale_risk_cases(db, tick_end: dt.datetime) -> int:
     return result.rowcount
 
 
-def compute_features_for_channel(db, channel: Channel, tick_end: dt.datetime) -> dict | None:
+def compute_features_for_channel(
+    db, channel: Channel, tick_end: dt.datetime, sensor_types: list[str]
+) -> dict | None:
     row = db.execute(
         text(
             """
@@ -285,17 +287,26 @@ def compute_features_for_channel(db, channel: Channel, tick_end: dt.datetime) ->
             if event_time > t1h_cut:
                 n_trans_1h += 1
 
+    # Соседи считаются только среди каналов своего трека (насос/вентилятор отдельно от
+    # дым/газ) — так же, как в обучающей витрине, где events_raw уже отфильтрован по
+    # TARGET_TYPES (scripts/build_features.py). Без этого фильтра worker подмешивал бы
+    # чужой трек в n_neighbors_in_fault (найдено при сверке с scripts/check_worker_feature_parity.py).
     neighbors = db.execute(
         text(
             """
             SELECT c.id, (array_agg(ce.state ORDER BY ce.event_time DESC))[1] AS state
             FROM channels c
             JOIN channel_events ce ON ce.channel_id = c.id AND ce.event_time <= :tick_end
-            WHERE c.location_group = :grp AND c.id != :cid
+            WHERE c.location_group = :grp AND c.id != :cid AND c.sensor_type = ANY(:sensor_types)
             GROUP BY c.id
             """
         ),
-        {"grp": channel.location_group, "cid": channel.id, "tick_end": tick_end},
+        {
+            "grp": channel.location_group,
+            "cid": channel.id,
+            "tick_end": tick_end,
+            "sensor_types": sensor_types,
+        },
     ).all()
     n_neighbors_total = len(neighbors)
     n_neighbors_in_fault = sum(1 for _, s in neighbors if s == "Неисправен")
@@ -440,7 +451,7 @@ def main() -> None:
         n_alerts = 0
         for rt in runtimes:
             for channel in rt.channels:
-                features = compute_features_for_channel(db, channel, tick_end)
+                features = compute_features_for_channel(db, channel, tick_end, rt.track.sensor_types)
                 if features is None:
                     continue
                 proba = score_and_record(
