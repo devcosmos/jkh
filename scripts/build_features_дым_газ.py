@@ -65,7 +65,8 @@ def main() -> None:
                 TRY_CAST(ид_канала_данных AS BIGINT) AS channel_id,
                 CAST(дата || ' ' || время AS TIMESTAMP) AS event_time,
                 значение_датчика AS state,
-                (lower(тревожное) = 'true') AS is_alarm
+                (lower(тревожное) = 'true') AS is_alarm,
+                TRY_CAST(ид_события AS BIGINT) AS event_id
             FROM raw_{year}
             WHERE ид_события != 'ид_события'
               AND значение_датчика IN ({state_list_sql})
@@ -76,27 +77,39 @@ def main() -> None:
         )
     con.execute(f"CREATE OR REPLACE VIEW events_raw AS {' UNION ALL '.join(union_parts)}")
 
-    print("computing per-event cumulative counters...", file=sys.stderr)
+    # См. scripts/build_features.py — тот же тай-брейк по ид_события на дублирующихся
+    # timestamp, посчитанный по полной последовательности ДО схлопывания до одной строки на
+    # (channel_id, event_time), чтобы не терять внутрисекундные переходы (найдено
+    # scripts/check_worker_feature_parity.py, там же полное объяснение).
+    print("computing per-event cumulative counters (tie-break by ид_события)...", file=sys.stderr)
     con.execute(
         """
         CREATE OR REPLACE TABLE events_with_prev AS
-        SELECT channel_id, event_time, state, is_alarm,
-               LAG(state) OVER (PARTITION BY channel_id ORDER BY event_time) AS prev_state
+        SELECT channel_id, event_time, state, is_alarm, event_id,
+               LAG(state) OVER (PARTITION BY channel_id ORDER BY event_time, event_id) AS prev_state
         FROM events_raw
         """
     )
     con.execute(
         """
-        CREATE OR REPLACE TABLE events_cum AS
+        CREATE OR REPLACE TABLE events_cum_full AS
         SELECT
-            channel_id, event_time, state, is_alarm,
+            channel_id, event_time, state, is_alarm, event_id,
             row_number() OVER w AS cum_events,
             sum(CASE WHEN is_alarm THEN 1 ELSE 0 END) OVER w AS cum_alarms,
             sum(CASE WHEN state IS DISTINCT FROM prev_state THEN 1 ELSE 0 END) OVER w
                 AS cum_transitions
         FROM events_with_prev
-        WINDOW w AS (PARTITION BY channel_id ORDER BY event_time
+        WINDOW w AS (PARTITION BY channel_id ORDER BY event_time, event_id
                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE events_cum AS
+        SELECT channel_id, event_time, state, is_alarm, cum_events, cum_alarms, cum_transitions
+        FROM events_cum_full
+        QUALIFY row_number() OVER (PARTITION BY channel_id, event_time ORDER BY event_id DESC) = 1
         """
     )
 

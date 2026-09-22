@@ -62,7 +62,8 @@ def main() -> None:
                 TRY_CAST(ид_канала_данных AS BIGINT) AS channel_id,
                 CAST(дата || ' ' || время AS TIMESTAMP) AS event_time,
                 значение_датчика AS state,
-                (lower(тревожное) = 'true') AS is_alarm
+                (lower(тревожное) = 'true') AS is_alarm,
+                TRY_CAST(ид_события AS BIGINT) AS event_id
             FROM raw_{year}
             WHERE ид_события != 'ид_события'
               AND значение_датчика IN ({state_list_sql})
@@ -73,27 +74,47 @@ def main() -> None:
         )
     con.execute(f"CREATE OR REPLACE VIEW events_raw AS {' UNION ALL '.join(union_parts)}")
 
-    print("computing per-event cumulative counters...", file=sys.stderr)
+    # Изредка несколько событий одного канала делят один и тот же timestamp (секундная
+    # точность исходного журнала) с разными state — в подавляющем большинстве случаев это
+    # настоящий быстрый переход состояния, логированный в пределах одной секунды, а не дубль
+    # одной и той же записи (проверено: ~95% таких групп содержат 2-3 РАЗНЫХ state). Без
+    # тай-брейка LAG/ASOF ниже дают неопределённый порядок, и current_state у обучения и у
+    # worker может разойтись на такой границе (найдено scripts/check_worker_feature_parity.py).
+    # ид_события — монотонно растущий счётчик по всему журналу — даёт настоящий хронологический
+    # порядок внутри секунды. Считаем кумулятивные счётчики (включая переходы) по ПОЛНОЙ
+    # последовательности в этом порядке — ничего не теряем — и только потом схлопываем до
+    # одной строки на (channel_id, event_time) для ASOF join ниже, беря итоговое значение на
+    # конец группы (не как раньше — схлопывание до подсчёта тихо съедало внутрисекундные
+    # переходы).
+    print("computing per-event cumulative counters (tie-break by ид_события)...", file=sys.stderr)
     con.execute(
         """
         CREATE OR REPLACE TABLE events_with_prev AS
-        SELECT channel_id, event_time, state, is_alarm,
-               LAG(state) OVER (PARTITION BY channel_id ORDER BY event_time) AS prev_state
+        SELECT channel_id, event_time, state, is_alarm, event_id,
+               LAG(state) OVER (PARTITION BY channel_id ORDER BY event_time, event_id) AS prev_state
         FROM events_raw
         """
     )
     con.execute(
         """
-        CREATE OR REPLACE TABLE events_cum AS
+        CREATE OR REPLACE TABLE events_cum_full AS
         SELECT
-            channel_id, event_time, state, is_alarm,
+            channel_id, event_time, state, is_alarm, event_id,
             row_number() OVER w AS cum_events,
             sum(CASE WHEN is_alarm THEN 1 ELSE 0 END) OVER w AS cum_alarms,
             sum(CASE WHEN state IS DISTINCT FROM prev_state THEN 1 ELSE 0 END) OVER w
                 AS cum_transitions
         FROM events_with_prev
-        WINDOW w AS (PARTITION BY channel_id ORDER BY event_time
+        WINDOW w AS (PARTITION BY channel_id ORDER BY event_time, event_id
                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE events_cum AS
+        SELECT channel_id, event_time, state, is_alarm, cum_events, cum_alarms, cum_transitions
+        FROM events_cum_full
+        QUALIFY row_number() OVER (PARTITION BY channel_id, event_time ORDER BY event_id DESC) = 1
         """
     )
 

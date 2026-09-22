@@ -156,7 +156,11 @@ def compute_anomaly_signal(anomaly_bundle: dict, features: dict) -> dict:
 def load_feed(track: Track) -> pd.DataFrame:
     df = pd.read_parquet(DATA_DIR / f"replay_feed_{track.name}.parquet")
     df["event_time"] = pd.to_datetime(df["event_time"], utc=True)
-    return df.sort_values("event_time").reset_index(drop=True)
+    # event_id — тай-брейк порядка вставки для событий одного канала с одинаковым event_time
+    # (секундная точность источника): ChannelEvent.id (автоинкремент) получает правильный
+    # хронологический порядок только если вставка идёт в этом порядке — см.
+    # scripts/build_replay_feed.py и compute_features_for_channel ниже (ORDER BY ..., id).
+    return df.sort_values(["event_time", "event_id"]).reset_index(drop=True)
 
 
 def get_or_init_virtual_time(db, feed: pd.DataFrame) -> dt.datetime:
@@ -259,7 +263,13 @@ def compute_features_for_channel(
                 count(*) FILTER (WHERE event_time > :t24h) AS n_events_24h,
                 count(*) AS n_events_7d,
                 max(event_time) AS last_event_time,
-                (array_agg(state ORDER BY event_time DESC))[1] AS current_state
+                -- id (PK) как тай-брейк: несколько событий канала с одинаковым event_time
+                -- (секундная точность источника) вставляются в правильном хронологическом
+                -- порядке (см. load_feed/main — сортировка по event_time, event_id перед
+                -- ingest_tick), поэтому больший id внутри одинакового event_time — более
+                -- поздняя по факту запись. Без этого тай-брейка current_state мог разойтись
+                -- с обучением (build_features.py — тот же тай-брейк по ид_события).
+                (array_agg(state ORDER BY event_time DESC, id DESC))[1] AS current_state
             FROM channel_events
             WHERE channel_id = :cid AND event_time <= :tick_end
             """
@@ -274,10 +284,10 @@ def compute_features_for_channel(
         text(
             """
             SELECT event_time, state,
-                   LAG(state) OVER (ORDER BY event_time) AS prev_state
+                   LAG(state) OVER (ORDER BY event_time, id) AS prev_state
             FROM channel_events
             WHERE channel_id = :cid AND event_time <= :tick_end
-            ORDER BY event_time
+            ORDER BY event_time, id
             """
         ),
         {"cid": channel.id, "tick_end": tick_end},
@@ -307,7 +317,7 @@ def compute_features_for_channel(
     neighbors = db.execute(
         text(
             """
-            SELECT c.id, (array_agg(ce.state ORDER BY ce.event_time DESC))[1] AS state
+            SELECT c.id, (array_agg(ce.state ORDER BY ce.event_time DESC, ce.id DESC))[1] AS state
             FROM channels c
             JOIN channel_events ce ON ce.channel_id = c.id AND ce.event_time <= :tick_end
             WHERE c.location_group = :grp AND c.id != :cid AND c.sensor_type = ANY(:sensor_types)
@@ -460,7 +470,7 @@ def main() -> None:
             file=sys.stderr,
         )
         feeds.append(feed)
-    feed = pd.concat(feeds, ignore_index=True).sort_values("event_time").reset_index(drop=True)
+    feed = pd.concat(feeds, ignore_index=True).sort_values(["event_time", "event_id"]).reset_index(drop=True)
     channel_map = {c.external_channel_id: c.id for rt in runtimes for c in rt.channels}
 
     virtual_time = get_or_init_virtual_time(db, feed)

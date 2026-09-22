@@ -99,7 +99,7 @@ def worker_features_at(con: duckdb.DuckDBPyConnection, db, channel_id: int, ts: 
         WHERE channel_id = {channel_id}
           AND event_time > TIMESTAMP '{window_start.replace(tzinfo=None)}'
           AND event_time <= TIMESTAMP '{ts.replace(tzinfo=None)}'
-        ORDER BY event_time
+        ORDER BY event_time, event_id
         """
     ).fetchdf()
 
@@ -115,7 +115,7 @@ def worker_features_at(con: duckdb.DuckDBPyConnection, db, channel_id: int, ts: 
         f"""
         SELECT state FROM read_parquet('{FEED_PARQUET}')
         WHERE channel_id = {channel_id} AND event_time <= TIMESTAMP '{window_start.replace(tzinfo=None)}'
-        ORDER BY event_time DESC LIMIT 1
+        ORDER BY event_time DESC, event_id DESC LIMIT 1
         """
     ).fetchdf()
     if not pruned.empty:

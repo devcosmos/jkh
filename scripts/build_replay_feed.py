@@ -45,7 +45,8 @@ def build_feed(con: duckdb.DuckDBPyConnection, name: str, types: list[str]) -> N
             SELECT TRY_CAST(ид_канала_данных AS BIGINT) AS channel_id,
                    CAST(дата || ' ' || время AS TIMESTAMP) AS event_time,
                    значение_датчика AS state,
-                   (lower(тревожное) = 'true') AS is_alarm
+                   (lower(тревожное) = 'true') AS is_alarm,
+                   TRY_CAST(ид_события AS BIGINT) AS event_id
             FROM raw_{year}
             WHERE ид_события != 'ид_события'
               AND значение_датчика IN ({state_list_sql})
@@ -56,7 +57,15 @@ def build_feed(con: duckdb.DuckDBPyConnection, name: str, types: list[str]) -> N
             """
         )
     con.execute(f"CREATE OR REPLACE VIEW feed AS {' UNION ALL '.join(parts)}")
-    con.execute(f"COPY (SELECT * FROM feed ORDER BY event_time) TO '{out_path}' (FORMAT PARQUET)")
+    # event_id сохраняется в файле как тай-брейк порядка вставки — worker сортирует по
+    # (event_time, event_id) перед ingest_tick, так что PK автоинкремента ChannelEvent.id
+    # получается в правильном хронологическом порядке даже для событий с одинаковым
+    # event_time (секундная точность источника). Без этого при нескольких событиях канала
+    # с одинаковым timestamp worker и обучение (build_features.py — тот же тай-брейк) могли
+    # по-разному определить current_state и внутрисекундные переходы (найдено
+    # scripts/check_worker_feature_parity.py). Дедупликации здесь нет и не должно быть —
+    # каждое такое событие обычно настоящий быстрый переход состояния, не дубль записи.
+    con.execute(f"COPY (SELECT * FROM feed ORDER BY event_time, event_id) TO '{out_path}' (FORMAT PARQUET)")
 
     n, lo, hi = con.execute("SELECT count(*), min(event_time), max(event_time) FROM feed").fetchone()
     print(f"[{name}] {n} rows, {lo} .. {hi} -> {out_path}")

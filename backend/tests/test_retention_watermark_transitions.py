@@ -6,7 +6,11 @@
    пишет ChannelRetentionWatermark перед удалением, а расчёт переходов сеет им prev_state.
 2. Соседи считались по всем каналам location_group без учёта трека, тогда как обучающая
    витрина строится отдельно по каналам своего трека (насос/вентилятор отдельно от
-   дым/газ)."""
+   дым/газ).
+
+Третье, отдельное расхождение (current_state на дублирующихся timestamp) и его фикс —
+tie-break по id (см. compute_features_for_channel и scripts/build_replay_feed.py) — покрыты
+ниже, test_tie_break_by_id_for_duplicate_timestamps."""
 import datetime as dt
 
 from app.models.entities import Channel, ChannelEvent, ChannelRetentionWatermark
@@ -67,6 +71,29 @@ def test_no_watermark_no_change_in_behavior(db_session):
 
     features = compute_features_for_channel(db_session, channel, NOW, ["Состояние насоса"])
     assert features["n_transitions_7d"] == 0
+
+
+def test_tie_break_by_id_for_duplicate_timestamps(db_session):
+    """Исходный журнал изредка логирует два события одного канала с одинаковым event_time
+    (секундная точность) — обычно настоящий быстрый переход состояния, не дубль записи
+    (~95% таких групп содержат разные state — см. scripts/build_features.py). ID
+    (автоинкремент, отражает порядок вставки — см. load_feed/main: сортировка фида по
+    event_time, event_id перед ingest_tick) — тай-брейк: current_state должен быть от записи
+    с большим id, и переход между двумя такими записями должен засчитаться, а не потеряться."""
+    channel = _setup(db_session)
+    tied_ts = NOW - dt.timedelta(hours=1)
+    db_session.add(
+        ChannelEvent(channel_id=channel.id, event_time=NOW - dt.timedelta(hours=2), state="Норма")
+    )
+    db_session.flush()
+    db_session.add(ChannelEvent(channel_id=channel.id, event_time=tied_ts, state="Неисправен"))
+    db_session.flush()
+    db_session.add(ChannelEvent(channel_id=channel.id, event_time=tied_ts, state="Обесточен"))
+    db_session.commit()
+
+    features = compute_features_for_channel(db_session, channel, NOW, ["Состояние насоса"])
+    assert features["current_state"] == "Обесточен"
+    assert features["n_transitions_7d"] == 2  # Норма->Неисправен, Неисправен->Обесточен
 
 
 def test_neighbors_scoped_to_own_track(db_session):
