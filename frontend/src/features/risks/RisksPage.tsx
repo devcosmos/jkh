@@ -71,6 +71,11 @@ export function RisksPage() {
   // самого списка, кроме сортировки/пагинации), не по 20 строкам текущей страницы. Раньше
   // считались из risks.data — плашка "Критично" показывала максимум 20, даже если реально
   // критичных кейсов сотни.
+  //
+  // Путь эндпоинта — /risk-cases/counts, не /stats: у части блокировщиков рекламы в браузере
+  // (EasyPrivacy и подобные списки правил) есть общее правило на URL, содержащие "/stats", как
+  // на аналитику — запрос молча ре́зался ещё до бэкенда, плашки показывали 0 при полностью
+  // рабочем /dashboard/summary (инцидент 24 сентября 2026).
   const stats = useApi<RiskCaseStats>(() => {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
@@ -80,7 +85,7 @@ export function RisksPage() {
     if (channelFilter) params.set("channel_id", channelFilter);
     if (objectFilter) params.set("object_id", objectFilter);
     if (searchQuery) params.set("search", searchQuery);
-    return api.get(`/risk-cases/stats?${params.toString()}`);
+    return api.get(`/risk-cases/counts?${params.toString()}`);
   }, [statusFilter, categoryFilter, priorityFilter, anomalyFilter, channelFilter, objectFilter, searchQuery]);
 
   // Всегда что-то выбрано, если в выборке есть хоть один риск-кейс: при первой загрузке,

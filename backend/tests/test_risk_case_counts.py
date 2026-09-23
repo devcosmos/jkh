@@ -1,7 +1,8 @@
-"""GET /risk-cases/stats: счётчики по статусу/приоритету должны считаться по всей
+"""GET /risk-cases/counts: счётчики по статусу/приоритету должны считаться по всей
 отфильтрованной выборке, а не только по первой странице (лимит списка — 20 строк на
 странице «Риски» админ-панели, плашки над списком раньше вводили в заблуждение на
-выборках больше 20)."""
+выборках больше 20). Путь — /counts, не /stats: см. комментарий в app/api/risks.py —
+часть блокировщиков рекламы молча режет любой URL с /stats как аналитику."""
 import datetime as dt
 
 from app.models.entities import Channel, RiskCase
@@ -26,7 +27,7 @@ def test_stats_counts_beyond_default_page_size(client, db_session, auth_headers)
     for i in range(25):
         _make_case(db_session, 9301 + i, RiskCaseStatus.new, "high")
 
-    r = client.get("/api/risk-cases/stats", headers=auth_headers(UserRole.dispatcher))
+    r = client.get("/api/risk-cases/counts", headers=auth_headers(UserRole.dispatcher))
     assert r.status_code == 200
     body = r.json()
     assert body["critical"] == 25
@@ -45,7 +46,7 @@ def test_stats_respects_filters(client, db_session, auth_headers):
     _make_case(db_session, 9403, RiskCaseStatus.resolved, "high")
 
     r = client.get(
-        "/api/risk-cases/stats", params={"status": "new"}, headers=auth_headers(UserRole.dispatcher)
+        "/api/risk-cases/counts", params={"status": "new"}, headers=auth_headers(UserRole.dispatcher)
     )
     body = r.json()
     assert body["critical"] == 1

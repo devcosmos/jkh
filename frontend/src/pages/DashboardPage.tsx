@@ -1,15 +1,15 @@
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
-import { useApi } from "../api/useApi";
 import { CATEGORY_LABELS, categoryForSensorTypes, categoryTone } from "../api/categories";
+import { api } from "../api/client";
 import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONE } from "../api/requestStatus";
+import type { DashboardSummary, MaintenanceRequestStatus } from "../api/types";
+import { useApi } from "../api/useApi";
 import { Badge, TONE_DOT_CLASSES } from "../components/Badge";
 import { BarList } from "../components/BarList";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
 import { StatTile } from "../components/StatTile";
-import { AlertTriangleIcon, CheckCircleIcon, ChevronIcon, FileEditIcon, TagIcon } from "../components/icons";
-import type { DashboardSummary, MaintenanceRequestStatus } from "../api/types";
+import { AlertTriangleIcon, CheckCircleIcon, ChevronIcon, FileEditIcon } from "../components/icons";
 
 /** Ссылка в шапке карточки «Обзора» — переход в соответствующий раздел, при наличии с
  * готовым фильтром в query (см. DetailSection.right). */
@@ -41,7 +41,7 @@ export function DashboardPage() {
       <DataState loading={summary.loading} error={summary.error} empty={!summary.data} emptyText="Нет данных">
         {summary.data && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <StatTile
                 label="Всего рисков"
                 value={summary.data.risk_cases.total}
@@ -56,7 +56,7 @@ export function DashboardPage() {
                 to="/risks?status=open"
               />
               <StatTile
-                label="Новые"
+                label="Новые риски"
                 value={summary.data.risk_cases.by_status.new ?? 0}
                 tone="track-a"
                 to="/risks?status=new"
@@ -69,18 +69,11 @@ export function DashboardPage() {
                 to="/risks?status=resolved"
               />
               <StatTile
-                label="Заявок без подтверждения"
+                label="Заявки в работе"
                 value={summary.data.requests.by_status.draft ?? 0}
                 tone="neutral"
                 icon={<FileEditIcon className="h-5 w-5 text-slate-500" />}
                 to="/requests?status=draft"
-              />
-              <StatTile
-                label="Активных версий модели"
-                value={summary.data.models.length}
-                tone="track-a"
-                icon={<TagIcon className="h-5 w-5 text-sky-600" />}
-                to="/models"
               />
             </div>
 
