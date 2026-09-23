@@ -29,6 +29,34 @@ function metricNumber(metrics: Record<string, unknown> | null, key: string): num
   return typeof v === "number" ? v : null;
 }
 
+// Статичные сведения о двух моделях, которые не версионируются в БД как CatBoost
+// (ModelVersion) — сюда просто нечего тянуть через API. IsolationForest — фиксированный
+// .joblib-артефакт (ml/training/train_anomaly_model.py, отчёт artifacts/anomaly_model_report.json,
+// не меняется без ручного переобучения); Claude Haiku — внешний API, не модель в БД вообще.
+// Обновлять вручную при переобучении/смене модели резюме.
+const ANOMALY_MODEL_REPORT: Record<
+  string,
+  { label: string; nTrainRows: number; scoreP01: number; scoreP50: number; scoreP99: number }
+> = {
+  насос_вентилятор: { label: "Насос/вентилятор", nTrainRows: 3_689_092, scoreP01: -0.0253, scoreP50: 0.3264, scoreP99: 0.3466 },
+  дым_газ: { label: "Дым/газ", nTrainRows: 27_528_887, scoreP01: -0.0544, scoreP50: 0.2977, scoreP99: 0.3135 },
+};
+const ANOMALY_CONTAMINATION = 0.02;
+const ANOMALY_FEATURES = [
+  "n_alarms_1h",
+  "n_alarms_24h",
+  "n_alarms_7d",
+  "n_transitions_1h",
+  "n_transitions_24h",
+  "n_transitions_7d",
+  "n_events_1h",
+  "n_events_24h",
+  "n_events_7d",
+  "seconds_since_last_event",
+  "n_neighbors_in_fault",
+  "frac_neighbors_in_fault",
+];
+
 export function ModelsPage() {
   const models = useApi<ModelVersionOut[]>(() => api.get("/models/current"), []);
   const isAdmin = getRole() === "admin";
@@ -126,6 +154,92 @@ export function ModelsPage() {
           })}
         </div>
       </DataState>
+
+      <div className="mt-8 space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Вспомогательные модели — не CatBoost, работают рядом с ним
+        </h2>
+
+        <DetailSection
+          title="Независимая проверка аномального поведения"
+          right={<Badge tone="serious">IsolationForest</Badge>}
+        >
+          <p className="text-sm text-slate-600">
+            Отдельная модель без учителя (scikit-learn IsolationForest), по одной на каждый трек —
+            как и у CatBoost. Обучена на тех же поведенческих признаках канала (частота тревог,
+            переходов состояния, событий за 1ч/24ч/7д, время с последнего события, доля соседних
+            каналов в отказе), но <span className="font-medium text-slate-800">без меток отказа</span> — она не
+            учится узнавать конкретные сценарии поломки, а выучивает, как вообще выглядит «обычное»
+            поведение канала, и помечает выбросом то, что на это не похоже.
+          </p>
+          <p className="text-sm text-slate-600">
+            Смысл в независимости: CatBoost находит только уже виденные в разметке паттерны отказа.
+            IsolationForest может насторожиться на поведение, которого в обучающей выборке отказов
+            вообще не было — второе, принципиально другое мнение, а не то же самое другими словами.
+            Считается воркером на каждом тике параллельно с прогнозом CatBoost, результат
+            (score, is_outlier) сохраняется в объяснении прогноза — это и есть бейдж «Аномальное
+            поведение» / «Поведение в норме», который виден на «Рисках», в «Журнале» и в заявках.
+          </p>
+          <div className="rounded-xl border border-orange-200 bg-orange-50 px-3.5 py-2.5 text-sm text-orange-800">
+            Это не просто индикатор: если независимая модель отмечает канал как выброс, риск-кейс
+            автоматически получает приоритет «Критично» — даже если вероятность отказа по CatBoost
+            ниже 85% (<code className="rounded bg-white/60 px-1 py-0.5">replay_worker.py</code>).
+          </div>
+
+          <div className="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
+            {Object.entries(ANOMALY_MODEL_REPORT).map(([key, t]) => (
+              <div key={key} className="rounded-xl bg-slate-50 p-3.5">
+                <div className="mb-2 text-sm font-semibold text-slate-800">{t.label}</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Metric label="Строк в обучении" value={t.nTrainRows.toLocaleString("ru-RU")} />
+                  <Metric label="Ожидаемая доля выбросов" value={`${(ANOMALY_CONTAMINATION * 100).toFixed(0)}%`} />
+                  <Metric label="Медианный скор" value={t.scoreP50.toFixed(3)} />
+                  <Metric label="1-й перцентиль скора" value={t.scoreP01.toFixed(3)} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Признаки, на которых обучена
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {ANOMALY_FEATURES.map((f) => (
+                <span key={f} className="rounded-full bg-slate-100 px-2.5 py-1 text-sm text-slate-600">
+                  {FEATURE_LABELS[f] ?? f}
+                </span>
+              ))}
+            </div>
+          </div>
+        </DetailSection>
+
+        <DetailSection
+          title="Резюме прогноза на естественном языке"
+          right={<Badge tone="neutral">Claude Haiku 4.5</Badge>}
+        >
+          <p className="text-sm text-slate-600">
+            Отдельный внешний сервис (Anthropic Claude, модель{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5">claude-haiku-4-5-20251001</code>) — не модель
+            прогнозирования, а перевод уже готового объяснения в человеческий текст. На вход подаётся
+            вклад признаков (SHAP) в конкретный прогноз и флаг независимой проверки аномальности;
+            на выходе — 1-2 предложения разговорным языком вроде «вероятность выросла в основном
+            из-за учащения тревог за последний час, канал также отмечен как аномальный». Модели прямо
+            запрещено придумывать что-либо про объект/устройство сверх переданных данных.
+          </p>
+          <p className="text-sm text-slate-600">
+            Используется лёгкая модель (Haiku), а не топовая — короткая шаблонная суммаризация не
+            требует reasoning топового уровня, а стоимость и задержка у Haiku на порядок ниже.
+            Считается лениво — только когда диспетчер открывает конкретную карточку риска, — и
+            результат кешируется в БД (<code className="rounded bg-slate-100 px-1 py-0.5">Prediction.llm_summary</code>),
+            поэтому повторные просмотры той же карточки не обращаются к API снова.
+          </p>
+          <p className="text-sm text-slate-500">
+            Опциональна: без настроенного ключа API функция просто недоступна (карточка риска
+            показывает «резюме недоступно»), остальная система не зависит от стороннего сервиса.
+          </p>
+        </DetailSection>
+      </div>
 
       {isAdmin && replacedVersions.length > 0 && (
         <div className="mt-8">
