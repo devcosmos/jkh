@@ -87,6 +87,13 @@ export interface RiskCaseOut {
   channel_external_id: number | null;
 }
 
+export interface RiskCaseStats {
+  critical: number;
+  warning: number;
+  fresh: number;
+  resolved: number;
+}
+
 export interface PredictionOut {
   id: number;
   channel_id: number;

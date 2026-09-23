@@ -32,6 +32,47 @@ _PRIORITY_ORDER = case((RiskCase.priority == "high", 2), (RiskCase.priority == "
 _OPEN_STATUSES = (RiskCaseStatus.new, RiskCaseStatus.observing, RiskCaseStatus.dispatched)
 
 
+def _apply_risk_case_filters(
+    s,
+    *,
+    status_filter: str | None,
+    category: str | None,
+    priority: str | None,
+    has_anomaly: bool | None,
+    latest_anomaly_flag,
+    channel_id: int | None,
+    opened_after: dt.datetime | None,
+    after_id: int | None,
+    object_channel_ids,
+    search: int | None,
+):
+    """Общие фильтры списка риск-кейсов — используются и списком (list_risk_cases), и
+    сводкой по статусам/приоритету всей отфильтрованной выборки (risk_case_stats), не
+    только показанных на текущей странице 20 строк."""
+    if status_filter == "open":
+        s = s.where(RiskCase.status.in_(_OPEN_STATUSES))
+    elif status_filter:
+        s = s.where(RiskCase.status == status_filter)
+    if category:
+        s = s.where(RiskCase.category == category)
+    if priority:
+        s = s.where(RiskCase.priority == priority)
+    if has_anomaly:
+        s = s.where(latest_anomaly_flag == "true")
+    if channel_id is not None:
+        s = s.where(Channel.external_channel_id == channel_id)
+    if opened_after is not None:
+        if after_id is not None:
+            s = s.where(tuple_(RiskCase.opened_at, RiskCase.id) > tuple_(opened_after, after_id))
+        else:
+            s = s.where(RiskCase.opened_at > opened_after)
+    if object_channel_ids is not None:
+        s = s.where(RiskCase.channel_id.in_(object_channel_ids))
+    if search is not None:
+        s = s.where(or_(RiskCase.id == search, Channel.external_channel_id == search))
+    return s
+
+
 @router.get(
     "",
     response_model=list[RiskCaseOut],
@@ -134,28 +175,19 @@ def list_risk_cases(
     # номер, что показан в реестре каналов, чтобы ссылка "показать риски этого канала" и
     # список рисков оперировали одним и тем же видимым пользователю числом.
     def apply_filters(s):
-        if status_filter == "open":
-            s = s.where(RiskCase.status.in_(_OPEN_STATUSES))
-        elif status_filter:
-            s = s.where(RiskCase.status == status_filter)
-        if category:
-            s = s.where(RiskCase.category == category)
-        if priority:
-            s = s.where(RiskCase.priority == priority)
-        if has_anomaly:
-            s = s.where(latest_anomaly_flag == "true")
-        if channel_id is not None:
-            s = s.where(Channel.external_channel_id == channel_id)
-        if opened_after is not None:
-            if after_id is not None:
-                s = s.where(tuple_(RiskCase.opened_at, RiskCase.id) > tuple_(opened_after, after_id))
-            else:
-                s = s.where(RiskCase.opened_at > opened_after)
-        if object_channel_ids is not None:
-            s = s.where(RiskCase.channel_id.in_(object_channel_ids))
-        if search is not None:
-            s = s.where(or_(RiskCase.id == search, Channel.external_channel_id == search))
-        return s
+        return _apply_risk_case_filters(
+            s,
+            status_filter=status_filter,
+            category=category,
+            priority=priority,
+            has_anomaly=has_anomaly,
+            latest_anomaly_flag=latest_anomaly_flag,
+            channel_id=channel_id,
+            opened_after=opened_after,
+            after_id=after_id,
+            object_channel_ids=object_channel_ids,
+            search=search,
+        )
 
     stmt = (
         select(RiskCase, latest_probability.label("probability"), Channel)
@@ -210,6 +242,83 @@ def list_risk_cases(
         )
         for rc, proba, channel in rows
     ]
+
+
+@router.get(
+    "/stats",
+    summary="Получить сводку по статусам/приоритету риск-кейсов",
+    description=(
+        "Те же фильтры, что и у списка риск-кейсов (кроме сортировки/пагинации), но счётчики "
+        "по ВСЕЙ отфильтрованной выборке, а не только по показанной странице — плашки "
+        "«Критично/Требуют внимания/Новые/Решённые» над списком иначе считали только по "
+        "20 строкам текущей страницы."
+    ),
+    responses={
+        401: {
+            "description": "Требуется вход или токен недействителен",
+        },
+    },
+)
+def risk_case_stats(
+    status_filter: str | None = Query(None, alias="status"),
+    category: str | None = None,
+    priority: str | None = None,
+    has_anomaly: bool | None = None,
+    channel_id: int | None = None,
+    object_id: int | None = None,
+    search: int | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    if status_filter and status_filter != "open" and status_filter not in RiskCaseStatus.__members__:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Некорректный статус: {status_filter}")
+
+    latest_anomaly_flag = (
+        select(cast(Prediction.explanation, JSONB)["anomaly"]["is_outlier"].astext)
+        .where(Prediction.risk_case_id == RiskCase.id)
+        .order_by(Prediction.created_at.desc())
+        .limit(1)
+        .correlate(RiskCase)
+        .scalar_subquery()
+    )
+    object_channel_ids = (
+        select(Channel.id).where(Channel.object_id == object_id).scalar_subquery()
+        if object_id is not None
+        else None
+    )
+
+    def apply_filters(s):
+        return _apply_risk_case_filters(
+            s,
+            status_filter=status_filter,
+            category=category,
+            priority=priority,
+            has_anomaly=has_anomaly,
+            latest_anomaly_flag=latest_anomaly_flag,
+            channel_id=channel_id,
+            opened_after=None,
+            after_id=None,
+            object_channel_ids=object_channel_ids,
+            search=search,
+        )
+
+    accessible = get_accessible_object_ids(user, db)
+
+    def count(*extra) -> int:
+        s = select(func.count()).select_from(RiskCase).join(Channel, Channel.id == RiskCase.channel_id)
+        s = apply_filters(s)
+        for cond in extra:
+            s = s.where(cond)
+        if accessible is not None:
+            s = s.where(Channel.object_id.in_(accessible))
+        return db.scalar(s) or 0
+
+    return {
+        "critical": count(RiskCase.priority == "high"),
+        "warning": count(RiskCase.priority == "medium"),
+        "fresh": count(RiskCase.status == RiskCaseStatus.new),
+        "resolved": count(RiskCase.status == RiskCaseStatus.resolved),
+    }
 
 
 @router.get(

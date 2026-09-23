@@ -1,10 +1,10 @@
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../../api/categories";
 import { api } from "../../api/client";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../../api/riskStatus";
-import type { ObjectsTreeResponse, ObjectTreeNode, RiskCaseOut } from "../../api/types";
+import type { ObjectsTreeResponse, ObjectTreeNode, RiskCaseOut, RiskCaseStats } from "../../api/types";
 import { useApi } from "../../api/useApi";
 import { usePagedApi } from "../../api/usePagedApi";
 import { Badge, riskPriorityTone } from "../../components/Badge";
@@ -67,6 +67,22 @@ export function RisksPage() {
   );
   const tree = useApi<ObjectsTreeResponse>(() => api.get("/objects/tree"), []);
 
+  // Счётчики над списком — по ВСЕЙ отфильтрованной выборке (тот же набор фильтров, что и у
+  // самого списка, кроме сортировки/пагинации), не по 20 строкам текущей страницы. Раньше
+  // считались из risks.data — плашка "Критично" показывала максимум 20, даже если реально
+  // критичных кейсов сотни.
+  const stats = useApi<RiskCaseStats>(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (categoryFilter) params.set("category", categoryFilter);
+    if (priorityFilter) params.set("priority", priorityFilter);
+    if (anomalyFilter) params.set("has_anomaly", "true");
+    if (channelFilter) params.set("channel_id", channelFilter);
+    if (objectFilter) params.set("object_id", objectFilter);
+    if (searchQuery) params.set("search", searchQuery);
+    return api.get(`/risk-cases/stats?${params.toString()}`);
+  }, [statusFilter, categoryFilter, priorityFilter, anomalyFilter, channelFilter, objectFilter, searchQuery]);
+
   // Всегда что-то выбрано, если в выборке есть хоть один риск-кейс: при первой загрузке,
   // после смены фильтра/сортировки (когда старый выбор мог выпасть из выборки) — берём первую
   // строку текущей сортировки. Если выбранный кейс остался в выборке, просто обновляем его
@@ -97,18 +113,6 @@ export function RisksPage() {
     setSelected(risks.data[0] ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [risks.data]);
-
-  const stats = useMemo(() => {
-    const data = risks.data ?? [];
-    return {
-      // Счётчики — по текущей странице, не по всей выборке (та же экономика, что и
-      // раньше: без отдельных агрегирующих запросов на каждый статус/приоритет).
-      critical: data.filter((r) => r.priority === "high").length,
-      warning: data.filter((r) => r.priority === "medium").length,
-      fresh: data.filter((r) => r.status === "new").length,
-      resolved: data.filter((r) => r.status === "resolved").length,
-    };
-  }, [risks.data, risks.total]);
 
   function clearChannelFilter() {
     const next = new URLSearchParams(searchParams);
@@ -178,7 +182,10 @@ export function RisksPage() {
             Экспорт CSV
           </button>
           <button
-            onClick={risks.reload}
+            onClick={() => {
+              risks.reload();
+              stats.reload();
+            }}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
           >
             <RefreshIcon className="h-4 w-4" />
@@ -200,10 +207,10 @@ export function RisksPage() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Критично" value={stats.critical} tone="critical" />
-        <StatTile label="Требуют внимания" value={stats.warning} tone="warning" />
-        <StatTile label="Новые" value={stats.fresh} tone="track-a" />
-        <StatTile label="Решённые" value={stats.resolved} tone="good" />
+        <StatTile label="Критично" value={stats.data?.critical ?? 0} tone="critical" />
+        <StatTile label="Требуют внимания" value={stats.data?.warning ?? 0} tone="warning" />
+        <StatTile label="Новые" value={stats.data?.fresh ?? 0} tone="track-a" />
+        <StatTile label="Решённые" value={stats.data?.resolved ?? 0} tone="good" />
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -438,7 +445,14 @@ export function RisksPage() {
 
         <div className="w-full shrink-0 lg:w-120">
           {selected ? (
-            <RiskCard key={selected.id} riskCase={selected} onDecided={() => risks.reload()} />
+            <RiskCard
+              key={selected.id}
+              riskCase={selected}
+              onDecided={() => {
+                risks.reload();
+                stats.reload();
+              }}
+            />
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
               <PointerIcon className="h-8 w-8 text-slate-300" />
