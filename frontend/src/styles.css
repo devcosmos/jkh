@@ -19,6 +19,8 @@
   --color-status-warning: #fab219;
   --color-status-serious: #ec835a;
   --color-status-critical: #d03b3b;
+
+  --text-sm: 0.925rem;
 }
 
 @layer base {
