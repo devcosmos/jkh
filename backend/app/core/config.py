@@ -12,11 +12,14 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-only-change-me"
     default_prediction_window_hours: int = 24
     # Краткое резюме прогноза для диспетчера (app/services/llm_summary.py) — без ключа
-    # функция просто недоступна (None), не роняет карточку риска.
-    anthropic_api_key: str | None = None
-    # Не задан — SDK идёт на официальный api.anthropic.com. Задан — например, на прокси
-    # стороннего провайдера (формат ответа должен быть совместим с Anthropic Messages API).
-    anthropic_base_url: str | None = None
+    # функция просто недоступна (None), не роняет карточку риска. credentials — это
+    # Authorization key (base64 client_id:client_secret) из личного кабинета GigaChat API,
+    # не сам access-токен — SDK сам обменивает его на короткоживущий токен по scope.
+    gigachat_credentials: str | None = None
+    gigachat_scope: str = "GIGACHAT_API_PERS"
+    # Путь внутри контейнера до сертификата УЦ Минцифры — GigaChat отдаёт TLS-сертификат,
+    # подписанный российским удостоверяющим центром, системные CA-бандлы его не знают.
+    gigachat_ca_bundle_file: str | None = None
 
 
 settings = Settings()

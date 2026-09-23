@@ -23,10 +23,12 @@ services:
       # отвечает" на /dashboard/summary (app/api/dashboard.py), не для собственной работы
       # backend. Должны совпадать, иначе индикатор живости врёт.
       REPLAY_SLEEP_SECONDS: ${REPLAY_SLEEP_SECONDS:-2}
-      # Резюме прогноза для диспетчера на естественном языке (app/services/llm_summary.py) —
-      # без ключа функция просто недоступна, не обязателен для остального сервиса.
-      JKH_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      JKH_ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      # Резюме прогноза для диспетчера на естественном языке (app/services/llm_summary.py,
+      # провайдер GigaChat) — без ключа функция просто недоступна, не обязателен для
+      # остального сервиса. CA-бандл — сертификат УЦ Минцифры, скачивается в Dockerfile.
+      JKH_GIGACHAT_CREDENTIALS: ${GIGACHAT_CREDENTIALS:-}
+      JKH_GIGACHAT_SCOPE: ${GIGACHAT_SCOPE:-GIGACHAT_API_PERS}
+      JKH_GIGACHAT_CA_BUNDLE_FILE: /app/certs/russian_trusted_root_ca.pem
     depends_on:
       db:
         condition: service_healthy

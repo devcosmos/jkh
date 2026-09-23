@@ -4,17 +4,19 @@
 
 Считается лениво (по первому запросу карточки конкретного риск-кейса), результат
 кешируется в Prediction.llm_summary — повторные просмотры карточки не дёргают API
-повторно. Модель — Claude Haiku 4.5: короткая шаблонная суммаризация не требует
-топовых reasoning-моделей, а стоимость и задержка для Haiku на порядок ниже.
+повторно. Модель — GigaChat (базовая, без суффикса Pro/Max): короткая шаблонная
+суммаризация не требует топовых reasoning-моделей, а на базовой модели укладываемся
+в бесплатную месячную квоту токенов для физлиц.
 
-Ключ и (опционально) base_url настраиваются через JKH_ANTHROPIC_API_KEY /
-JKH_ANTHROPIC_BASE_URL — по умолчанию (base_url не задан) SDK идёт на официальный API
-Anthropic; сейчас в .env указан прокси cheapai.io (эндпоинт /v1/messages, формат ответа
-идентичен официальному Anthropic Messages API — проверено вручную 21 сентября 2026).
-Модель на этом прокси называется `claude-haiku-4-5-20251001` (с датой снапшота, не
-голым `claude-haiku-4-5`, как на официальном API) — см. GET /v1/models под ключом.
+Изначально использовался Anthropic Claude через прокси cheapai.io, но прокси стал
+недоступен с прод-VPS (сеть РФ, Beget) — 23 сентября 2026 перешли на GigaChat (Sber)
+как на нативный российский сервис. Авторизация — JKH_GIGACHAT_CREDENTIALS (Authorization
+key из личного кабинета GigaChat API, строка вида base64(client_id:client_secret), не
+сам токен — SDK сам меняет его на короткоживущий access-токен по OAuth). TLS-сертификат
+GigaChat подписан УЦ Минцифры, системные CA его не знают — путь до сертификата задаётся
+JKH_GIGACHAT_CA_BUNDLE_FILE (см. Dockerfile, где сертификат скачивается при сборке образа).
 
-Без настроенного JKH_ANTHROPIC_API_KEY функция просто недоступна (возвращает None) —
+Без настроенного JKH_GIGACHAT_CREDENTIALS функция просто недоступна (возвращает None) —
 карточка риска не должна ломаться из-за отсутствующего ключа стороннего сервиса."""
 
 import logging
@@ -23,7 +25,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "GigaChat"
 # Вызывается синхронно из GET-запроса карточки риска — без явного тайм-аута повисший
 # сторонний API держал бы поток обработки запроса неограниченно долго.
 REQUEST_TIMEOUT_SECONDS = 20.0
@@ -52,33 +54,41 @@ def _build_user_prompt(top_features: list[dict], probability: float, is_anomaly:
 def generate_dispatcher_summary(explanation: dict | None, probability: float) -> str | None:
     """Возвращает готовый текст резюме или None (нет ключа, нет данных, ошибка API —
     во всех случаях тихо, карточка риска показывает "недоступно", не падает)."""
-    if not settings.anthropic_api_key:
+    if not settings.gigachat_credentials:
         return None
     top_features = (explanation or {}).get("top_features")
     if not top_features:
         return None
 
     try:
-        import anthropic
+        from gigachat import GigaChat
+        from gigachat.models import Chat, Messages, MessagesRole
     except ImportError:
-        logger.warning("anthropic package не установлен — резюме недоступно")
+        logger.warning("gigachat package не установлен — резюме недоступно")
         return None
 
     anomaly = (explanation or {}).get("anomaly") or {}
     user_prompt = _build_user_prompt(top_features, probability, anomaly.get("is_outlier"))
 
     try:
-        client_kwargs = {"api_key": settings.anthropic_api_key, "timeout": REQUEST_TIMEOUT_SECONDS}
-        if settings.anthropic_base_url:
-            client_kwargs["base_url"] = settings.anthropic_base_url
-        client = anthropic.Anthropic(**client_kwargs)
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=300,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        text = "".join(block.text for block in response.content if block.type == "text").strip()
+        client_kwargs = {
+            "credentials": settings.gigachat_credentials,
+            "scope": settings.gigachat_scope,
+            "timeout": REQUEST_TIMEOUT_SECONDS,
+        }
+        if settings.gigachat_ca_bundle_file:
+            client_kwargs["ca_bundle_file"] = settings.gigachat_ca_bundle_file
+        with GigaChat(**client_kwargs) as client:
+            response = client.chat(
+                Chat(
+                    model=MODEL,
+                    messages=[
+                        Messages(role=MessagesRole.SYSTEM, content=SYSTEM_PROMPT),
+                        Messages(role=MessagesRole.USER, content=user_prompt),
+                    ],
+                )
+            )
+        text = response.choices[0].message.content.strip()
         return text or None
     except Exception:  # noqa: BLE001 — сторонний API, любая ошибка не должна ронять карточку
         logger.exception("Не удалось получить резюме от LLM")

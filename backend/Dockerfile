@@ -14,6 +14,18 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Корневой сертификат УЦ Минцифры — TLS-сертификат GigaChat (app/services/llm_summary.py)
+# подписан им, системные CA-бандлы Debian его не знают. Официальный источник — портал
+# Госуслуг, не сам Sber (сертификат для доверенных сервисов в целом, GigaChat в частности).
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl ca-certificates \
+    && mkdir -p /app/certs \
+    && curl -fsSL -o /app/certs/russian_trusted_root_ca.pem \
+        https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt \
+    && apt-get purge -y curl \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini .
