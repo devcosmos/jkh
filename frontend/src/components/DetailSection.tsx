@@ -20,12 +20,12 @@ export function DetailSection({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col rounded-2xl border border-slate-200 bg-white ${className}`}>
+    <div className={`flex flex-col h-full rounded-2xl border border-slate-200 bg-white ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-100 px-5 py-3">
         <h3 className="font-display text-sm font-semibold text-slate-900">{title}</h3>
         {right}
       </div>
-      <div className="flex flex-col gap-4 px-5 py-4">{children}</div>
+      <div className="flex flex-col gap-4 px-5 py-4 flex-1">{children}</div>
       {footer && <div className="border-t border-slate-100 px-5 py-3">{footer}</div>}
     </div>
   );

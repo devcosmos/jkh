@@ -1,11 +1,11 @@
 import { api, getRole } from "../api/client";
+import type { ModelVersionOut } from "../api/types";
 import { useApi } from "../api/useApi";
 import { Badge } from "../components/Badge";
 import { BarList } from "../components/BarList";
 import { CalibrationChart } from "../components/CalibrationChart";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
-import type { ModelVersionOut } from "../api/types";
 
 const FEATURE_LABELS: Record<string, string> = {
   n_alarms_1h: "Тревог за 1 час",
@@ -73,7 +73,7 @@ export function ModelsPage() {
       </div>
 
       <DataState loading={models.loading} error={models.error} empty={!models.data?.length} emptyText="Активных моделей нет">
-        <div className="space-y-4">
+        <div className="grid lg:grid-cols-2 gap-4 space-y-4">
           {models.data?.map((m) => {
             const rocAuc = metricNumber(m.metrics, "roc_auc_test");
             const prAuc = metricNumber(m.metrics, "pr_auc_test");
@@ -155,8 +155,8 @@ export function ModelsPage() {
         </div>
       </DataState>
 
-      <div className="mt-8 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <div className="mt-8 grid lg:grid-cols-2 gap-4 lg:gap-y-0 space-y-4">
+        <h2 className="text-sm font-semibold uppercase col-span-full tracking-wide text-slate-500">
           Вспомогательные модели — не CatBoost, работают рядом с ним
         </h2>
 
@@ -216,11 +216,11 @@ export function ModelsPage() {
 
         <DetailSection
           title="Резюме прогноза на естественном языке"
-          right={<Badge tone="neutral">Claude Haiku 4.5</Badge>}
+          right={<Badge tone="neutral">GigaChat-2</Badge>}
         >
           <p className="text-sm text-slate-600">
-            Отдельный внешний сервис (Anthropic Claude, модель{" "}
-            <code className="rounded bg-slate-100 px-1 py-0.5">claude-haiku-4-5-20251001</code>) — не модель
+            Отдельный внешний сервис (GigaChat от Sber, модель{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5">GigaChat-2</code>) — не модель
             прогнозирования, а перевод уже готового объяснения в человеческий текст. На вход подаётся
             вклад признаков (SHAP) в конкретный прогноз и флаг независимой проверки аномальности;
             на выходе — 1-2 предложения разговорным языком вроде «вероятность выросла в основном
@@ -228,10 +228,12 @@ export function ModelsPage() {
             запрещено придумывать что-либо про объект/устройство сверх переданных данных.
           </p>
           <p className="text-sm text-slate-600">
-            Используется лёгкая модель (Haiku), а не топовая — короткая шаблонная суммаризация не
-            требует reasoning топового уровня, а стоимость и задержка у Haiku на порядок ниже.
-            Считается лениво — только когда диспетчер открывает конкретную карточку риска, — и
-            результат кешируется в БД (<code className="rounded bg-slate-100 px-1 py-0.5">Prediction.llm_summary</code>),
+            Используется базовая модель линейки, а не топовая (Pro/Max) — короткая шаблонная
+            суммаризация не требует reasoning топового уровня, а на базовой модели укладываемся
+            в бесплатную квоту. Российский сервис выбран взамен прокси на Anthropic Claude, который
+            стал недоступен с прод-сервера (сеть РФ). Считается лениво — только когда диспетчер
+            открывает конкретную карточку риска, — и результат кешируется в БД
+            (<code className="rounded bg-slate-100 px-1 py-0.5">Prediction.llm_summary</code>),
             поэтому повторные просмотры той же карточки не обращаются к API снова.
           </p>
           <p className="text-sm text-slate-500">
