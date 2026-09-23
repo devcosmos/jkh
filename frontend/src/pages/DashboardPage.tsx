@@ -9,7 +9,7 @@ import { BarList } from "../components/BarList";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
 import { StatTile } from "../components/StatTile";
-import { AlertTriangleIcon, CheckCircleIcon, ChevronIcon, FileEditIcon } from "../components/icons";
+import { AlertTriangleIcon, CheckCircleIcon, ChevronIcon, FileEditIcon, ListIcon, SparkleIcon } from "../components/icons";
 
 /** Ссылка в шапке карточки «Обзора» — переход в соответствующий раздел, при наличии с
  * готовым фильтром в query (см. DetailSection.right). */
@@ -43,12 +43,6 @@ export function DashboardPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <StatTile
-                label="Всего рисков"
-                value={summary.data.risk_cases.total}
-                tone="neutral"
-                to="/risks"
-              />
-              <StatTile
                 label="Открытые риски"
                 value={summary.data.risk_cases.total_open}
                 tone="warning"
@@ -59,7 +53,15 @@ export function DashboardPage() {
                 label="Новые риски"
                 value={summary.data.risk_cases.by_status.new ?? 0}
                 tone="track-a"
+                icon={<SparkleIcon className="h-5 w-5 text-sky-600" />}
                 to="/risks?status=new"
+              />
+              <StatTile
+                label="Всего рисков"
+                value={summary.data.risk_cases.total}
+                tone="neutral"
+                icon={<ListIcon className="h-5 w-5 text-slate-500" />}
+                to="/risks"
               />
               <StatTile
                 label="Решённые риски"

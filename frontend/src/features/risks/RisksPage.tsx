@@ -26,6 +26,18 @@ import { RiskCard } from "../../pages/RiskCard";
 type SortKey = "probability" | "opened_at" | "id" | "channel" | "category" | "status" | "priority";
 type SortDir = "asc" | "desc";
 
+// "…" при первой загрузке, "—" при ошибке запроса — не 0, чтобы не выглядело так, будто
+// рисков реально нет (инцидент 24 сентября 2026: плашки молча показывали 0 и когда запрос
+// вообще не доходил до бэкенда, например заблокированный блокировщиком рекламы путь).
+function statTileValue(
+  stats: { data: RiskCaseStats | null; loading: boolean; error: string | null },
+  key: keyof RiskCaseStats
+) {
+  if (stats.error) return "—";
+  if (stats.loading && !stats.data) return "…";
+  return stats.data?.[key] ?? 0;
+}
+
 export function RisksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkRiskCaseId = searchParams.get("risk_case_id");
@@ -211,11 +223,20 @@ export function RisksPage() {
         </FilterBanner>
       )}
 
+      {stats.error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          Счётчики выше не загрузились: {stats.error}
+        </div>
+      )}
+
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Открытые" value={stats.data?.open ?? 0} tone="warning" />
-        <StatTile label="Критичные" value={stats.data?.critical ?? 0} tone="critical" />
-        <StatTile label="Аномалии" value={stats.data?.anomaly ?? 0} tone="serious" />
-        <StatTile label="Новые" value={stats.data?.fresh ?? 0} tone="track-a" />
+        {/* "…" при первой загрузке и "—" при ошибке — не 0, чтобы не выглядело так, будто
+            рисков реально нет (см. инцидент 24 сентября 2026: 0 молча показывался и когда
+            запрос вообще не доходил до бэкенда). */}
+        <StatTile label="Открытые" value={statTileValue(stats, "open")} tone="warning" />
+        <StatTile label="Критичные" value={statTileValue(stats, "critical")} tone="critical" />
+        <StatTile label="Аномалии" value={statTileValue(stats, "anomaly")} tone="serious" />
+        <StatTile label="Новые" value={statTileValue(stats, "fresh")} tone="track-a" />
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">

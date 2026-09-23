@@ -125,6 +125,41 @@ export function FileEditIcon({ className, strokeWidth = 2 }: { className?: strin
   );
 }
 
+export function ListIcon({ className, strokeWidth = 2 }: { className?: string; strokeWidth?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M8.5 6h12M8.5 12h12M8.5 18h12"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke="currentColor" strokeWidth={strokeWidth + 0.6} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function SparkleIcon({ className, strokeWidth = 2 }: { className?: string; strokeWidth?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M12 3.5c.6 3.2 1.3 3.9 4.5 4.5-3.2.6-3.9 1.3-4.5 4.5-.6-3.2-1.3-3.9-4.5-4.5 3.2-.6 3.9-1.3 4.5-4.5Z"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M18.5 14c.35 1.9.75 2.3 2.5 2.5-1.75.2-2.15.6-2.5 2.5-.35-1.9-.75-2.3-2.5-2.5 1.75-.2 2.15-.6 2.5-2.5Z"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function TagIcon({ className, strokeWidth = 2 }: { className?: string; strokeWidth?: number }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
