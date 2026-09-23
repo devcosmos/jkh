@@ -321,7 +321,11 @@ def risk_case_counts(
     return {
         "open": count(RiskCase.status.in_(_OPEN_STATUSES)),
         "critical": count(RiskCase.priority == "high"),
-        "anomaly": count(latest_anomaly_flag == "true"),
+        # Аномалия имеет смысл только для ещё активного риска (тот же принцип, что и
+        # open_with_anomaly в dashboard.py) — без пересечения с open счётчик считал аномалии
+        # по ВСЕЙ истории кейсов, включая давно решённые, и был на порядки больше "Открытых"
+        # (3990 против 201 — путал, будто аномалий больше, чем открытых рисков вообще).
+        "anomaly": count(RiskCase.status.in_(_OPEN_STATUSES), latest_anomaly_flag == "true"),
         "fresh": count(RiskCase.status == RiskCaseStatus.new),
     }
 

@@ -21,21 +21,30 @@ import { SortableTh } from "../../components/SortableTh";
 import { StatTile } from "../../components/StatTile";
 import { useEnterAnimation } from "../../components/useEnterAnimation";
 import { exportCsv } from "../../lib/exportCsv";
+import { pluralizeRu } from "../../lib/pluralizeRu";
 import { RiskCard } from "../../pages/RiskCard";
 
 type SortKey = "probability" | "opened_at" | "id" | "channel" | "category" | "status" | "priority";
 type SortDir = "asc" | "desc";
 
+// Формы существительного/словосочетания для склонения по числу — "1 новый риск, 2 новых
+// риска, 5 новых рисков" (pluralizeRu: one/few/many).
+type PluralForms = [one: string, few: string, many: string];
+
 // "…" при первой загрузке, "—" при ошибке запроса — не 0, чтобы не выглядело так, будто
 // рисков реально нет (инцидент 24 сентября 2026: плашки молча показывали 0 и когда запрос
-// вообще не доходил до бэкенда, например заблокированный блокировщиком рекламы путь).
-function statTileValue(
+// вообще не доходил до бэкенда — тогда был запрос к устаревшему локальному dev-бэкенду без
+// этого эндпоинта, см. комментарий у useApi ниже). Возвращает и число (или "…"/"—"), и уже
+// склонённую подпись под него.
+function statTile(
   stats: { data: RiskCaseStats | null; loading: boolean; error: string | null },
-  key: keyof RiskCaseStats
-) {
-  if (stats.error) return "—";
-  if (stats.loading && !stats.data) return "…";
-  return stats.data?.[key] ?? 0;
+  key: keyof RiskCaseStats,
+  forms: PluralForms
+): { value: number | string; label: string } {
+  if (stats.error) return { value: "—", label: forms[2] };
+  if (stats.loading && !stats.data) return { value: "…", label: forms[2] };
+  const n = stats.data?.[key] ?? 0;
+  return { value: n, label: pluralizeRu(n, ...forms) };
 }
 
 export function RisksPage() {
@@ -84,10 +93,12 @@ export function RisksPage() {
   // считались из risks.data — плашка "Критично" показывала максимум 20, даже если реально
   // критичных кейсов сотни.
   //
-  // Путь эндпоинта — /risk-cases/counts, не /stats: у части блокировщиков рекламы в браузере
-  // (EasyPrivacy и подобные списки правил) есть общее правило на URL, содержащие "/stats", как
-  // на аналитику — запрос молча ре́зался ещё до бэкенда, плашки показывали 0 при полностью
-  // рабочем /dashboard/summary (инцидент 24 сентября 2026).
+  // Путь эндпоинта — /risk-cases/counts (эндпоинт изначально назывался /stats, переименован
+  // 24 сентября 2026). Реальная причина инцидента "плашки в нуле при рабочем /dashboard/summary"
+  // оказалась не в этом — /dashboard/summary существовал ДО этой фичи и работал на любой,
+  // даже устаревшей, версии бэкенда, а этот эндпоинт — новый, и локальный dev-бэкенд просто не
+  // был перезапущен после обновления кода. Оставлено на /counts — само по себе безобидное
+  // переименование, а часть блокировщиков рекламы действительно блокирует "/stats" в URL.
   const stats = useApi<RiskCaseStats>(() => {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
@@ -233,10 +244,20 @@ export function RisksPage() {
         {/* "…" при первой загрузке и "—" при ошибке — не 0, чтобы не выглядело так, будто
             рисков реально нет (см. инцидент 24 сентября 2026: 0 молча показывался и когда
             запрос вообще не доходил до бэкенда). */}
-        <StatTile label="Открытые" value={statTileValue(stats, "open")} tone="warning" />
-        <StatTile label="Критичные" value={statTileValue(stats, "critical")} tone="critical" />
-        <StatTile label="Аномалии" value={statTileValue(stats, "anomaly")} tone="serious" />
-        <StatTile label="Новые" value={statTileValue(stats, "fresh")} tone="track-a" />
+        {(() => {
+          const open = statTile(stats, "open", ["открытый риск", "открытых риска", "открытых рисков"]);
+          const critical = statTile(stats, "critical", ["критичный риск", "критичных риска", "критичных рисков"]);
+          const anomaly = statTile(stats, "anomaly", ["аномалия", "аномалии", "аномалий"]);
+          const fresh = statTile(stats, "fresh", ["новый риск", "новых риска", "новых рисков"]);
+          return (
+            <>
+              <StatTile label={open.label} value={open.value} tone="warning" />
+              <StatTile label={critical.label} value={critical.value} tone="critical" />
+              <StatTile label={anomaly.label} value={anomaly.value} tone="serious" />
+              <StatTile label={fresh.label} value={fresh.value} tone="track-a" />
+            </>
+          );
+        })()}
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">

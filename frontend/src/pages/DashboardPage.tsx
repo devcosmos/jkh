@@ -10,6 +10,7 @@ import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
 import { StatTile } from "../components/StatTile";
 import { AlertTriangleIcon, CheckCircleIcon, ChevronIcon, FileEditIcon, ListIcon, SparkleIcon } from "../components/icons";
+import { pluralizeRu } from "../lib/pluralizeRu";
 
 /** Ссылка в шапке карточки «Обзора» — переход в соответствующий раздел, при наличии с
  * готовым фильтром в query (см. DetailSection.right). */
@@ -43,19 +44,22 @@ export function DashboardPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <StatTile
-                label="Открытые риски"
+                label={pluralizeRu(summary.data.risk_cases.total_open, "открытый риск", "открытых риска", "открытых рисков")}
                 value={summary.data.risk_cases.total_open}
                 tone="warning"
                 icon={<AlertTriangleIcon className="h-5 w-5 text-amber-600" />}
                 to="/risks?status=open"
               />
               <StatTile
-                label="Новые риски"
+                label={pluralizeRu(summary.data.risk_cases.by_status.new ?? 0, "новый риск", "новых риска", "новых рисков")}
                 value={summary.data.risk_cases.by_status.new ?? 0}
                 tone="track-a"
                 icon={<SparkleIcon className="h-5 w-5 text-sky-600" />}
                 to="/risks?status=new"
               />
+              {/* "Всего рисков" не склоняется по числу — "Всего" уже делает фразу верной для
+                  любого N (в отличие от "Новые"/"Решённые", которые без словоформы под число
+                  читались бы неестественно: "5 Новые"). */}
               <StatTile
                 label="Всего рисков"
                 value={summary.data.risk_cases.total}
@@ -64,14 +68,14 @@ export function DashboardPage() {
                 to="/risks"
               />
               <StatTile
-                label="Решённые риски"
+                label={pluralizeRu(summary.data.risk_cases.by_status.resolved ?? 0, "решённый риск", "решённых риска", "решённых рисков")}
                 value={summary.data.risk_cases.by_status.resolved ?? 0}
                 tone="good"
                 icon={<CheckCircleIcon className="h-5 w-5 text-emerald-600" />}
                 to="/risks?status=resolved"
               />
               <StatTile
-                label="Заявки в работе"
+                label={pluralizeRu(summary.data.requests.by_status.draft ?? 0, "заявка в работе", "заявки в работе", "заявок в работе")}
                 value={summary.data.requests.by_status.draft ?? 0}
                 tone="neutral"
                 icon={<FileEditIcon className="h-5 w-5 text-slate-500" />}
