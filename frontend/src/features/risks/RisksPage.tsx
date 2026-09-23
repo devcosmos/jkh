@@ -318,7 +318,7 @@ export function RisksPage() {
                         sortBy={sortBy}
                         sortDir={sortDir}
                         onSort={toggleSort}
-                        className="px-2 py-3 whitespace-nowrap"
+                        className="px-2 ps-4 py-3 whitespace-nowrap"
                       />
                       <SortableTh
                         label="ID канала"
@@ -380,7 +380,7 @@ export function RisksPage() {
                           r.id === selected?.id ? "bg-sky-100 hover:bg-sky-100" : ""
                         }`}
                       >
-                        <td className="px-2 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
+                        <td className="px-2 ps-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
                         <td className="px-2 py-3 font-medium whitespace-nowrap text-slate-900">
                           <Link
                             to={`/registry?channel_id=${r.channel_external_id ?? r.channel_id}`}

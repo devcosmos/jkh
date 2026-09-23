@@ -6,7 +6,7 @@ export function SortableTh<K extends string>({
   sortBy,
   sortDir,
   onSort,
-  className = "px-4 py-3 whitespace-nowrap",
+  className = "px-2 py-3 whitespace-nowrap",
 }: {
   label: string;
   sortKey: K;

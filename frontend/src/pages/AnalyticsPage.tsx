@@ -85,18 +85,18 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-3">Тип датчика</th>
-              <th className="px-4 py-3">Эпизодов (реальных)</th>
-              <th className="px-4 py-3">Риск-кейсов</th>
-              <th className="px-4 py-3">Открыто сейчас</th>
-              <th className="px-4 py-3">Ср. вероятность (открытые)</th>
+              <th className="px-2 py-3">Тип датчика</th>
+              <th className="px-2 py-3">Эпизодов (реальных)</th>
+              <th className="px-2 py-3">Риск-кейсов</th>
+              <th className="px-2 py-3">Открыто сейчас</th>
+              <th className="px-2 py-3">Ср. вероятность (открытые)</th>
             </tr>
           </thead>
           <tbody>
             {data.map((row) => (
               <tr key={row.sensor_type} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-3 font-medium text-slate-900">{row.sensor_type}</td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-3 font-medium text-slate-900">{row.sensor_type}</td>
+                <td className="px-2 py-3">
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-100">
                       <div
@@ -107,9 +107,9 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
                     <span className="text-slate-600">{row.episode_count.toLocaleString("ru-RU")}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-slate-600">{row.risk_case_count.toLocaleString("ru-RU")}</td>
-                <td className="px-4 py-3 text-slate-600">{row.open_risk_case_count}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-2 py-3 text-slate-600">{row.risk_case_count.toLocaleString("ru-RU")}</td>
+                <td className="px-2 py-3 text-slate-600">{row.open_risk_case_count}</td>
+                <td className="px-2 py-3 text-slate-600">
                   {row.avg_open_probability != null ? `${Math.round(row.avg_open_probability * 100)}%` : "—"}
                 </td>
               </tr>

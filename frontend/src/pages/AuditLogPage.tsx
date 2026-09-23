@@ -1,9 +1,9 @@
 import { useState } from "react";
+import type { AuditLogEntry } from "../api/types";
 import { usePagedApi } from "../api/usePagedApi";
 import { DataState } from "../components/DataState";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
-import type { AuditLogEntry } from "../api/types";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   risk_case: "Риск-кейс",
@@ -49,28 +49,28 @@ export function AuditLogPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Время</th>
-                <th className="px-4 py-3">Кто</th>
-                <th className="px-4 py-3">Тип</th>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Изменение</th>
-                <th className="px-4 py-3">Причина</th>
+                <th className="px-2 ps-4 py-3">Время</th>
+                <th className="px-2 py-3">Кто</th>
+                <th className="px-2 py-3">Тип</th>
+                <th className="px-2 py-3">ID</th>
+                <th className="px-2 py-3">Изменение</th>
+                <th className="px-2 py-3">Причина</th>
               </tr>
             </thead>
             <tbody>
               {log.data?.map((e) => (
                 <tr key={e.id} className="border-b border-slate-100 last:border-0 align-top">
-                  <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                  <td className="px-2 ps-4 py-3 whitespace-nowrap text-slate-500">
                     {new Date(e.created_at).toLocaleString("ru-RU")}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{e.username ?? "система"}</td>
-                  <td className="px-4 py-3 text-slate-700">{ENTITY_TYPE_LABELS[e.entity_type] ?? e.entity_type}</td>
-                  <td className="px-4 py-3 font-medium text-slate-400">#{e.entity_id}</td>
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-2 py-3 text-slate-700">{e.username ?? "система"}</td>
+                  <td className="px-2 py-3 text-slate-700">{ENTITY_TYPE_LABELS[e.entity_type] ?? e.entity_type}</td>
+                  <td className="px-2 py-3 font-medium text-slate-400">#{e.entity_id}</td>
+                  <td className="px-2 py-3 text-slate-500">
                     {e.old_state && <div>было: {formatState(e.old_state)}</div>}
                     {e.new_state && <div>стало: {formatState(e.new_state)}</div>}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{e.reason ?? "—"}</td>
+                  <td className="px-2 py-3 text-slate-500">{e.reason ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

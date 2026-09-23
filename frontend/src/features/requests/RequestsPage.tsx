@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../../api/client";
-import { usePagedApi } from "../../api/usePagedApi";
-import { useApi } from "../../api/useApi";
 import { categoryLabel, categoryTone } from "../../api/categories";
+import { api } from "../../api/client";
 import { DECISION_ACTION_LABELS } from "../../api/decisionAction";
 import { REQUEST_STATUS_LABELS as STATUS_LABELS, REQUEST_STATUS_TONE as STATUS_TONE } from "../../api/requestStatus";
+import type { AuditLogEntry, MaintenanceRequestOut, MaintenanceRequestStatus } from "../../api/types";
+import { useApi } from "../../api/useApi";
+import { usePagedApi } from "../../api/usePagedApi";
 import { AnomalyBadge } from "../../components/AnomalyBadge";
 import { Badge, riskPriorityTone } from "../../components/Badge";
 import { SECONDARY_CONTROL } from "../../components/controlStyles";
@@ -17,7 +18,6 @@ import { Pagination } from "../../components/Pagination";
 import { Select } from "../../components/Select";
 import { SortableTh } from "../../components/SortableTh";
 import { exportCsv } from "../../lib/exportCsv";
-import type { AuditLogEntry, MaintenanceRequestOut, MaintenanceRequestStatus } from "../../api/types";
 
 // Разрешённые переходы — зеркало ALLOWED_TRANSITIONS на backend (раздел 10 плана).
 const NEXT_STATUSES: Record<MaintenanceRequestStatus, MaintenanceRequestStatus[]> = {
@@ -153,13 +153,13 @@ export function RequestsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3 whitespace-nowrap">ID</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Объект / канал</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Вид работы</th>
+                    <th className="px-2 ps-4 py-3 whitespace-nowrap">ID</th>
+                    <th className="px-2 py-3 whitespace-nowrap">Объект / канал</th>
+                    <th className="px-2 py-3 whitespace-nowrap">Вид работы</th>
                     <SortableTh label="Приоритет" sortKey="priority" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label="Статус" sortKey="status" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label="Создана" sortKey="created_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                    <th className="px-4 py-3" />
+                    <th className="px-2 py-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -171,8 +171,8 @@ export function RequestsPage() {
                         r.id === selected?.id ? "bg-sky-100 hover:bg-sky-100" : ""
                       }`}
                     >
-                      <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 ps-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
+                      <td className="px-2 py-3">
                         <div className="font-medium whitespace-nowrap text-slate-900">
                           {r.object_name ?? "объект не определён"}
                         </div>
@@ -185,8 +185,8 @@ export function RequestsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{r.work_type}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 py-3 font-medium whitespace-nowrap text-slate-900">{r.work_type}</td>
+                      <td className="px-2 py-3 whitespace-nowrap">
                         {r.priority ? (
                           <Badge tone={riskPriorityTone(r.priority)} icon="priority">
                             {r.priority === "high" ? "Критично" : "Средний"}
@@ -195,15 +195,15 @@ export function RequestsPage() {
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 py-3 whitespace-nowrap">
                         <Badge tone={STATUS_TONE[r.status]} dot>
                           {STATUS_LABELS[r.status]}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                      <td className="px-2 py-3 whitespace-nowrap text-slate-500">
                         {new Date(r.created_at).toLocaleDateString("ru-RU")}
                       </td>
-                      <td className="px-4 py-3 text-slate-400">
+                      <td className="px-2 py-3 text-slate-400">
                         <ChevronIcon className="h-5 w-5" strokeWidth={2.6} />
                       </td>
                     </tr>

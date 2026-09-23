@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import type { ChannelOut, ObjectOut } from "../api/types";
 import { useApi } from "../api/useApi";
 import { usePagedApi } from "../api/usePagedApi";
 import { Badge } from "../components/Badge";
@@ -10,7 +11,6 @@ import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
 import { FilterBanner } from "../components/FilterBanner";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
-import type { ChannelOut, ObjectOut } from "../api/types";
 
 const SENSOR_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"];
 
@@ -120,19 +120,19 @@ export function RegistryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">ID&nbsp;канала</th>
-                <th className="px-4 py-3">Название</th>
-                <th className="px-4 py-3">Устройство</th>
-                <th className="px-4 py-3">Тип датчика</th>
-                <th className="px-4 py-3">Объект</th>
-                <th className="px-4 py-3">Расположение</th>
-                <th className="px-4 py-3">Тренд</th>
+                <th className="px-2 ps-4 py-3">ID&nbsp;канала</th>
+                <th className="px-2 py-3">Название</th>
+                <th className="px-2 py-3">Устройство</th>
+                <th className="px-2 py-3">Тип датчика</th>
+                <th className="px-2 py-3">Объект</th>
+                <th className="px-2 py-3">Расположение</th>
+                <th className="px-2 py-3">Тренд</th>
               </tr>
             </thead>
             <tbody>
               {channels.data?.map((c) => (
                 <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-slate-400">
+                  <td className="px-2 ps-4 py-3 font-medium text-slate-400">
                     <Link
                       to={`/risks?channel_id=${c.external_channel_id}`}
                       className="text-sky-700 hover:underline"
@@ -141,14 +141,14 @@ export function RegistryPage() {
                       {c.external_channel_id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{c.display_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-2 py-3 font-medium text-slate-900">{c.display_name ?? "—"}</td>
+                  <td className="px-2 py-3 text-slate-500">
                     {c.device_label ?? <span className="text-slate-300 whitespace-nowrap">не{" "}сопоставлено</span>}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-3">
                     <Badge tone="neutral">{c.sensor_type}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-slate-700">
+                  <td className="px-2 py-3 text-slate-700">
                     {c.object_id ? (
                       <span className="flex items-center gap-2">
                         <button
@@ -170,8 +170,8 @@ export function RegistryPage() {
                       "не сопоставлен"
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{c.location_tag ?? "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-3 text-slate-500">{c.location_tag ?? "—"}</td>
+                  <td className="px-2 py-3">
                     {c.degradation_trend ? <DegradationTrendBadge trend={c.degradation_trend} /> : "—"}
                   </td>
                 </tr>

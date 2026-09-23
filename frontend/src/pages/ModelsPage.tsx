@@ -254,19 +254,19 @@ export function ModelsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Название</th>
-                  <th className="px-4 py-3">Направление</th>
-                  <th className="px-4 py-3">Обучена</th>
-                  <th className="px-4 py-3">Порог</th>
+                  <th className="px-2 py-3">Название</th>
+                  <th className="px-2 py-3">Направление</th>
+                  <th className="px-2 py-3">Обучена</th>
+                  <th className="px-2 py-3">Порог</th>
                 </tr>
               </thead>
               <tbody>
                 {replacedVersions.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100 text-slate-500 last:border-0">
-                    <td className="px-4 py-3">{m.name}</td>
-                    <td className="px-4 py-3">{m.sensor_types.split(",").join(", ")}</td>
-                    <td className="px-4 py-3">{new Date(m.trained_at).toLocaleDateString("ru-RU")}</td>
-                    <td className="px-4 py-3">{m.threshold?.toFixed(2) ?? "—"}</td>
+                    <td className="px-2 py-3">{m.name}</td>
+                    <td className="px-2 py-3">{m.sensor_types.split(",").join(", ")}</td>
+                    <td className="px-2 py-3">{new Date(m.trained_at).toLocaleDateString("ru-RU")}</td>
+                    <td className="px-2 py-3">{m.threshold?.toFixed(2) ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

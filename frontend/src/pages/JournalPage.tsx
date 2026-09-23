@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
-import { usePagedApi } from "../api/usePagedApi";
-import { useApi } from "../api/useApi";
 import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../api/categories";
+import { api } from "../api/client";
+import type { PredictionOut } from "../api/types";
+import { useApi } from "../api/useApi";
+import { usePagedApi } from "../api/usePagedApi";
 import { AnomalyBadge } from "../components/AnomalyBadge";
 import { Badge } from "../components/Badge";
 import { SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
-import { SortableTh } from "../components/SortableTh";
 import { ChevronIcon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import { getAnomaly, ShapExplanation } from "../components/ShapExplanation";
-import type { PredictionOut } from "../api/types";
+import { SortableTh } from "../components/SortableTh";
 
 type SortKey = "created_at" | "probability";
 type SortDir = "asc" | "desc";
@@ -172,12 +172,12 @@ export function JournalPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                    <SortableTh label="Время расчёта" sortKey="created_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                    <th className="px-4 py-3">Канал</th>
-                    <th className="px-4 py-3">Направление</th>
+                    <SortableTh className='px-2 ps-4 py-3 whitespace-nowrap' label="Время расчёта" sortKey="created_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                    <th className="px-2 py-3">Канал</th>
+                    <th className="px-2 py-3">Направление</th>
                     <SortableTh label="Вероятность" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                    <th className="px-4 py-3">Качество данных</th>
-                    <th className="px-4 py-3" />
+                    <th className="px-2 py-3">Качество данных</th>
+                    <th className="px-2 py-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -192,10 +192,10 @@ export function JournalPage() {
                           p.id === selected?.id ? "bg-sky-100 hover:bg-sky-100" : stale ? "bg-amber-50/40" : ""
                         }`}
                       >
-                        <td className="px-4 py-3 text-slate-500">
+                        <td className="px-2 ps-4 py-3 text-slate-500">
                           {new Date(p.created_at).toLocaleString("ru-RU")}
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-900">
+                        <td className="px-2 py-3 font-medium text-slate-900">
                           <Link
                             to={`/registry?channel_id=${p.channel_external_id ?? p.channel_id}`}
                             onClick={(e) => e.stopPropagation()}
@@ -208,19 +208,19 @@ export function JournalPage() {
                             <div className="text-sm font-normal text-slate-500">{p.channel_label}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-3">
                           <Badge tone={categoryTone(p.category)}>{categoryLabel(p.category)}</Badge>
                         </td>
-                        <td className="px-4 py-3 font-semibold text-slate-900">
+                        <td className="px-2 py-3 font-semibold text-slate-900">
                           {(p.probability * 100).toFixed(1)}%
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-3">
                           <span className={stale ? "font-medium text-amber-700" : "text-slate-500"}>
                             {p.data_quality_flag ?? "ok"}
                             {stale && " · устарел"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-400">
+                        <td className="px-2 py-3 text-slate-400">
                           <ChevronIcon className="h-5 w-5" strokeWidth={2.6} />
                         </td>
                       </tr>
