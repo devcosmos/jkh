@@ -2,7 +2,7 @@ import type { BadgeTone } from "../components/Badge";
 import type { MaintenanceRequestStatus } from "./types";
 
 export const REQUEST_STATUS_LABELS: Record<MaintenanceRequestStatus, string> = {
-  draft: "Черновик",
+  draft: "Ожидает подтверждения",
   approved: "Утверждена",
   in_progress: "В работе",
   completed: "Выполнена",

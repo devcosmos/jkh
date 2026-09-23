@@ -2,7 +2,8 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, or_, select, tuple_
+from sqlalchemy import case, cast, func, or_, select, tuple_
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
@@ -14,19 +15,38 @@ from app.services.maintenance_requests import ensure_request_for_dispatch
 
 router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(get_current_user)])
 
+# Порядок хода риск-кейса для сортировки по статусу (не алфавитный — тот же приём, что
+# _STATUS_ORDER в maintenance_requests.py) и по серьёзности для приоритета.
+_STATUS_ORDER = case(
+    (RiskCase.status == RiskCaseStatus.new, 0),
+    (RiskCase.status == RiskCaseStatus.observing, 1),
+    (RiskCase.status == RiskCaseStatus.dispatched, 2),
+    (RiskCase.status == RiskCaseStatus.resolved, 3),
+    (RiskCase.status == RiskCaseStatus.rejected, 4),
+)
+_PRIORITY_ORDER = case((RiskCase.priority == "high", 2), (RiskCase.priority == "medium", 1), else_=0)
+
+# Те же «открытые» статусы, что и dashboard.py (open_by_priority/open_with_anomaly) — здесь
+# нужны, чтобы ссылка с плашки «Открытых рисков» на «Обзоре» могла отфильтровать список одним
+# status=open, без перечисления трёх статусов на фронте.
+_OPEN_STATUSES = (RiskCaseStatus.new, RiskCaseStatus.observing, RiskCaseStatus.dispatched)
+
 
 @router.get(
     "",
     response_model=list[RiskCaseOut],
     summary="Получить список риск-кейсов",
     description=(
-        "Фильтры по status, category, priority, channel_id (внешний ID канала — тот же, что показан в реестре "
+        "Фильтры по status, category, priority, has_anomaly (последний прогноз помечен независимой моделью как "
+        "аномальный), channel_id (внешний ID канала — тот же, что показан в реестре "
         "каналов, не внутренний PK), object_id, opened_after (строго позже указанного момента; при "
         "нескольких риск-кейсах с одинаковым opened_at используйте вместе с after_id — иначе кейсы с "
         "opened_at, равным водоразделу, не будут исключены только по времени) "
         "и search (точный ID риск-кейса или внешний ID канала). "
-        "Сортировка sort_by: opened_at или probability; sort_dir: asc "
-        "или desc. По умолчанию — новые первыми. Учитывает доступ к объектам."
+        "Сортировка sort_by: opened_at, probability, id, channel (внешний ID канала), "
+        "category, status (по ходу риска, не по алфавиту) или priority (high/medium/без "
+        "приоритета); sort_dir: asc или desc. По умолчанию — новые первыми. Учитывает доступ "
+        "к объектам."
     ),
     responses={
         401: {
@@ -47,9 +67,14 @@ router = APIRouter(prefix="/risk-cases", tags=["risks"], dependencies=[Depends(g
 )
 def list_risk_cases(
     response: Response,
-    status_filter: RiskCaseStatus | None = Query(None, alias="status"),
+    status_filter: str | None = Query(
+        None, alias="status", description="Значение RiskCaseStatus, либо 'open' — алиас для new+observing+dispatched"
+    ),
     category: str | None = None,
     priority: str | None = None,
+    has_anomaly: bool | None = Query(
+        None, description="Только риск-кейсы, чей последний прогноз помечен независимой моделью как аномальный"
+    ),
     channel_id: int | None = None,
     object_id: int | None = None,
     opened_after: dt.datetime | None = Query(
@@ -65,18 +90,33 @@ def list_risk_cases(
         ),
     ),
     search: int | None = Query(None, description="Точное совпадение по ID риск-кейса или внешнему ID канала"),
-    sort_by: Literal["opened_at", "probability"] = "opened_at",
+    sort_by: Literal["opened_at", "probability", "id", "channel", "category", "status", "priority"] = "opened_at",
     sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(50, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[RiskCaseOut]:
+    if status_filter and status_filter != "open" and status_filter not in RiskCaseStatus.__members__:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Некорректный статус: {status_filter}")
+
     # Вероятность последнего прогноза по риск-кейсу — не хранится на самом RiskCase (это
     # неизменяемый журнал Prediction, раздел 9.2 плана), поэтому вычисляется здесь как
     # коррелированный подзапрос, а не отдельным N+1 обращением на строку.
     latest_probability = (
         select(Prediction.probability)
+        .where(Prediction.risk_case_id == RiskCase.id)
+        .order_by(Prediction.created_at.desc())
+        .limit(1)
+        .correlate(RiskCase)
+        .scalar_subquery()
+    )
+
+    # Тот же приём, что и latest_probability выше (и в dashboard.py open_with_anomaly):
+    # скалярный подзапрос по ПОСЛЕДНЕМУ прогнозу кейса, не join по всей истории —
+    # JSONB-фильтр на каждой из 10M+ строк был бы дорогим full scan.
+    latest_anomaly_flag = (
+        select(cast(Prediction.explanation, JSONB)["anomaly"]["is_outlier"].astext)
         .where(Prediction.risk_case_id == RiskCase.id)
         .order_by(Prediction.created_at.desc())
         .limit(1)
@@ -94,12 +134,16 @@ def list_risk_cases(
     # номер, что показан в реестре каналов, чтобы ссылка "показать риски этого канала" и
     # список рисков оперировали одним и тем же видимым пользователю числом.
     def apply_filters(s):
-        if status_filter:
+        if status_filter == "open":
+            s = s.where(RiskCase.status.in_(_OPEN_STATUSES))
+        elif status_filter:
             s = s.where(RiskCase.status == status_filter)
         if category:
             s = s.where(RiskCase.category == category)
         if priority:
             s = s.where(RiskCase.priority == priority)
+        if has_anomaly:
+            s = s.where(latest_anomaly_flag == "true")
         if channel_id is not None:
             s = s.where(Channel.external_channel_id == channel_id)
         if opened_after is not None:
@@ -134,7 +178,16 @@ def list_risk_cases(
         count_stmt = count_stmt.where(Channel.object_id.in_(accessible))
     response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)
 
-    order_col = latest_probability if sort_by == "probability" else RiskCase.opened_at
+    _SORT_COLUMNS = {
+        "opened_at": RiskCase.opened_at,
+        "probability": latest_probability,
+        "id": RiskCase.id,
+        "channel": Channel.external_channel_id,
+        "category": RiskCase.category,
+        "status": _STATUS_ORDER,
+        "priority": _PRIORITY_ORDER,
+    }
+    order_col = _SORT_COLUMNS[sort_by]
     # RiskCase.id как вторичный ключ сортировки — обязателен для opened_after+after_id курсора:
     # несколько риск-кейсов одного тика replay делят opened_at, без стабильного порядка внутри
     # такой группы курсор мог бы пропустить или повторить строку между двумя опросами.
@@ -221,6 +274,9 @@ def get_risk_case(
         404: {
             "description": "Риск-кейс не найден",
         },
+        409: {
+            "description": "Риск-кейс уже закрыт (resolved/rejected) — новое решение не требуется",
+        },
         401: {
             "description": "Требуется вход или токен недействителен",
         },
@@ -237,6 +293,13 @@ def add_decision(
     if rc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Риск-кейс не найден")
     check_object_access(rc.channel.object_id, user, db)
+
+    # Терминальные статусы — resolved закрывается автоматически воркером (48ч без новых
+    # предупреждений), rejected — самим диспетчером. В обоих случаях решать больше нечего;
+    # без этой проверки API принял бы новое решение по уже закрытому кейсу (фронтенд прячет
+    # форму, но прямой запрос всё равно дошёл бы до этой точки).
+    if rc.status in (RiskCaseStatus.resolved, RiskCaseStatus.rejected):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Риск-кейс уже закрыт — новое решение не требуется")
 
     old_status = rc.status
     decision = Decision(risk_case_id=risk_case_id, user_id=user.id, action=payload.action, reason=payload.reason)

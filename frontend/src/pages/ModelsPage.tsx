@@ -136,7 +136,7 @@ export function ModelsPage() {
             Раздел 8 ЖКХ.md — регистрация новой версии описана в{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5">scripts/maintenance/register_model_version.py</code>
           </p>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">

@@ -9,7 +9,7 @@ import { useEnterAnimation } from "../components/useEnterAnimation";
 import type { AnalyticsReport } from "../api/types";
 
 const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
-  draft: "Черновик",
+  draft: "Ожидает подтверждения",
   approved: "Утверждена",
   in_progress: "В работе",
   completed: "Завершена",
@@ -81,7 +81,7 @@ function IncidentTypesSection({ data }: { data: AnalyticsReport["incident_types"
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Детальная статистика по типам инцидентов
       </h2>
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">

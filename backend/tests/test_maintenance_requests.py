@@ -87,6 +87,36 @@ def test_transition_writes_audit_log(client, db_session, auth_headers):
     assert log.reason == "передумали"
 
 
+def test_completing_request_resolves_risk_case(client, db_session, auth_headers):
+    mr = _make_request(db_session, status=MaintenanceRequestStatus.in_progress)
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.post(
+        f"/api/maintenance-requests/{mr.id}/transitions",
+        json={"to_status": "completed", "reason": "ремонт выполнен"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    db_session.refresh(mr)
+    db_session.refresh(mr.risk_case)
+    assert mr.risk_case.status == RiskCaseStatus.resolved
+    assert mr.risk_case.closed_at is not None
+
+
+def test_completing_request_does_not_reopen_already_rejected_risk_case(client, db_session, auth_headers):
+    mr = _make_request(db_session, status=MaintenanceRequestStatus.in_progress)
+    mr.risk_case.status = RiskCaseStatus.rejected
+    db_session.commit()
+    headers = auth_headers(UserRole.dispatcher)
+    r = client.post(
+        f"/api/maintenance-requests/{mr.id}/transitions",
+        json={"to_status": "completed", "reason": "ремонт выполнен"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    db_session.refresh(mr.risk_case)
+    assert mr.risk_case.status == RiskCaseStatus.rejected
+
+
 def test_request_history_endpoint_lists_transitions_newest_first(client, db_session, auth_headers):
     mr = _make_request(db_session)
     headers = auth_headers(UserRole.dispatcher)

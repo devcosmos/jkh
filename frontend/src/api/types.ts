@@ -169,6 +169,7 @@ export interface DashboardSummary {
   daily_volume: { date: string; opened: number; closed: number }[];
   top_worsening_channels: {
     channel_id: number;
+    external_channel_id: number | null;
     label: string;
     recent_count: number;
     baseline_count: number;

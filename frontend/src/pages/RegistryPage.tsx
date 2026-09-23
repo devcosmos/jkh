@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { usePagedApi } from "../api/usePagedApi";
@@ -7,6 +7,7 @@ import { Badge } from "../components/Badge";
 import { SECONDARY_FIELD } from "../components/controlStyles";
 import { DataState } from "../components/DataState";
 import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
+import { FilterBanner } from "../components/FilterBanner";
 import { Pagination } from "../components/Pagination";
 import { Select } from "../components/Select";
 import type { ChannelOut, ObjectOut } from "../api/types";
@@ -14,9 +15,19 @@ import type { ChannelOut, ObjectOut } from "../api/types";
 const SENSOR_TYPES = ["Состояние насоса", "Состояние вентилятора", "Датчик дыма", "Газовый датчик"];
 
 export function RegistryPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [sensorType, setSensorType] = useState("");
-  const [objectFilter, setObjectFilter] = useState<number | null>(null);
+  // Начальные значения — из query-параметров сквозной ссылки (ID канала из «Рисков», ID
+  // объекта из «Обзора»/схемы объектов), дальше это обычные локальные фильтры страницы.
+  const [objectFilter, setObjectFilter] = useState<number | null>(() => {
+    const v = searchParams.get("object_id");
+    return v ? Number(v) : null;
+  });
+  const [channelIdFilter, setChannelIdFilter] = useState<number | null>(() => {
+    const v = searchParams.get("channel_id");
+    return v ? Number(v) : null;
+  });
 
   const objects = useApi<ObjectOut[]>(() => api.get("/objects?limit=500"), []);
   const channels = usePagedApi<ChannelOut>(
@@ -25,10 +36,17 @@ export function RegistryPage() {
         sensorType ? `&sensor_type=${encodeURIComponent(sensorType)}` : ""
       }${search ? `&search=${encodeURIComponent(search)}` : ""}${
         objectFilter ? `&object_id=${objectFilter}` : ""
-      }`,
-    [sensorType, search, objectFilter],
-    50
+      }${channelIdFilter ? `&external_channel_id=${channelIdFilter}` : ""}`,
+    [sensorType, search, objectFilter, channelIdFilter],
+    20
   );
+
+  function clearChannelIdFilter() {
+    setChannelIdFilter(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("channel_id");
+    setSearchParams(next);
+  }
 
   const objectNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -86,13 +104,19 @@ export function RegistryPage() {
         )}
       </div>
 
+      {channelIdFilter && (
+        <FilterBanner onClear={clearChannelIdFilter} clearLabel="Показать все каналы">
+          Показан только канал <span className="font-semibold">#{channelIdFilter}</span>
+        </FilterBanner>
+      )}
+
       <DataState
         loading={channels.loading}
         error={channels.error}
         empty={!channels.data?.length}
         emptyText="Каналов не найдено"
       >
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">

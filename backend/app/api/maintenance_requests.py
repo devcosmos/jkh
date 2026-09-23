@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.deps import check_object_access, get_accessible_object_ids, get_current_user, require_role
 from app.core.db import get_db
 from app.models.entities import AuditLog, Channel, Decision, MaintenanceRequest, Prediction, RiskCase, User
-from app.models.enums import MaintenanceRequestStatus, UserRole
+from app.models.enums import MaintenanceRequestStatus, RiskCaseStatus, UserRole
 from app.schemas.schemas import AuditLogOut, MaintenanceRequestOut, TransitionIn
 
 router = APIRouter(
@@ -256,6 +256,32 @@ def _transition(
             reason=reason,
         )
     )
+
+    # Подтверждённый ремонт закрывает риск-кейс — раньше «Выполнена» на заявке никак не
+    # отражалась на риске: он мог висеть «Направлено» до 48ч автозакрытия воркером, даже
+    # когда работа по нему уже реально сделана (см. RiskCard.tsx: диспетчеру было
+    # непонятно, как перевести риск в «Решён» после ремонта). rejected/уже resolved не
+    # трогаем — там статус либо не должен, либо уже не нужно менять.
+    rc = mr.risk_case
+    if to_status == MaintenanceRequestStatus.completed and rc is not None and rc.status not in (
+        RiskCaseStatus.resolved,
+        RiskCaseStatus.rejected,
+    ):
+        rc_old_status = rc.status
+        rc.status = RiskCaseStatus.resolved
+        rc.closed_at = dt.datetime.now(dt.timezone.utc)
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                role=user.role.value,
+                entity_type="risk_case",
+                entity_id=rc.id,
+                old_state={"status": rc_old_status.value},
+                new_state={"status": rc.status.value},
+                reason="Заявка на обслуживание выполнена",
+            )
+        )
+
     db.commit()
     db.refresh(mr)
     approver = db.get(User, mr.approved_by_user_id) if mr.approved_by_user_id else None
@@ -360,7 +386,8 @@ def approve(
     description=(
         "Доступно диспетчеру и администратору. Переходы: draft → approved или rejected; approved → "
         "in_progress или cancelled; in_progress → completed или cancelled. Из completed, rejected и "
-        "cancelled переходов нет."
+        "cancelled переходов нет. Переход в completed также закрывает связанный риск-кейс "
+        "(status resolved, closed_at = сейчас), если он ещё не resolved/rejected."
     ),
     responses={
         403: {

@@ -52,7 +52,7 @@ export function JournalPage() {
       return `/predictions?${params.toString()}`;
     },
     [categoryFilter, searchQuery, sortBy, sortDir],
-    50
+    20
   );
 
   const latestKnown = useMemo(() => {
@@ -168,7 +168,7 @@ export function JournalPage() {
             empty={!predictions.data?.length}
             emptyText="Прогнозов ещё нет — модель либо не запускалась, либо все каналы в норме"
           >
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -196,7 +196,14 @@ export function JournalPage() {
                           {new Date(p.created_at).toLocaleString("ru-RU")}
                         </td>
                         <td className="px-4 py-3 font-medium text-slate-900">
-                          {p.channel_external_id ?? p.channel_id}
+                          <Link
+                            to={`/registry?channel_id=${p.channel_external_id ?? p.channel_id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sky-700 hover:underline"
+                            title="Открыть канал в «Объекты и каналы»"
+                          >
+                            {p.channel_external_id ?? p.channel_id}
+                          </Link>
                           {p.channel_label && p.channel_label !== String(p.channel_external_id) && (
                             <div className="text-sm font-normal text-slate-500">{p.channel_label}</div>
                           )}

@@ -24,7 +24,7 @@ export function AuditLogPage() {
   const log = usePagedApi<AuditLogEntry>(
     (limit, offset) => `/audit-log?limit=${limit}&offset=${offset}${entityType ? `&entity_type=${entityType}` : ""}`,
     [entityType],
-    50
+    20
   );
 
   return (
@@ -45,7 +45,7 @@ export function AuditLogPage() {
       </div>
 
       <DataState loading={log.loading} error={log.error} empty={!log.data?.length} emptyText="Записей нет">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">

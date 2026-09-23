@@ -9,7 +9,7 @@ export const RISK_STATUS_LABELS: Record<string, string> = {
 };
 
 export const RISK_STATUS_TONE: Record<string, BadgeTone> = {
-  new: "warning",
+  new: "track-a",
   observing: "neutral",
   dispatched: "neutral",
   rejected: "neutral",

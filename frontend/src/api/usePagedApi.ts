@@ -20,7 +20,7 @@ interface PagedResult<T> {
 export function usePagedApi<T>(
   buildUrl: (limit: number, offset: number) => string,
   deps: unknown[],
-  pageSize = 50
+  pageSize = 20
 ): PagedResult<T> {
   const [page, setPageState] = useState(0);
   const [data, setData] = useState<T[] | null>(null);

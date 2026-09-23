@@ -6,16 +6,19 @@ export function SortableTh<K extends string>({
   sortBy,
   sortDir,
   onSort,
+  className = "px-4 py-3 whitespace-nowrap",
 }: {
   label: string;
   sortKey: K;
   sortBy: K;
   sortDir: "asc" | "desc";
   onSort: (key: K) => void;
+  /** Переопределить паддинги заголовка — чтобы совпадали с <td> конкретной таблицы. */
+  className?: string;
 }) {
   const active = sortBy === sortKey;
   return (
-    <th className="px-4 py-3 whitespace-nowrap">
+    <th className={className}>
       <button
         onClick={() => onSort(sortKey)}
         className={`flex items-center gap-1 uppercase tracking-wide transition-colors ${

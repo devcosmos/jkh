@@ -9,14 +9,18 @@ export function DetailSection({
   right,
   footer,
   children,
+  className = "",
 }: {
   title: string;
   right?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
+  /** Доп. классы на внешний контейнер — например self-start, чтобы карточка не
+   * растягивалась на всю высоту грид-ячейки вслед за более высоким соседом. */
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white">
+    <div className={`flex flex-col rounded-2xl border border-slate-200 bg-white ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-100 px-5 py-3">
         <h3 className="font-display text-sm font-semibold text-slate-900">{title}</h3>
         {right}

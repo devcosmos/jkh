@@ -1,26 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../../api/categories";
 import { api } from "../../api/client";
+import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../../api/riskStatus";
+import type { ObjectsTreeResponse, ObjectTreeNode, RiskCaseOut } from "../../api/types";
 import { useApi } from "../../api/useApi";
 import { usePagedApi } from "../../api/usePagedApi";
-import { CATEGORY_LABELS, categoryLabel, categoryTone } from "../../api/categories";
-import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../../api/riskStatus";
 import { Badge, riskPriorityTone } from "../../components/Badge";
+import { BarList } from "../../components/BarList";
 import { SECONDARY_CONTROL, SECONDARY_FIELD } from "../../components/controlStyles";
 import { DataState } from "../../components/DataState";
-import { ObjectsTree } from "../../components/ObjectsTree";
+import { DetailSection } from "../../components/DetailSection";
+import { FilterBanner } from "../../components/FilterBanner";
+import { ChevronIcon } from "../../components/icons";
+import { countTreeNodes, ObjectsTree, topRiskyNodes } from "../../components/ObjectsTree";
 import { Pagination } from "../../components/Pagination";
 import { Select } from "../../components/Select";
+import { SortableTh } from "../../components/SortableTh";
 import { StatTile } from "../../components/StatTile";
 import { useEnterAnimation } from "../../components/useEnterAnimation";
-import { SortableTh } from "../../components/SortableTh";
-import { ChevronIcon } from "../../components/icons";
 import { exportCsv } from "../../lib/exportCsv";
 import { RiskCard } from "../../pages/RiskCard";
-import type { ObjectsTreeResponse, RiskCaseOut } from "../../api/types";
 
-type SortKey = "probability" | "opened_at";
+type SortKey = "probability" | "opened_at" | "id" | "channel" | "category" | "status" | "priority";
 type SortDir = "asc" | "desc";
 
 export function RisksPage() {
@@ -29,12 +32,16 @@ export function RisksPage() {
   const channelFilter = searchParams.get("channel_id");
   const objectFilter = searchParams.get("object_id");
   const [view, setView] = useState<"list" | "scheme">("list");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  // Начальные значения — из query-параметров ссылки (например, с плашек «Обзора»), дальше
+  // это уже обычные локальные фильтры страницы, независимые от URL.
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "");
+  const [categoryFilter, setCategoryFilter] = useState<string>(() => searchParams.get("category") ?? "");
+  const [priorityFilter, setPriorityFilter] = useState<string>(() => searchParams.get("priority") ?? "");
+  const [anomalyFilter, setAnomalyFilter] = useState<boolean>(() => searchParams.get("has_anomaly") === "true");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchError, setSearchError] = useState(false);
-  const [sortBy, setSortBy] = useState<SortKey>("probability");
+  const [sortBy, setSortBy] = useState<SortKey>("opened_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RiskCaseOut | null>(null);
   const initialSelectionDone = useRef(false);
@@ -44,6 +51,8 @@ export function RisksPage() {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (categoryFilter) params.set("category", categoryFilter);
+      if (priorityFilter) params.set("priority", priorityFilter);
+      if (anomalyFilter) params.set("has_anomaly", "true");
       if (channelFilter) params.set("channel_id", channelFilter);
       if (objectFilter) params.set("object_id", objectFilter);
       if (searchQuery) params.set("search", searchQuery);
@@ -53,8 +62,8 @@ export function RisksPage() {
       params.set("offset", String(offset));
       return `/risk-cases?${params.toString()}`;
     },
-    [statusFilter, categoryFilter, channelFilter, objectFilter, searchQuery, sortBy, sortDir],
-    50
+    [statusFilter, categoryFilter, priorityFilter, anomalyFilter, channelFilter, objectFilter, searchQuery, sortBy, sortDir],
+    20
   );
   const tree = useApi<ObjectsTreeResponse>(() => api.get("/objects/tree"), []);
 
@@ -92,13 +101,12 @@ export function RisksPage() {
   const stats = useMemo(() => {
     const data = risks.data ?? [];
     return {
-      // Общее число в выборке (все страницы) — из X-Total-Count, не только текущая
-      // страница. Остальные счётчики — по текущей странице (та же экономика, что и раньше:
-      // без отдельных агрегирующих запросов на каждый статус/приоритет по всей выборке).
-      total: risks.total ?? data.length,
+      // Счётчики — по текущей странице, не по всей выборке (та же экономика, что и
+      // раньше: без отдельных агрегирующих запросов на каждый статус/приоритет).
       critical: data.filter((r) => r.priority === "high").length,
       warning: data.filter((r) => r.priority === "medium").length,
       fresh: data.filter((r) => r.status === "new").length,
+      resolved: data.filter((r) => r.status === "resolved").length,
     };
   }, [risks.data, risks.total]);
 
@@ -180,32 +188,22 @@ export function RisksPage() {
       </div>
 
       {channelFilter && (
-        <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
-          <span>
-            Показаны риски только по каналу <span className="font-semibold">#{channelFilter}</span>
-          </span>
-          <button onClick={clearChannelFilter} className="font-medium text-sky-700 hover:text-sky-900">
-            Показать все риски ×
-          </button>
-        </div>
+        <FilterBanner onClear={clearChannelFilter} clearLabel="Показать все риски">
+          Показаны риски только по каналу <span className="font-semibold">#{channelFilter}</span>
+        </FilterBanner>
       )}
 
       {objectFilter && (
-        <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
-          <span>
-            Показаны риски только по объекту <span className="font-semibold">#{objectFilter}</span>
-          </span>
-          <button onClick={clearObjectFilter} className="font-medium text-sky-700 hover:text-sky-900">
-            Показать все риски ×
-          </button>
-        </div>
+        <FilterBanner onClear={clearObjectFilter} clearLabel="Показать все риски">
+          Показаны риски только по объекту <span className="font-semibold">#{objectFilter}</span>
+        </FilterBanner>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile label="Всего в выборке" value={stats.total} tone="neutral" />
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Критично" value={stats.critical} tone="critical" />
         <StatTile label="Требуют внимания" value={stats.warning} tone="warning" />
         <StatTile label="Новые" value={stats.fresh} tone="track-a" />
+        <StatTile label="Решённые" value={stats.resolved} tone="good" />
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -227,59 +225,83 @@ export function RisksPage() {
             Схема объектов
           </button>
         </div>
-        <form onSubmit={submitSearch} className="flex items-center gap-1.5">
-          <div className="flex flex-col">
-            <input
-              value={searchInput}
-              onChange={(e) => {
-                setSearchInput(e.target.value);
-                setSearchError(false);
-              }}
-              placeholder="Поиск по ID риска или канала…"
-              inputMode="numeric"
-              className={`w-56 rounded-xl px-3.5 py-2 text-sm ${
-                searchError
-                  ? "border border-red-300 bg-red-50 text-slate-900 outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
-                  : SECONDARY_FIELD
-              }`}
-            />
-            {searchError && <span className="mt-1 text-sm text-red-600">Введите число</span>}
-          </div>
-          {searchQuery ? (
+        {view === "list" && (
+          <>
+            <form onSubmit={submitSearch} className="flex items-center gap-1.5">
+              <div className="flex flex-col">
+                <input
+                  value={searchInput}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value);
+                    setSearchError(false);
+                  }}
+                  placeholder="Поиск по ID риска или канала…"
+                  inputMode="numeric"
+                  className={`w-56 rounded-xl px-3.5 py-2 text-sm ${
+                    searchError
+                      ? "border border-red-300 bg-red-50 text-slate-900 outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                      : SECONDARY_FIELD
+                  }`}
+                />
+                {searchError && <span className="mt-1 text-sm text-red-600">Введите число</span>}
+              </div>
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
+                >
+                  ×
+                </button>
+              ) : (
+                <button type="submit" className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}>
+                  Найти
+                </button>
+              )}
+            </form>
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">Все статусы</option>
+              <option value="open">Открытые</option>
+              {Object.entries(RISK_STATUS_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </Select>
+            <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="">Оба направления</option>
+              {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </Select>
+            <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+              <option value="">Любой приоритет</option>
+              <option value="high">Критично</option>
+              <option value="medium">Средний</option>
+            </Select>
             <button
               type="button"
-              onClick={clearSearch}
-              className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}
+              onClick={() => setAnomalyFilter((v) => !v)}
+              aria-pressed={anomalyFilter}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${
+                anomalyFilter ? "bg-orange-100 text-orange-700" : SECONDARY_CONTROL
+              }`}
             >
-              ×
+              Только аномалии
             </button>
-          ) : (
-            <button type="submit" className={`rounded-xl px-3 py-2 text-sm font-medium ${SECONDARY_CONTROL}`}>
-              Найти
-            </button>
-          )}
-        </form>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">Все статусы</option>
-          {Object.entries(RISK_STATUS_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </Select>
-        <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-          <option value="">Оба направления</option>
-          {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </Select>
+          </>
+        )}
       </div>
 
+      {view === "scheme" ? (
+        <DataState loading={tree.loading} error={tree.error} empty={!tree.data?.roots.length} emptyText="Объектов нет">
+          {tree.data && <ObjectsSchemeView roots={tree.data.roots} />}
+        </DataState>
+      ) : (
       <div className="flex flex-col items-start gap-6 lg:flex-row">
         <div className="min-w-0 w-full flex-1">
-          {view === "list" ? (
             <DataState
               loading={risks.loading}
               error={risks.error}
@@ -290,14 +312,63 @@ export function RisksPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-sm font-semibold uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-3 whitespace-nowrap">ID</th>
-                      <th className="px-4 py-3 whitespace-nowrap">ID канала</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Направление</th>
-                      <SortableTh label="% отказа" sortKey="probability" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <th className="px-4 py-3 whitespace-nowrap">Статус</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Приоритет</th>
-                      <SortableTh label="Открыт" sortKey="opened_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <th className="px-4 py-3" />
+                      <SortableTh
+                        label="ID"
+                        sortKey="id"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <SortableTh
+                        label="ID канала"
+                        sortKey="channel"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <SortableTh
+                        label="Направление"
+                        sortKey="category"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <SortableTh
+                        label="% отказа"
+                        sortKey="probability"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <SortableTh
+                        label="Статус"
+                        sortKey="status"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <SortableTh
+                        label="Приоритет"
+                        sortKey="priority"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <SortableTh
+                        label="Открыт"
+                        sortKey="opened_at"
+                        sortBy={sortBy}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                        className="px-2 py-3 whitespace-nowrap"
+                      />
+                      <th className="px-2 py-3" />
                     </tr>
                   </thead>
                   <tbody>
@@ -309,38 +380,45 @@ export function RisksPage() {
                           r.id === selected?.id ? "bg-sky-100 hover:bg-sky-100" : ""
                         }`}
                       >
-                        <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
-                        <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">
-                          <div>{r.channel_external_id ?? r.channel_id}</div>
+                        <td className="px-2 py-3 font-medium whitespace-nowrap text-slate-400">#{r.id}</td>
+                        <td className="px-2 py-3 font-medium whitespace-nowrap text-slate-900">
+                          <Link
+                            to={`/registry?channel_id=${r.channel_external_id ?? r.channel_id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sky-700 hover:underline"
+                            title="Открыть канал в «Объекты и каналы»"
+                          >
+                            {r.channel_external_id ?? r.channel_id}
+                          </Link>
                           {r.channel_label && r.channel_label !== String(r.channel_external_id) && (
                             <div className="text-sm font-normal text-slate-500">{r.channel_label}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <Badge tone={categoryTone(r.category)}>{categoryLabel(r.category)}</Badge>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-3">
                           <ProbabilityCell probability={r.latest_probability} />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <Badge tone={RISK_STATUS_TONE[r.status] ?? "neutral"} dot>
                             {RISK_STATUS_LABELS[r.status] ?? r.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           {r.priority ? (
                             <Badge tone={riskPriorityTone(r.priority)} icon="priority">
-                              {r.priority === "high" ? "Высокий" : "Средний"}
+                              {r.priority === "high" ? "Критично" : "Средний"}
                             </Badge>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                        <td className="px-2 py-3 whitespace-nowrap text-slate-500">
                           <div>{new Date(r.opened_at).toLocaleDateString("ru-RU")}</div>
                           <div className="text-slate-400">{new Date(r.opened_at).toLocaleTimeString("ru-RU")}</div>
                         </td>
-                        <td className="px-4 py-3 text-slate-400">
+                        <td className="px-2 py-3 text-slate-400">
                           <ChevronIcon className="h-5 w-5" strokeWidth={2.6} />
                         </td>
                       </tr>
@@ -356,25 +434,6 @@ export function RisksPage() {
                 />
               </div>
             </DataState>
-          ) : (
-            <DataState
-              loading={tree.loading}
-              error={tree.error}
-              empty={!tree.data?.roots.length}
-              emptyText="Объектов нет"
-            >
-              {tree.data && (
-                <>
-                  <ObjectsTree roots={tree.data.roots} />
-                  <p className="mt-3 text-sm text-slate-500">
-                    Реальные координаты объектов организаторами не предоставляются (только
-                    текущие, теряются при демонтаже датчика) — вместо GPS-карты иерархическая
-                    схема объектов с цветовой индикацией риска, как рекомендовано организаторами.
-                  </p>
-                </>
-              )}
-            </DataState>
-          )}
         </div>
 
         <div className="w-full shrink-0 lg:w-120">
@@ -390,6 +449,7 @@ export function RisksPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -451,6 +511,64 @@ function RefreshIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+// Без списка/риск-кейса и фильтров, на всю ширину страницы — раньше "Схема объектов" делила
+// экран с карточкой риска и повторяла фильтры списка, хотя у самого дерева фильтров нет и
+// клик по строке ничего не выбирает. Справа — топ объектов по СОБСТВЕННЫМ открытым рискам
+// (не по агрегату поддерева, иначе топ всегда состоял бы из самых верхних объектов) и общие
+// цифры/легенда — то, что раньше не было видно вообще.
+function ObjectsSchemeView({ roots }: { roots: ObjectTreeNode[] }) {
+  const { total, withOwnRisk } = countTreeNodes(roots);
+  const top = topRiskyNodes(roots);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="min-w-0 lg:col-span-2">
+        <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-slate-500">
+          <span>
+            Объектов: <span className="font-semibold text-slate-800">{total}</span>
+          </span>
+          <span>
+            С открытыми рисками: <span className="font-semibold text-slate-800">{withOwnRisk}</span>
+          </span>
+          <span className="ml-auto flex items-center gap-4">
+            <LegendItem colorClass="bg-[#d03b3b]" label="Критично" />
+            <LegendItem colorClass="bg-[#fab219]" label="Средний" />
+            <LegendItem colorClass="bg-slate-300" label="Нет открытых" />
+          </span>
+        </div>
+        <ObjectsTree roots={roots} />
+        <p className="mt-3 text-sm text-slate-500">
+          Реальные координаты объектов организаторами не предоставляются (только текущие,
+          теряются при демонтаже датчика) — вместо GPS-карты иерархическая схема объектов с
+          цветовой индикацией риска, как рекомендовано организаторами.
+        </p>
+      </div>
+
+      <DetailSection title="Топ объектов по открытым рискам" className="lg:self-start mt-8">
+        <BarList
+          items={top.map((n) => ({
+            key: String(n.id),
+            label: n.name,
+            value: n.own_open_risk_count,
+            colorClass: n.aggregated_max_priority === "high" ? "bg-[#d03b3b]" : "bg-[#fab219]",
+            to: `/risks?object_id=${n.id}`,
+          }))}
+          emptyText="Открытых рисков нет"
+        />
+      </DetailSection>
+    </div>
+  );
+}
+
+function LegendItem({ colorClass, label }: { colorClass: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
+      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${colorClass}`} />
+      {label}
+    </span>
   );
 }
 

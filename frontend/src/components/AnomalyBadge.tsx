@@ -12,7 +12,7 @@ export function AnomalyBadge({ isOutlier }: { isOutlier: boolean }) {
   return (
     <div className="group relative inline-block cursor-help">
       {isOutlier ? <Badge tone="serious">Аномальное поведение</Badge> : <Badge tone="neutral">Поведение в норме</Badge>}
-      <div className="pointer-events-none absolute top-full left-0 z-10 mt-1.5 w-72 max-w-[80vw] rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-100 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+      <div className="pointer-events-none absolute top-full right-0 z-10 mt-1.5 w-72 max-w-[80vw] rounded-lg bg-slate-900 px-3 py-2 text-sm text-slate-100 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
         {isOutlier ? ANOMALY_TEXT : NORMAL_TEXT}
       </div>
     </div>

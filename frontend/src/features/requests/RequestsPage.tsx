@@ -11,6 +11,7 @@ import { Badge, riskPriorityTone } from "../../components/Badge";
 import { SECONDARY_CONTROL } from "../../components/controlStyles";
 import { DataState } from "../../components/DataState";
 import { DetailSection } from "../../components/DetailSection";
+import { FilterBanner } from "../../components/FilterBanner";
 import { CheckCircleIcon, CheckIcon, ChevronIcon, CloseIcon, DraftIcon, WrenchIcon } from "../../components/icons";
 import { Pagination } from "../../components/Pagination";
 import { Select } from "../../components/Select";
@@ -39,7 +40,7 @@ type SortDir = "asc" | "desc";
 export function RequestsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const riskCaseFilter = searchParams.get("risk_case_id");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") ?? "");
   const [selected, setSelected] = useState<MaintenanceRequestOut | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -56,7 +57,7 @@ export function RequestsPage() {
       return `/maintenance-requests?${params.toString()}`;
     },
     [statusFilter, riskCaseFilter, sortBy, sortDir],
-    50
+    20
   );
 
   function toggleSort(key: SortKey) {
@@ -132,17 +133,12 @@ export function RequestsPage() {
       </div>
 
       {riskCaseFilter && (
-        <div className="mb-4 flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
-          <span>
-            Показаны заявки только по риск-кейсу{" "}
-            <Link to={`/risks?risk_case_id=${riskCaseFilter}`} className="font-semibold underline">
-              #{riskCaseFilter}
-            </Link>
-          </span>
-          <button onClick={clearRiskCaseFilter} className="font-medium text-sky-700 hover:text-sky-900">
-            Показать все заявки ×
-          </button>
-        </div>
+        <FilterBanner onClear={clearRiskCaseFilter} clearLabel="Показать все заявки">
+          Показаны заявки только по риск-кейсу{" "}
+          <Link to={`/risks?risk_case_id=${riskCaseFilter}`} className="font-semibold underline">
+            #{riskCaseFilter}
+          </Link>
+        </FilterBanner>
       )}
 
       <div className="flex flex-col items-start gap-6 lg:flex-row">
@@ -193,7 +189,7 @@ export function RequestsPage() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         {r.priority ? (
                           <Badge tone={riskPriorityTone(r.priority)} icon="priority">
-                            {r.priority === "high" ? "Высокий" : "Средний"}
+                            {r.priority === "high" ? "Критично" : "Средний"}
                           </Badge>
                         ) : (
                           <span className="text-slate-400">—</span>
@@ -270,7 +266,7 @@ function RequestDetail({ request, onChanged }: { request: MaintenanceRequestOut;
           </Badge>
           {request.priority && (
             <Badge tone={riskPriorityTone(request.priority)} icon="priority">
-              {request.priority === "high" ? "Высокий приоритет" : "Средний приоритет"}
+              {request.priority === "high" ? "Критичный приоритет" : "Средний приоритет"}
             </Badge>
           )}
         </div>

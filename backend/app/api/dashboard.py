@@ -217,13 +217,19 @@ def dashboard_summary(db: Session = Depends(get_db), user: User = Depends(get_cu
     ]
     worsening.sort(key=lambda t: t["recent"] - t["baseline"], reverse=True)
     top_worsening = worsening[:_TOP_WORSENING_LIMIT]
-    channel_labels = {
-        c.id: (c.display_name or f"Канал {c.external_channel_id}")
+    top_worsening_channel_rows = {
+        c.id: c
         for c in db.scalars(select(Channel).where(Channel.id.in_([t["channel_id"] for t in top_worsening])))
     }
+    channel_labels = {cid: (c.display_name or f"Канал {c.external_channel_id}") for cid, c in top_worsening_channel_rows.items()}
     top_worsening_channels = [
         {
             "channel_id": t["channel_id"],
+            # Внешний ID канала — тот, что принимает /risk-cases?channel_id= (см. risks.py):
+            # отдельно от внутреннего channel_id выше, который нужен только для label.
+            "external_channel_id": top_worsening_channel_rows[t["channel_id"]].external_channel_id
+            if t["channel_id"] in top_worsening_channel_rows
+            else None,
             "label": channel_labels.get(t["channel_id"], f"Канал #{t['channel_id']}"),
             "recent_count": t["recent"],
             "baseline_count": t["baseline"],

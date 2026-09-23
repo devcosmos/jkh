@@ -36,10 +36,35 @@ const ADMIN_NAV_ITEMS = [
   { to: "/users", label: "Пользователи", icon: UsersIcon },
 ];
 
+const SIDEBAR_COLLAPSED_KEY = "jkh_sidebar_collapsed";
+
 export function App() {
   const [authed, setAuthed] = useState(!!getToken());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Сужение сайдбара до иконок — только для lg+ (статичный сайдбар), не для мобильного
+  // оверлея: там он и так открывается/закрывается целиком поверх контента. Состояние —
+  // per-viewer удобство, не критичное для функциональности, поэтому localStorage ок
+  // (см. artifact-capabilities: только UI-предпочтение, не нужно синхронизировать).
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const openRiskCount = useOpenRiskCount(authed);
+
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        /* приватный режим/заблокировано — просто не сохраняем между сессиями */
+      }
+      return next;
+    });
+  }
 
   if (!authed) {
     return <LoginPage onLoggedIn={() => setAuthed(true)} />;
@@ -63,34 +88,63 @@ export function App() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col bg-navy-900 text-slate-200 transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col overflow-hidden bg-navy-900 text-slate-200 transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:self-start ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${collapsed ? "lg:w-18" : "lg:w-64"}`}
       >
-        <div className="flex items-center gap-2.5 px-5 py-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400">
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-              <path
-                d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5Z"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinejoin="round"
-              />
-              <path d="M9 12.5 11 14.5 15 10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {/* justify-content (не flex-direction!) — анимируется вместе с шириной сайдбара
+         покадрово, без рывка. flex-direction CSS не анимирует, поэтому переключение
+         row/col здесь мгновенно "прыгало" на середине анимации ширины — было и ушло. */}
+        <header className="flex items-center justify-between gap-2 overflow-hidden px-4 py-4">
+          <div className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400">
+              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                <path
+                  d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinejoin="round"
+                />
+                <path d="M9 12.5 11 14.5 15 10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className={`text-nowrap ${collapsed ? "lg:hidden" : ""}`}>
+              <div className="font-display text-sm font-semibold text-white text-nowrap">ЖКХ Прогноз</div>
+              <div className="text-[11px] text-slate-400 text-nowrap">Отказ датчика</div>
+            </div>
           </div>
-          <div>
-            <div className="font-display text-sm font-semibold text-white">ЖКХ Прогноз</div>
-            <div className="text-[11px] text-slate-400">Отказ датчика</div>
-          </div>
-        </div>
 
-        <nav className="flex-1 space-y-1 px-3">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(false)}
+            className="flex size-6 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:bg-white/5 lg:hidden"
+            aria-label="Закрыть меню"
+          >
+            <CloseX className="size-3.5" />
+          </button>
+        </header>
+
+        {/* Кнопка сворачивания — своя строка на всю ширину, а не часть шапки: в шапке
+         иконке бренда и кнопке вдвоём не хватает места в свёрнутых 72px. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className={`mx-3 mb-2 hidden shrink-0 items-center gap-2.5 overflow-hidden rounded-xl px-3 py-2 text-sm font-medium text-nowrap text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100 lg:flex ${
+            collapsed ? "justify-center" : ""
+          }`}
+          aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
+        >
+          <CollapseIcon className="h-4.5 w-4.5 shrink-0" flipped={collapsed} />
+          {!collapsed && <span>Свернуть меню</span>}
+        </button>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3">
           {NAV_ITEMS.map((item) => (
             <NavItemLink
               key={item.to}
               {...item}
               badge={item.to === "/risks" ? openRiskCount : undefined}
+              collapsed={collapsed}
               onNavigate={() => setMobileNavOpen(false)}
             />
           ))}
@@ -98,27 +152,31 @@ export function App() {
             <>
               <div className="my-2 border-t border-white/10" />
               {ADMIN_NAV_ITEMS.map((item) => (
-                <NavItemLink key={item.to} {...item} onNavigate={() => setMobileNavOpen(false)} />
+                <NavItemLink key={item.to} {...item} collapsed={collapsed} onNavigate={() => setMobileNavOpen(false)} />
               ))}
             </>
           )}
         </nav>
 
-        <div className="border-t border-white/10 px-4 py-4">
-          <div className="mb-3 flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-slate-200">
+        <div className={`shrink-0 overflow-hidden border-t border-white/10 px-4 py-4 ${collapsed ? "lg:px-2" : ""}`}>
+          <div className={`mb-3 flex items-center gap-2.5 ${collapsed ? "lg:justify-center" : ""}`}>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-slate-200">
               {(role ?? "?").slice(0, 1).toUpperCase()}
             </div>
-            <div className="min-w-0">
+            <div className={`min-w-0 text-nowrap ${collapsed ? "lg:hidden" : ""}`}>
               <div className="truncate text-sm font-medium text-slate-100">{ROLE_LABELS[role ?? ""] ?? role}</div>
               <div className="text-[11px] text-slate-500">jkh.devcosmos.ru</div>
             </div>
           </div>
           <button
             onClick={logout}
-            className="w-full rounded-lg border border-white/10 px-3 py-2 text-left text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+            title="Выйти"
+            className={`flex w-full items-center gap-2 overflow-hidden rounded-lg border border-white/10 px-3 py-2 text-left text-sm font-medium text-nowrap text-slate-300 transition-colors hover:bg-white/5 hover:text-white ${
+              collapsed ? "lg:justify-center" : ""
+            }`}
           >
-            Выйти
+            <LogoutIcon className="h-4 w-4 shrink-0" />
+            <span className={collapsed ? "lg:hidden" : ""}>Выйти</span>
           </button>
         </div>
       </aside>
@@ -157,31 +215,40 @@ function NavItemLink({
   label,
   icon: Icon,
   badge,
+  collapsed,
   onNavigate,
 }: {
   to: string;
   label: string;
   icon: (p: { className?: string }) => ReactElement;
   badge?: number | null;
+  collapsed?: boolean;
   onNavigate?: () => void;
 }) {
   return (
     <NavLink
       to={to}
       onClick={onNavigate}
+      title={label}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-          isActive ? "bg-sky-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
-        }`
+        `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+          collapsed ? "lg:justify-center" : ""
+        } ${isActive ? "bg-sky-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"}`
       }
     >
       {({ isActive }) => (
         <>
-          <Icon className={`h-4.5 w-4.5 ${isActive ? "text-sky-400" : "text-slate-500"}`} />
-          <span className="flex-1">{label}</span>
+          <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? "text-sky-400" : "text-slate-500"}`} />
+          <span className={`flex-1 text-nowrap ${collapsed ? "lg:hidden" : ""}`}>{label}</span>
           {!!badge && (
-            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">
-              {badge}
+            <span
+              className={`rounded-full bg-red-500 text-[11px] font-semibold leading-none text-white ${
+                collapsed
+                  ? "lg:absolute lg:top-1.5 lg:right-1.5 lg:h-2 lg:w-2 lg:p-0"
+                  : "px-1.5 py-0.5"
+              }`}
+            >
+              <span className={collapsed ? "lg:hidden" : ""}>{badge}</span>
             </span>
           )}
         </>
@@ -304,6 +371,48 @@ function MenuIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
       <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseX({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Двойная стрелка (как «свернуть панель» в большинстве IDE) — разворачивается на 180°,
+// когда сайдбар свёрнут до иконок, чтобы форма стрелки всегда указывала в сторону действия.
+function CollapseIcon({ className, flipped }: { className?: string; flipped?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`${className ?? ""} transition-transform duration-200 ${flipped ? "rotate-180" : ""}`}
+    >
+      <path
+        d="M15.5 5 9 12l6.5 7M9 5v14"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M16 16l4-4-4-4M20 12H9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

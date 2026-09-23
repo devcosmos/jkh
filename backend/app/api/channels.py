@@ -33,7 +33,8 @@ def _trend_out(channel_id: int, trend: dict) -> DegradationTrendOut:
     response_model=list[ChannelOut],
     summary="Получить список каналов",
     description=(
-        "Фильтры по объекту, типу датчика и поисковой строке (название или расположение). "
+        "Фильтры по объекту, типу датчика, поисковой строке (название или расположение) и "
+        "external_channel_id (точное совпадение по внешнему ID канала). "
         "include_trend=true добавляет динамику частоты неисправностей. Учитывает доступ к объектам."
     ),
     responses={
@@ -58,6 +59,9 @@ def list_channels(
     object_id: int | None = None,
     sensor_type: str | None = None,
     search: str | None = None,
+    external_channel_id: int | None = Query(
+        None, description="Точное совпадение по внешнему ID канала — для сквозной ссылки из «Рисков»"
+    ),
     include_trend: bool = False,
     limit: int = Query(50, le=500),
     offset: int = 0,
@@ -76,6 +80,8 @@ def list_channels(
         stmt = stmt.where(
             or_(Channel.display_name.ilike(pattern), Channel.location_tag.ilike(pattern))
         )
+    if external_channel_id is not None:
+        stmt = stmt.where(Channel.external_channel_id == external_channel_id)
     accessible = get_accessible_object_ids(user, db)
     if accessible is not None:
         stmt = stmt.where(Channel.object_id.in_(accessible))
@@ -90,6 +96,8 @@ def list_channels(
         count_stmt = count_stmt.where(
             or_(Channel.display_name.ilike(pattern), Channel.location_tag.ilike(pattern))
         )
+    if external_channel_id is not None:
+        count_stmt = count_stmt.where(Channel.external_channel_id == external_channel_id)
     if accessible is not None:
         count_stmt = count_stmt.where(Channel.object_id.in_(accessible))
     response.headers["X-Total-Count"] = str(db.scalar(count_stmt) or 0)

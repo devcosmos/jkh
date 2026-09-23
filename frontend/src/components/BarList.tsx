@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEnterAnimation } from "./useEnterAnimation";
 
 interface BarItem {
@@ -5,6 +6,7 @@ interface BarItem {
   label: string;
   value: number;
   colorClass?: string; // полная строка класса, не собирается на лету — см. StatTile.tsx
+  to?: string; // если задан, строка становится ссылкой (например, в «Риски» с фильтром по объекту/каналу)
 }
 
 /** Горизонтальный список магнитуд — единая форма для «топ-N» и категориальных разбивок.
@@ -54,20 +56,35 @@ export function BarList({
 
   return (
     <div className="space-y-2.5">
-      {items.map((item) => (
-        <div key={item.key} className="flex items-center gap-3 text-sm">
-          <div className="w-36 shrink-0 truncate text-slate-600" title={item.label}>
-            {item.label}
+      {items.map((item) => {
+        const content = (
+          <>
+            <div className="w-36 shrink-0 truncate text-slate-600" title={item.label}>
+              {item.label}
+            </div>
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-2.5 rounded-full transition-[width] duration-700 ease-out ${item.colorClass ?? "bg-sky-500"}`}
+                style={{ width: entered ? `${Math.max((item.value / max) * 100, item.value > 0 ? 3 : 0)}%` : "0%" }}
+              />
+            </div>
+            <div className="w-12 shrink-0 text-right font-semibold text-slate-900">{formatValue(item.value)}</div>
+          </>
+        );
+        return item.to ? (
+          <Link
+            key={item.key}
+            to={item.to}
+            className="-mx-1.5 flex items-center gap-3 rounded-lg px-1.5 py-0.5 text-sm transition-colors hover:bg-slate-50"
+          >
+            {content}
+          </Link>
+        ) : (
+          <div key={item.key} className="flex items-center gap-3 text-sm">
+            {content}
           </div>
-          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className={`h-2.5 rounded-full transition-[width] duration-700 ease-out ${item.colorClass ?? "bg-sky-500"}`}
-              style={{ width: entered ? `${Math.max((item.value / max) * 100, item.value > 0 ? 3 : 0)}%` : "0%" }}
-            />
-          </div>
-          <div className="w-12 shrink-0 text-right font-semibold text-slate-900">{formatValue(item.value)}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

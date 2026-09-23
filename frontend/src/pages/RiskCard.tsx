@@ -3,31 +3,31 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { DECISION_ACTION_LABELS } from "../api/decisionAction";
 import { RISK_STATUS_LABELS, RISK_STATUS_TONE } from "../api/riskStatus";
-import { useApi } from "../api/useApi";
-import { AnomalyBadge } from "../components/AnomalyBadge";
-import { Badge, riskPriorityTone } from "../components/Badge";
-import { PRIMARY_CONTROL, SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
-import { DataState } from "../components/DataState";
-import { DetailSection } from "../components/DetailSection";
-import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
-import { ChevronIcon } from "../components/icons";
-import { InfoTooltip } from "../components/InfoTooltip";
-import { Select } from "../components/Select";
-import { getAnomaly, ShapExplanation } from "../components/ShapExplanation";
 import type {
   ChannelOut,
   DecisionAction,
   DegradationTrendOut,
   EpisodeOut,
   MaintenanceRequestOut,
+  ObjectOut,
   PredictionOut,
   RiskCaseOut,
 } from "../api/types";
+import { useApi } from "../api/useApi";
+import { AnomalyBadge } from "../components/AnomalyBadge";
+import { Badge, riskPriorityTone } from "../components/Badge";
+import { PRIMARY_CONTROL, SECONDARY_CONTROL, SECONDARY_FIELD } from "../components/controlStyles";
+import { DataState } from "../components/DataState";
+import { DegradationTrendBadge } from "../components/DegradationTrendBadge";
+import { DetailSection } from "../components/DetailSection";
+import { ChevronIcon } from "../components/icons";
+import { InfoTooltip } from "../components/InfoTooltip";
+import { Select } from "../components/Select";
+import { getAnomaly, ShapExplanation } from "../components/ShapExplanation";
 
 const ACTIONS: { value: DecisionAction; label: string; primary?: boolean }[] = [
   { value: "dispatch", label: DECISION_ACTION_LABELS.dispatch, primary: true },
   { value: "observe", label: DECISION_ACTION_LABELS.observe },
-  { value: "clarify", label: DECISION_ACTION_LABELS.clarify },
   { value: "reject", label: DECISION_ACTION_LABELS.reject },
 ];
 
@@ -46,6 +46,13 @@ const REASON_CATALOG = [
 
 export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDecided: () => void }) {
   const channel = useApi<ChannelOut>(() => api.get(`/channels/${riskCase.channel_id}`), [riskCase.channel_id]);
+  const objectId = channel.data?.object_id ?? null;
+  // Объект каналу известен только после загрузки channel — отдельным запросом, а не
+  // включением в ChannelOut: тот же приём, что и остальные ленивые api.get в карточке.
+  const objectData = useApi<ObjectOut | null>(
+    () => (objectId ? api.get(`/objects/${objectId}`) : Promise.resolve(null)),
+    [objectId]
+  );
   const episodes = useApi<EpisodeOut[]>(
     () => api.get(`/channels/${riskCase.channel_id}/episodes`),
     [riskCase.channel_id]
@@ -84,6 +91,11 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
   // наблюдение, пока заявка всё ещё в работе), а dispatch лишь идемпотентно вернёт ту же
   // заявку. Дальнейшие шаги — на странице «Заявки».
   const activeRequest = requestsForCase.data?.find((r) => r.status !== "rejected" && r.status !== "cancelled");
+  // Риск-кейс уже закрыт — либо диспетчер отклонил его сам (rejected), либо систем
+  // автоматически сочла ситуацию нормализовавшейся за 48ч без новых предупреждений
+  // (resolved, см. replay_worker.py close_stale_risk_cases). В обоих случаях решать
+  // больше нечего — раньше форма решения оставалась активной даже для закрытых кейсов.
+  const isClosed = riskCase.status === "resolved" || riskCase.status === "rejected";
 
   async function submitDecision(action: DecisionAction) {
     setSubmitting(true);
@@ -111,7 +123,7 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           </Badge>
           {riskCase.priority && (
             <Badge tone={riskPriorityTone(riskCase.priority)} icon="priority">
-              {riskCase.priority === "high" ? "Высокий приоритет" : "Средний приоритет"}
+              {riskCase.priority === "high" ? "Критичный приоритет" : "Средний приоритет"}
             </Badge>
           )}
         </div>
@@ -134,15 +146,23 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
         title="Данные"
         right={
           channel.data && (
-            <span className="text-sm font-semibold text-slate-900">
+            <Link
+              to={`/registry?channel_id=${channel.data.external_channel_id}`}
+              className="text-sm font-semibold text-sky-700 hover:underline"
+              title="Открыть канал в «Объекты и каналы»"
+            >
               {channel.data.display_name ?? `Канал ${channel.data.external_channel_id}`}
-            </span>
+            </Link>
           )
         }
       >
         <DataState loading={channel.loading} error={channel.error} empty={!channel.data} emptyText="Канал не найден">
           {channel.data && (
             <div className="space-y-2">
+              <div className="flex items-center justify-between gap-x-2">
+                <span className="text-sm text-slate-500">ID канала</span>
+                <span className="text-sm font-medium text-slate-700">#{channel.data.external_channel_id}</span>
+              </div>
               <div className="flex items-center justify-between gap-x-2">
                 <span className="text-sm text-slate-500">Тип</span>
                 <span className="text-sm font-medium text-slate-700">{channel.data.sensor_type}</span>
@@ -158,6 +178,39 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
                   <span className="text-sm text-slate-500">Расположение</span>
                   <span className="text-sm font-medium text-slate-700">{channel.data.location_tag}</span>
                 </div>
+              )}
+              {objectData.data && (
+                <>
+                  <div className="my-2 border-t border-slate-100" />
+                  <div className="flex items-center justify-between gap-x-2">
+                    <span className="text-sm text-slate-500">Объект</span>
+                    <Link
+                      to={`/registry?object_id=${objectData.data.id}`}
+                      className="text-sm font-medium text-sky-700 hover:underline"
+                      title="Показать все каналы этого объекта"
+                    >
+                      {objectData.data.name}
+                    </Link>
+                  </div>
+                  {objectData.data.kind && (
+                    <div className="flex items-center justify-between gap-x-2">
+                      <span className="text-sm text-slate-500">Тип объекта</span>
+                      <span className="text-sm font-medium text-slate-700">{objectData.data.kind}</span>
+                    </div>
+                  )}
+                  {objectData.data.district && (
+                    <div className="flex items-center justify-between gap-x-2">
+                      <span className="text-sm text-slate-500">Район</span>
+                      <span className="text-sm font-medium text-slate-700">{objectData.data.district}</span>
+                    </div>
+                  )}
+                  {objectData.data.external_id && (
+                    <div className="flex items-center justify-between gap-x-2">
+                      <span className="text-sm text-slate-500">Внешний ID объекта</span>
+                      <span className="text-sm font-medium text-slate-700">{objectData.data.external_id}</span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -237,6 +290,12 @@ export function RiskCard({ riskCase, onDecided }: { riskCase: RiskCaseOut; onDec
           <p className="text-sm text-slate-500">
             По этому риску уже создана и ведётся заявка на обслуживание — дальнейшие решения принимаются на
             странице «Заявки» (утверждение, ход работ), новое решение здесь не требуется.
+          </p>
+        ) : isClosed ? (
+          <p className="text-sm text-slate-500">
+            {riskCase.status === "resolved"
+              ? "Риск-кейс закрыт автоматически — по нему 48 часов не было новых предупреждений выше порога, ситуация считается нормализовавшейся. Решать здесь больше нечего."
+              : "Риск-кейс отклонён диспетчером — предупреждение сочли ложным или не требующим действий. Решать здесь больше нечего."}
           </p>
         ) : (
           <>
