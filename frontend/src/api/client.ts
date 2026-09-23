@@ -42,13 +42,27 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
     throw new ApiError(401, "Сессия истекла — войдите заново");
   }
   if (!res.ok) {
-    let detail = res.statusText;
+    let detail: string = res.statusText;
     try {
       const body = await res.json();
-      detail = body.detail ?? detail;
+      // detail у FastAPI — либо строка (наш HTTPException), либо список объектов ошибок
+      // валидации ({type, loc, msg, input} на каждый невалидный параметр, см. 422). Раньше
+      // объект/массив передавался в ApiError как есть — Error приводит message к строке
+      // через ToString, и для объекта/массива объектов это буквально "[object Object]" —
+      // отображалось на экране, а реальный текст ошибки был не виден нигде (ни на плашке,
+      // ни в консоли).
+      if (Array.isArray(body.detail)) {
+        detail = body.detail.map((e: { loc?: unknown[]; msg?: string }) => `${e.loc?.join(".") ?? "?"}: ${e.msg ?? e}`).join("; ");
+      } else if (typeof body.detail === "string") {
+        detail = body.detail;
+      } else if (body.detail != null) {
+        detail = JSON.stringify(body.detail);
+      }
     } catch {
       /* тело не JSON — оставляем statusText */
     }
+    // eslint-disable-next-line no-console
+    console.error(`API ${res.status} ${path}:`, detail);
     throw new ApiError(res.status, detail);
   }
   return res;
