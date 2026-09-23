@@ -207,10 +207,10 @@ export function RisksPage() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Критично" value={stats.data?.critical ?? 0} tone="critical" />
-        <StatTile label="Требуют внимания" value={stats.data?.warning ?? 0} tone="warning" />
+        <StatTile label="Открытые" value={stats.data?.open ?? 0} tone="warning" />
+        <StatTile label="Критичные" value={stats.data?.critical ?? 0} tone="critical" />
+        <StatTile label="Аномалии" value={stats.data?.anomaly ?? 0} tone="serious" />
         <StatTile label="Новые" value={stats.data?.fresh ?? 0} tone="track-a" />
-        <StatTile label="Решённые" value={stats.data?.resolved ?? 0} tone="good" />
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-3">

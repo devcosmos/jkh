@@ -8,7 +8,7 @@ import { BarList } from "../components/BarList";
 import { DataState } from "../components/DataState";
 import { DetailSection } from "../components/DetailSection";
 import { StatTile } from "../components/StatTile";
-import { AlertTriangleIcon, ChevronIcon, FileEditIcon, FlameIcon, PulseIcon, TagIcon } from "../components/icons";
+import { AlertTriangleIcon, CheckCircleIcon, ChevronIcon, FileEditIcon, TagIcon } from "../components/icons";
 import type { DashboardSummary, MaintenanceRequestStatus } from "../api/types";
 
 /** Ссылка в шапке карточки «Обзора» — переход в соответствующий раздел, при наличии с
@@ -41,27 +41,32 @@ export function DashboardPage() {
       <DataState loading={summary.loading} error={summary.error} empty={!summary.data} emptyText="Нет данных">
         {summary.data && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
               <StatTile
-                label="Открытых рисков"
+                label="Всего рисков"
+                value={summary.data.risk_cases.total}
+                tone="neutral"
+                to="/risks"
+              />
+              <StatTile
+                label="Открытые риски"
                 value={summary.data.risk_cases.total_open}
                 tone="warning"
                 icon={<AlertTriangleIcon className="h-5 w-5 text-amber-600" />}
                 to="/risks?status=open"
               />
               <StatTile
-                label="Критичных"
-                value={summary.data.risk_cases.open_by_priority.high ?? 0}
-                tone="critical"
-                icon={<FlameIcon className="h-5 w-5 text-red-600" />}
-                to="/risks?status=open&priority=high"
+                label="Новые"
+                value={summary.data.risk_cases.by_status.new ?? 0}
+                tone="track-a"
+                to="/risks?status=new"
               />
               <StatTile
-                label="Аномалий (независимая модель)"
-                value={summary.data.risk_cases.open_with_anomaly}
-                tone="serious"
-                icon={<PulseIcon className="h-5 w-5 text-orange-600" />}
-                to="/risks?status=open&has_anomaly=true"
+                label="Решённые риски"
+                value={summary.data.risk_cases.by_status.resolved ?? 0}
+                tone="good"
+                icon={<CheckCircleIcon className="h-5 w-5 text-emerald-600" />}
+                to="/risks?status=resolved"
               />
               <StatTile
                 label="Заявок без подтверждения"

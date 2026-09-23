@@ -250,8 +250,8 @@ def list_risk_cases(
     description=(
         "Те же фильтры, что и у списка риск-кейсов (кроме сортировки/пагинации), но счётчики "
         "по ВСЕЙ отфильтрованной выборке, а не только по показанной странице — плашки "
-        "«Критично/Требуют внимания/Новые/Решённые» над списком иначе считали только по "
-        "20 строкам текущей страницы."
+        "«Открытые/Критично/Аномалии/Новые» над списком иначе считали только по 20 строкам "
+        "текущей страницы."
     ),
     responses={
         401: {
@@ -314,10 +314,10 @@ def risk_case_stats(
         return db.scalar(s) or 0
 
     return {
+        "open": count(RiskCase.status.in_(_OPEN_STATUSES)),
         "critical": count(RiskCase.priority == "high"),
-        "warning": count(RiskCase.priority == "medium"),
+        "anomaly": count(latest_anomaly_flag == "true"),
         "fresh": count(RiskCase.status == RiskCaseStatus.new),
-        "resolved": count(RiskCase.status == RiskCaseStatus.resolved),
     }
 
 

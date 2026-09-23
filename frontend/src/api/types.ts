@@ -88,10 +88,10 @@ export interface RiskCaseOut {
 }
 
 export interface RiskCaseStats {
+  open: number;
   critical: number;
-  warning: number;
+  anomaly: number;
   fresh: number;
-  resolved: number;
 }
 
 export interface PredictionOut {

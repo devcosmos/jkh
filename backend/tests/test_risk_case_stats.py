@@ -41,7 +41,7 @@ def test_stats_counts_beyond_default_page_size(client, db_session, auth_headers)
 
 def test_stats_respects_filters(client, db_session, auth_headers):
     _make_case(db_session, 9401, RiskCaseStatus.new, "high")
-    _make_case(db_session, 9402, RiskCaseStatus.new, "medium")
+    _make_case(db_session, 9402, RiskCaseStatus.observing, "medium")
     _make_case(db_session, 9403, RiskCaseStatus.resolved, "high")
 
     r = client.get(
@@ -49,5 +49,5 @@ def test_stats_respects_filters(client, db_session, auth_headers):
     )
     body = r.json()
     assert body["critical"] == 1
-    assert body["warning"] == 1
-    assert body["resolved"] == 0  # исключён фильтром status=new
+    assert body["fresh"] == 1
+    assert body["open"] == 1  # исключён фильтром status=new — observing/resolved не в счёте
