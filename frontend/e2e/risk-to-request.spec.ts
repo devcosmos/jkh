@@ -6,9 +6,9 @@ import { expect, test } from "@playwright/test";
 test("направить риск на проверку создаёт заявку", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Войти" }).click();
-  await expect(page.getByRole("link", { name: "Риски" })).toBeVisible();
+  await expect(page.getByRole("navigation").getByRole("link", { name: "Риски" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Риски" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Риски" }).click();
   await expect(page.getByText("E2E Насос A")).toBeVisible();
   await page.getByText("E2E Насос A").click();
 
@@ -19,6 +19,6 @@ test("направить риск на проверку создаёт заяв�
     page.getByText("По этому риску уже создана и ведётся заявка на обслуживание")
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Заявки" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Заявки" }).click();
   await expect(page.getByText("Диагностика и ТО насоса")).toBeVisible();
 });

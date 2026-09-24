@@ -8,9 +8,9 @@ test("диспетчер объекта A не видит риск-кейс об
   await page.getByLabel("Логин").fill("dispatcher-a");
   await page.getByLabel("Пароль").fill("dispatcher-a-pass");
   await page.getByRole("button", { name: "Войти" }).click();
-  await expect(page.getByRole("link", { name: "Риски" })).toBeVisible();
+  await expect(page.getByRole("navigation").getByRole("link", { name: "Риски" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Риски" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Риски" }).click();
   await expect(page.getByText("E2E Насос A")).toBeVisible();
   await expect(page.getByText("E2E Насос B")).not.toBeVisible();
 });
@@ -20,7 +20,7 @@ test("диспетчер объекта A получает 403 при прямо
   await page.getByLabel("Логин").fill("dispatcher-a");
   await page.getByLabel("Пароль").fill("dispatcher-a-pass");
   await page.getByRole("button", { name: "Войти" }).click();
-  await expect(page.getByRole("link", { name: "Риски" })).toBeVisible();
+  await expect(page.getByRole("navigation").getByRole("link", { name: "Риски" })).toBeVisible();
 
   const token = await page.evaluate(() => localStorage.getItem("jkh_token"));
   expect(token).toBeTruthy();
