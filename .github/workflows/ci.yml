@@ -7,7 +7,7 @@ on:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -25,8 +25,8 @@ jobs:
     env:
       JKH_DATABASE_URL: postgresql+psycopg://jkh:jkh@localhost:55432/jkh_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         # OPS-02 (analys_and_todo.md): выше, чем backend/Dockerfile и Dockerfile.worker
         # (python:3.12-slim), намеренно, не рассинхрон. GitHub Actions runner уже несёт полный
         # C/Rust-тулчейн, поэтому catboost/pandas и другие тяжёлые ML-зависимости собираются
@@ -55,10 +55,10 @@ jobs:
         run: python -m pytest tests/ -v
 
   scripts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
       - name: Install dependencies
@@ -69,13 +69,13 @@ jobs:
         run: python -m pytest scripts/tests/ -v
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: npm
@@ -89,7 +89,7 @@ jobs:
     # заявка) и запрет доступа к чужому объекту — на синтетических фикстурах
     # (scripts/demo/seed_e2e_fixtures.py), не на закрытом датасете (см. OPS-01 в README.md —
     # тот недоступен в CI).
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -107,11 +107,11 @@ jobs:
     env:
       JKH_DATABASE_URL: postgresql+psycopg://jkh:jkh@localhost:55442/jkh
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: npm
@@ -146,7 +146,7 @@ jobs:
         run: npx playwright test
       - name: Upload backend/frontend logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-server-logs
           path: |
