@@ -36,7 +36,6 @@ export function DashboardPage() {
           <h1 className="font-display text-2xl font-semibold text-slate-900">Обзор</h1>
           <p className="mt-1 text-sm text-slate-500">Состояние системы по обоим направлениям прогнозирования</p>
         </div>
-        {summary.data?.worker && <WorkerStatus worker={summary.data.worker} />}
       </div>
 
       <DataState loading={summary.loading} error={summary.error} empty={!summary.data} emptyText="Нет данных">
@@ -211,22 +210,6 @@ export function DashboardPage() {
           </div>
         )}
       </DataState>
-    </div>
-  );
-}
-
-function WorkerStatus({ worker }: { worker: NonNullable<DashboardSummary["worker"]> }) {
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium ${
-        worker.is_stale ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
-      }`}
-      title={`Виртуальное время воркера: ${new Date(worker.virtual_time).toLocaleString("ru-RU")}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${worker.is_stale ? "bg-red-500" : "bg-emerald-500 animate-pulse"}`} />
-      {worker.is_stale
-        ? `Воркер не отвечает уже ${Math.round(worker.seconds_since_update / 60)} мин`
-        : `Воркер тикает · ${worker.seconds_since_update} сек назад`}
     </div>
   );
 }

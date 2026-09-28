@@ -1,7 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import { clearSession, getRole, getToken } from "./api/client";
-import { RiskAlerts, useOpenRiskCount } from "./components/RiskAlerts";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { RisksPage } from "./features/risks/RisksPage";
@@ -52,8 +51,6 @@ export function App() {
       return false;
     }
   });
-  const openRiskCount = useOpenRiskCount(authed);
-
   function toggleCollapsed() {
     setCollapsed((c) => {
       const next = !c;
@@ -79,7 +76,6 @@ export function App() {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <RiskAlerts />
       {mobileNavOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/40 lg:hidden"
@@ -143,7 +139,6 @@ export function App() {
             <NavItemLink
               key={item.to}
               {...item}
-              badge={item.to === "/risks" ? openRiskCount : undefined}
               collapsed={collapsed}
               onNavigate={() => setMobileNavOpen(false)}
             />
