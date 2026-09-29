@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <title>cosmos team — знак на основе иконки «ЖКХ Прогноз»</title>
+  <rect width="256" height="256" rx="56" fill="#0A1628"/>
+  <path d="M128 39 53 77v53c0 49 30 80 75 91 45-11 75-42 75-91V77L128 39Z" stroke="#38BDF8" stroke-width="14" stroke-linejoin="round"/>
+  <path d="m96 127 23 23 43-45" stroke="#38BDF8" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="203" cy="53" r="15" fill="#FC0053"/>
+</svg>
